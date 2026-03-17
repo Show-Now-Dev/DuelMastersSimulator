@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Card Game Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Card Game Simulator</h1>
+    </header>
+
+    <main id="layout">
+      <section id="zone-battlefield" class="zone"></section>
+      <section id="zone-shield" class="zone"></section>
+
+      <section id="zone-deck" class="zone"></section>
+      <section id="zone-graveyard" class="zone"></section>
+
+      <section id="zone-mana" class="zone"></section>
+      <section id="zone-hand" class="zone zone--hand"></section>
+
+      <aside id="controls">
+        <div class="controls-group">
+          <button id="draw-button">Draw card</button>
+          <button id="shuffle-button">Shuffle deck</button>
+          <button id="reset-button">Reset game</button>
+        </div>
+
+        <div class="controls-group">
+          <label for="move-target">Move selected to</label>
+          <select id="move-target">
+            <option value="hand">Hand</option>
+            <option value="battlefield">Battlefield</option>
+            <option value="shield">Shield</option>
+            <option value="graveyard">Graveyard</option>
+            <option value="mana">Mana</option>
+            <option value="deck">Deck (top)</option>
+          </select>
+        </div>
+
+        <div id="status-text">Ready.</div>
+      </aside>
+    </main>
+
+    <script src="./model/CardDefinition.js"></script>
+    <script src="./model/CardInstance.js"></script>
+    <script src="./model/Zone.js"></script>
+    <script src="./core/GameState.js"></script>
+    <script src="./core/actions.js"></script>
+    <script src="./core/reducer.js"></script>
+    <script src="./engine/GameEngine.js"></script>
+    <script src="./ui/ui.js"></script>
+  </body>
+</html>
