@@ -8,9 +8,8 @@
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --accent: #f97316;
-  --card-w: clamp(64px, 7.5vw, 108px);
-  --card-overlap: 12px;
-  --card-overlap-shield: 28px;
+  --card-w: 80px;
+  --card-h: 120px;
 }
 
 html,
@@ -42,34 +41,31 @@ header h1 {
   letter-spacing: 0.02em;
 }
 
-main#layout {
+main#layout.game-board {
   flex: 1;
   padding: 1rem 1.5rem 1.25rem;
   display: grid;
-  gap: 1rem;
-
-  grid-template-columns: 2fr 2fr 1fr 260px;
-  grid-template-rows:
-    minmax(160px, 1.1fr)
-    minmax(140px, 0.9fr)
-    minmax(140px, 0.9fr)
-    minmax(160px, 1fr);
+  gap: 12px;
 
   grid-template-areas:
-    "battle battle deck controls"
-    "shield shield graveyard controls"
-    "mana   mana   graveyard controls"
-    "hand   hand   hand      controls";
+    "battlefield battlefield stack"
+    "shield     deck        graveyard"
+    "shield     ex          gr"
+    "mana       mana        controls"
+    "hand       hand        log";
+  grid-template-columns: 1fr 80px 80px 80px 80px;
 }
 
 .zone {
   background: var(--panel);
   border-radius: 0.5rem;
   border: 1px solid var(--border);
-  padding: 0.75rem;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .zone-header {
@@ -94,18 +90,16 @@ main#layout {
 }
 
 .card-list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0;
-  align-content: flex-start;
-  overflow: auto;
-  padding-right: 0.25rem;
-  padding-bottom: 0.25rem;
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
 }
 
 .card {
+  position: absolute;
   width: var(--card-w);
-  aspect-ratio: 63 / 88;
+  height: var(--card-h);
   border-radius: 0.65rem;
   border: 1px solid color-mix(in srgb, var(--border-2) 85%, white 15%);
   padding: 0;
@@ -114,16 +108,12 @@ main#layout {
   color: var(--text);
   cursor: pointer;
   white-space: normal;
-  flex: 0 0 auto;
-  position: relative;
   overflow: hidden;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.35),
     0 6px 18px rgba(0, 0, 0, 0.35);
-}
-
-.card + .card {
-  margin-left: calc(var(--card-overlap) * -1);
+  transform-origin: center;
+  transition: transform 0.2s ease, left 0.2s ease;
 }
 
 .card:hover {
@@ -133,6 +123,12 @@ main#layout {
 
 .card.is-selected {
   border-color: var(--accent);
+}
+
+.card.is-tapped,
+.card.tapped {
+  transform: rotate(90deg);
+  transform-origin: center center;
 }
 
 .card__back {
@@ -166,46 +162,30 @@ main#layout {
   -webkit-line-clamp: 2;
 }
 
-/* Hand: later fan layout -> keep horizontal spacing + scroll */
-.zone--hand .card-list {
-  gap: 0;
-  padding: 0.25rem 0.25rem 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+/* Compact zones: fixed single-card area (cards overlap fully) */
+.compact-zone {
+  width: var(--card-w);
+  height: var(--card-h);
+  min-width: var(--card-w);
 }
 
-.zone--hand .card {
-  width: max(var(--card-w), 96px);
-}
-
-.zone--hand .card + .card {
-  margin-left: calc((var(--card-overlap) + 6px) * -1);
-}
-
-/* Shield: 5 cards => evenly spread, 6+ => stacked overlap */
-#zone-shield .card-list--shield-spread {
-  justify-content: space-between;
-}
-
-#zone-shield .card-list--shield-spread .card + .card {
-  margin-left: 0;
-}
-
-#zone-shield .card-list--shield-stack {
-  justify-content: flex-start;
-}
-
-#zone-shield .card-list--shield-stack .card + .card {
-  margin-left: calc(var(--card-overlap-shield) * -1);
+.compact-zone .card-list {
+  width: 100%;
+  height: 100%;
+  flex: 0 0 auto;
 }
 
 /* Grid placement */
-#zone-battlefield { grid-area: battle; }
+#zone-battlefield { grid-area: battlefield; }
+#zone-stack { grid-area: stack; }
 #zone-shield { grid-area: shield; }
 #zone-deck { grid-area: deck; }
 #zone-graveyard { grid-area: graveyard; }
+#zone-ex { grid-area: ex; }
+#zone-gr { grid-area: gr; }
 #zone-mana { grid-area: mana; }
 #zone-hand { grid-area: hand; }
+#log-panel { grid-area: log; }
 
 /* Controls area on the right (vertical) */
 aside#controls {
@@ -229,6 +209,16 @@ aside#controls {
 .controls-group label {
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.controls-inline {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.controls-inline select {
+  flex: 1 1 auto;
 }
 
 button {
@@ -265,12 +255,12 @@ select {
 }
 
 @media (max-width: 980px) {
-  main#layout {
+  main#layout.game-board {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
     grid-template-areas:
       "controls controls"
-      "battle battle"
+      "battlefield battlefield"
       "shield deck"
       "mana graveyard"
       "hand hand";

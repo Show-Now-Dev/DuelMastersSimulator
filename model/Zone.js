@@ -4,6 +4,7 @@ const ZONE_IDS = {
   DECK: "deck",
   HAND: "hand",
   BATTLEFIELD: "battlefield",
+  SHIELD: "shield",
   GRAVEYARD: "graveyard",
   MANA: "mana",
 };

@@ -12,18 +12,21 @@ const CARD_DEFINITIONS = [
 ];
 
 function getInitialDeckCardInstances() {
-  // Minimal sample deck: 2 of each defined card.
+  // Starter deck: 40 cards (placeholder OK).
   const instances = [];
   let nextId = 1;
 
   CARD_DEFINITIONS.forEach((def) => {
-    for (let copy = 0; copy < 2; copy += 1) {
+    for (let copy = 0; copy < 5; copy += 1) {
       const instanceId = `ci_${nextId++}`;
       instances.push({
         id: instanceId,
         definitionId: def.id,
         name: def.name,
         type: def.type,
+        // Zone rules will ultimately control visibility, but deck starts face-down.
+        isFaceDown: true,
+        isTapped: false,
       });
     }
   });

@@ -4,161 +4,58 @@
     <meta charset="utf-8" />
     <title>Card Game Simulator</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        margin: 0;
-        padding: 0;
-        background: #0f172a;
-        color: #e5e7eb;
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-      }
-
-      header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #1f2937;
-        background: #020617;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      header h1 {
-        margin: 0;
-        font-size: 1.25rem;
-      }
-
-      .controls {
-        display: flex;
-        gap: 0.5rem;
-      }
-
-      button {
-        border-radius: 0.375rem;
-        border: 1px solid #4b5563;
-        background: #111827;
-        color: #e5e7eb;
-        padding: 0.35rem 0.75rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-      }
-
-      button:hover {
-        background: #1f2937;
-      }
-
-      main {
-        flex: 1;
-        padding: 1rem 1.5rem 2rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-      }
-
-      .zone {
-        background: #020617;
-        border-radius: 0.5rem;
-        border: 1px solid #1f2937;
-        padding: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        min-height: 160px;
-      }
-
-      .zone-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
-
-      .zone-title {
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #9ca3af;
-      }
-
-      .zone-count {
-        font-size: 0.85rem;
-        color: #6b7280;
-      }
-
-      .card-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-      }
-
-      .card {
-        border-radius: 0.375rem;
-        border: 1px solid #374151;
-        padding: 0.25rem 0.4rem;
-        font-size: 0.8rem;
-        background: #111827;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-
-      .card:hover {
-        background: #1e293b;
-        border-color: #4b5563;
-      }
-
-      .status-bar {
-        padding: 0.5rem 1.5rem;
-        border-top: 1px solid #1f2937;
-        background: #020617;
-        font-size: 0.85rem;
-        color: #9ca3af;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .status-bar span {
-        white-space: nowrap;
-      }
-
-      .status-bar select {
-        background: #020617;
-        color: #e5e7eb;
-        border-radius: 0.375rem;
-        border: 1px solid #4b5563;
-        padding: 0.1rem 0.35rem;
-        font-size: 0.8rem;
-      }
-    </style>
+    <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <header>
       <h1>Card Game Simulator</h1>
-      <div class="controls">
-        <button id="draw-button">Draw card</button>
-        <button id="shuffle-button">Shuffle deck</button>
-        <button id="reset-button">Reset game</button>
-      </div>
     </header>
 
-    <main id="app"></main>
+    <main id="layout" class="game-board">
+      <section id="zone-battlefield" class="zone zone--spread"></section>
+      <section id="zone-stack" class="zone compact-zone"></section>
 
-    <div class="status-bar">
-      <span id="status-text">Ready.</span>
-      <div>
-        <label for="move-target">Move selected to:</label>
-        <select id="move-target">
-          <option value="hand">Hand</option>
-          <option value="battlefield">Battlefield</option>
-          <option value="graveyard">Graveyard</option>
-          <option value="mana">Mana</option>
-          <option value="deck">Deck (top)</option>
-        </select>
-      </div>
-    </div>
+      <section id="zone-shield" class="zone zone--spread"></section>
+      <section id="zone-deck" class="zone compact-zone"></section>
+      <section id="zone-graveyard" class="zone compact-zone"></section>
+      <section id="zone-ex" class="zone compact-zone"></section>
+      <section id="zone-gr" class="zone compact-zone"></section>
+
+      <section id="zone-mana" class="zone zone--spread"></section>
+      <section id="zone-hand" class="zone zone--spread"></section>
+
+      <aside id="controls">
+        <div class="controls-group">
+          <button id="draw-button">Draw card</button>
+          <button id="shuffle-button">Shuffle deck</button>
+          <button id="reset-button">Reset game</button>
+        </div>
+
+        <div class="controls-group">
+          <label for="move-target">Move selected to</label>
+          <div class="controls-inline">
+            <select id="move-target">
+              <option value="hand">Hand</option>
+              <option value="battlefield">Battlefield</option>
+              <option value="shield">Shield</option>
+              <option value="graveyard">Graveyard</option>
+              <option value="mana">Mana</option>
+              <option value="deck">Deck (top)</option>
+            </select>
+            <button id="move-button">Move</button>
+          </div>
+        </div>
+
+        <div class="controls-group">
+          <button id="toggle-tap-button">Toggle tap (selected)</button>
+          <button id="toggle-face-button">Toggle face (selected)</button>
+        </div>
+
+        <div id="status-text">Ready.</div>
+      </aside>
+
+      <section id="log-panel" class="zone"></section>
+    </main>
 
     <script src="./model/CardDefinition.js"></script>
     <script src="./model/CardInstance.js"></script>

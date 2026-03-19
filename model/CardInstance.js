@@ -6,6 +6,8 @@ function createCardInstance(raw) {
     definitionId: raw.definitionId,
     name: raw.name,
     type: raw.type,
+    isFaceDown: raw.isFaceDown ?? false,
+    isTapped: raw.isTapped ?? false,
   };
 }
 

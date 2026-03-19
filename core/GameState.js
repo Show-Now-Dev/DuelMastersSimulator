@@ -14,6 +14,24 @@ function createInitialGameState() {
   const deckOrder = Object.keys(instances);
   shuffleArray(deckOrder);
 
+  // Initial placement:
+  // - Top 5 cards -> shield (face-down)
+  // - Next 5 cards -> hand (face-up)
+  const shieldCardIds = deckOrder.slice(0, 5);
+  const handCardIds = deckOrder.slice(5, 10);
+  const remainingDeckIds = deckOrder.slice(10);
+
+  // Apply zone visibility rules at initialization time.
+  shieldCardIds.forEach((id) => {
+    instances[id] = { ...instances[id], isFaceDown: true };
+  });
+  handCardIds.forEach((id) => {
+    instances[id] = { ...instances[id], isFaceDown: false };
+  });
+  remainingDeckIds.forEach((id) => {
+    instances[id] = { ...instances[id], isFaceDown: true };
+  });
+
   return {
     players: [
       {
@@ -24,16 +42,28 @@ function createInitialGameState() {
       deck: {
         id: ZONE_IDS.DECK,
         name: "Deck",
-        cardIds: deckOrder,
+        cardIds: remainingDeckIds,
       },
-      hand: createZone(ZONE_IDS.HAND, "Hand"),
+      hand: {
+        id: ZONE_IDS.HAND,
+        name: "Hand",
+        cardIds: handCardIds,
+      },
       battlefield: createZone(ZONE_IDS.BATTLEFIELD, "Battlefield"),
+      shield: {
+        id: ZONE_IDS.SHIELD,
+        name: "Shield",
+        cardIds: shieldCardIds,
+      },
       graveyard: createZone(ZONE_IDS.GRAVEYARD, "Graveyard"),
       mana: createZone(ZONE_IDS.MANA, "Mana"),
     },
     cards: instances,
     turn: 1,
-    selectedCardId: null,
+    ui: {
+      selectedCardIds: [],
+      selectedTargetZone: null,
+    },
     status: "Game initialized",
   };
 }
