@@ -9,6 +9,7 @@
   Renders overlay UI above the board
   Used for:
   - Stack card selection
+  - Zone card selection (Deck, Graveyard, ExZone, GRZone)
   - Future selection dialogs
 
   Must:
@@ -18,15 +19,15 @@
 
 ## Board Structure
 
-① Battlefield  
-② Stack  
-③ Shield  
-④ Deck  
-⑤ Graveyard  
-⑥ ExZone  
-⑦ GRZone  
-⑧ Mana  
-⑨ Hand  
+① Battlefield
+② Stack
+③ Shield
+④ Deck
+⑤ Graveyard
+⑥ ExZone
+⑦ GRZone
+⑧ Mana
+⑨ Hand
 
 Row 1:
 [------------①------------][--②--][control]
@@ -64,15 +65,46 @@ Row 4:
 - Stack:
   Temporary zone for resolving effects.
   Cards do not remain here.
-  Displays cards stacked in a single pile
+  Displays cards stacked in a single pile.
+  Clicking a stack opens the modal (type: "stack").
+
+- Deck:
+  Ordered card pile. Top card = index 0.
+  Rendered as a CardStack container (stacked appearance).
+  Clicking the deck opens the modal (type: "zone", targetId: "deck").
+  Cards are never displayed spread out directly in the zone.
+
+- Graveyard:
+  Discard pile. Newest card is always on top (index 0).
+  Rendered as a CardStack container (stacked appearance).
+  Clicking the graveyard opens the modal (type: "zone", targetId: "graveyard").
+  Cards are never displayed spread out directly in the zone.
 
 - ExZone:
-  Extra deck zone.
-  Cards can be played from here.
+  Extra deck zone. Cards can be played from here.
+  Rendered as a CardStack container (stacked appearance).
+  Clicking the ExZone opens the modal (type: "zone", targetId: "ex").
+  Cards are never displayed spread out directly in the zone.
 
 - GRZone:
-  Special summon zone.
-  May contain 0 or multiple cards.
+  Special summon zone. May contain 0 or multiple cards.
+  Rendered as a CardStack container (stacked appearance).
+  Clicking the GRZone opens the modal (type: "zone", targetId: "gr").
+  Cards are never displayed spread out directly in the zone.
+
+---
+
+## Stacked Zone Behavior
+
+Deck, Graveyard, ExZone, and GRZone are all stacked zones.
+
+A stacked zone:
+- Renders its cards as a single stacked pile (CardStack visual)
+- Shows only the top card face (or a card-back indicator)
+- Shows a card count badge
+- Does NOT display cards spread out in the zone itself
+- Clicking the zone triggers OPEN_MODAL with the appropriate type and targetId
+- Card selection and inspection happens exclusively through the modal
 
 ---
 

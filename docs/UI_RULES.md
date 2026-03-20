@@ -11,15 +11,46 @@
 
 - Modal must be controlled via UI state (not Game state)
 
-- Modal must be reusable:
-  - Stack card selection
-  - Zone card selection
-  - Future UI interactions
+### Modal Types
+
+The modal system is reusable and supports two distinct types:
+
+#### type: "stack"
+  - Triggered by clicking any CardStack in the battlefield or Stack zone
+  - Displays all cards in the stack
+  - Supports card selection within the modal
+  - Cards shown in stack order (index 0 = top)
+
+#### type: "zone"
+  - Triggered by clicking any stacked zone: Deck, Graveyard, ExZone, GRZone
+  - Displays all cards in the zone
+  - For Deck: cards shown in strict order (index 0 = top of deck)
+  - For Graveyard: cards shown with newest on top (index 0)
+  - For ExZone / GRZone: cards shown in current order
+  - Supports card selection within the modal
+
+### Modal State
+
+- Modal state lives in UI state only (not GameState)
+- Modal state contains:
+  - isOpen: boolean
+  - type: "stack" | "zone" | null
+  - targetId: string | null  // stackId or ZoneType
+  - selectedCardIds: string[]  // modal-local selection, independent of main selection
+
+### Modal Interaction Rules
+
+- Opening a modal dispatches OPEN_MODAL
+- Closing without action dispatches CLOSE_MODAL
+- Selecting cards within modal dispatches SELECT_MODAL_CARDS
+- Confirming a move from the modal dispatches MOVE_CARDS with the modal's selectedCardIds
+- Modal selection is separate from and does not affect the main board selection
+- Only one modal may be open at a time
 
 - Modal must support:
   - Close (cancel)
   - Confirm actions
-  - Multi-selection (if needed)
+  - Multi-selection
 ---
 
 ## Core Principles (Highest Priority)

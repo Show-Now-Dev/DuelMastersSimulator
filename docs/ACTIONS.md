@@ -6,8 +6,14 @@ All game operations are represented as Actions.
 
 ## DRAW_CARD
 
+Draw the top card of the deck into hand.
+
 payload:
 playerId
+
+behavior:
+- Always removes the card at index 0 (top) of deck.cardIds
+- Card is added to hand.cardIds
 
 ---
 
@@ -34,17 +40,37 @@ cardIds: string[]
 
 target:
   type: "zone" | "stack"
-  zone?: ZoneType
-  stackId?: string
+  zone?: ZoneType      // required when type is "zone"
+  stackId?: string     // required when type is "stack"
 
-position:
-  "top" | "bottom"
+position: "top" | "bottom"
+  // Used when target.type is "zone"
+  // Ignored when target.type is "stack" (cards always go on top of stack)
+
+behavior by target type:
+
+  target.type === "zone" && zone === "deck":
+    - position "top"    → insert card(s) at index 0 of deck.cardIds
+    - position "bottom" → append card(s) at end of deck.cardIds
+    - Deck order is strictly preserved; no implicit shuffling
+
+  target.type === "zone" && zone === "graveyard":
+    - Card(s) are always placed on top (index 0) of graveyard.cardIds
+    - The position field is ignored for graveyard
+
+  target.type === "zone" && zone is other (hand, battlefield, mana, shield, ex, gr):
+    - position "top"    → insert at index 0
+    - position "bottom" → append at end
+
+  target.type === "stack":
+    - Card(s) are placed on top of the target stack
+    - The position field is ignored
 
 ---
 
 ## MOVE_SELECTED_CARDS
 
-Move currently selected cards.
+Move currently selected cards using the same behavior as MOVE_CARDS.
 
 payload:
 target:
@@ -52,8 +78,11 @@ target:
   zone?: ZoneType
   stackId?: string
 
-position:
-  "top" | "bottom"
+position: "top" | "bottom"
+
+behavior:
+- Identical to MOVE_CARDS but operates on the current selection
+- Selection is cleared after the move
 
 ---
 
@@ -167,13 +196,19 @@ They are handled separately in UI state.
 
 ### OPEN_MODAL
 
+Open the modal for card selection within a stack or zone.
+
 payload:
-type
-targetId
+type: "stack" | "zone"
+targetId: string
+  // When type is "stack": targetId is the stackId
+  // When type is "zone":  targetId is the ZoneType (e.g. "deck", "graveyard", "ex", "gr")
 
 ---
 
 ### CLOSE_MODAL
+
+Close the modal and discard any modal-local selection.
 
 payload:
 none
@@ -182,5 +217,7 @@ none
 
 ### SELECT_MODAL_CARDS
 
+Set the card selection within the modal (does not affect main selection).
+
 payload:
-cardIds[]
+cardIds: string[]
