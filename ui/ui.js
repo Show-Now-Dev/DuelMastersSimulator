@@ -106,6 +106,11 @@
     statusTextEl.textContent = state.status || "Ready.";
   }
 
+  function getCardWidth() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--card-w").trim();
+    return parseFloat(raw) || 80;
+  }
+
   function renderZone(container, state, zone) {
     container.innerHTML = "";
 
@@ -136,20 +141,18 @@
 
     const cardCount = zone.cardIds.length;
     const containerWidth = listEl.clientWidth || container.clientWidth || 0;
-    const cardWidth = 80;
-    const cardHeight = 120;
-    const effectiveWidth = cardHeight; // account for tapped (rotated) cards
+    // Card dimensions read from CSS variable (5:7 aspect ratio)
+    const cardWidth = getCardWidth();
+    const cardHeight = Math.round(cardWidth * 7 / 5);
 
     let safeSpacing = 0;
-    if (cardCount > 0 && containerWidth > 0) {
-      const spacing = Math.min(
-        effectiveWidth,
-        (containerWidth - effectiveWidth) / Math.max(1, cardCount - 1)
-      );
-      safeSpacing = Number.isFinite(spacing) ? Math.max(0, spacing) : 0;
+    if (cardCount > 1 && containerWidth > 0) {
+      // Preferred: card-w + 4px gap. Fallback: overlap to fit all cards.
+      const maxFitSpacing = (containerWidth - cardWidth) / (cardCount - 1);
+      safeSpacing = Math.max(0, Math.min(cardWidth + 4, maxFitSpacing));
     }
 
-    // Compact zones: force full overlap regardless of spacing.
+    // Compact zones: force full overlap (single visible card).
     if (container.classList.contains("compact-zone")) {
       safeSpacing = 0;
     }
@@ -201,5 +204,6 @@
   }
 
   store.subscribe(render);
+  window.addEventListener("resize", render);
   render();
 })();
