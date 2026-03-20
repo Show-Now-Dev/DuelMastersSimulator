@@ -291,6 +291,14 @@ button.is-active {
   width: calc(2 * var(--card-unit) + var(--gap));
 }
 
+/* Stacked zones open the card-selector modal on click */
+#zone-deck,
+#zone-graveyard,
+#zone-ex,
+#zone-gr {
+  cursor: pointer;
+}
+
 /* Grid placement */
 #zone-battlefield { grid-area: battlefield; }
 #zone-stack { grid-area: stack; }

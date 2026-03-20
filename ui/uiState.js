@@ -4,10 +4,16 @@
 // Handled by a separate store from the game store.
 //
 // Shape:
-//   selectedTargetZone: string | null    ← zone ID chosen in "move to" dropdown
-//   modal: null | {                       ← active overlay modal, or null when closed
-//     type:            string             (e.g. "STACK_CARD_SELECTOR")
-//     targetId:        string             (e.g. stackId)
+//   selectedTargetZone: string | null    ← raw dropdown value (e.g. "deck-top", "graveyard")
+//   modal: null | {                       ← active CARD_SELECTOR modal, or null when closed
+//     type:            "CARD_SELECTOR"
+//     source: {                           ← what the modal is browsing
+//       type: "stack" | "zone"
+//       id:   string                      (stackId or ZoneType)
+//     }
+//     selectionMode:   "single" | "multiple"
+//     visibility:      "all" | "top-n" | "hidden"
+//     topN:            number             (used when visibility is "top-n", default 3)
 //     selectedCardIds: string[]           (cards selected inside the modal)
 //   }
 
@@ -21,11 +27,22 @@ const SELECT_MODAL_CARDS = "SELECT_MODAL_CARDS";
 
 // ── Action creators ───────────────────────────────────────────────────────────
 
-// Open a modal.
-// modalType: string identifying the modal to render (e.g. "STACK_CARD_SELECTOR")
-// targetId:  context-dependent ID (e.g. stackId for STACK_CARD_SELECTOR)
-function openModal(modalType, targetId) {
-  return { type: OPEN_MODAL, payload: { modalType: modalType, targetId: targetId } };
+// Open a CARD_SELECTOR modal.
+//
+// source:        { type: "stack" | "zone", id: string }
+// selectionMode: "single" | "multiple"  (default "multiple")
+// visibility:    "all" | "top-n" | "hidden"  (default "all")
+// topN:          number  (only relevant when visibility is "top-n", default 3)
+function openModal(source, selectionMode, visibility, topN) {
+  return {
+    type: OPEN_MODAL,
+    payload: {
+      source:        source,
+      selectionMode: selectionMode || "multiple",
+      visibility:    visibility    || "all",
+      topN:          topN          || 3,
+    },
+  };
 }
 
 function closeModal() {
@@ -60,8 +77,11 @@ function uiReducer(state, action) {
     case OPEN_MODAL:
       return Object.assign({}, state, {
         modal: {
-          type:            action.payload.modalType,
-          targetId:        action.payload.targetId,
+          type:            "CARD_SELECTOR",
+          source:          action.payload.source,
+          selectionMode:   action.payload.selectionMode,
+          visibility:      action.payload.visibility,
+          topN:            action.payload.topN,
           selectedCardIds: [],
         },
       });

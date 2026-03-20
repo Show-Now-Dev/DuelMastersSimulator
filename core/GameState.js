@@ -61,6 +61,8 @@ function createInitialGameState() {
       [ZONE_IDS.GRAVEYARD]:       { id: ZONE_IDS.GRAVEYARD,       name: "Graveyard",       stackIds: []             },
       [ZONE_IDS.MANA]:            { id: ZONE_IDS.MANA,            name: "Mana",            stackIds: []             },
       [ZONE_IDS.RESOLUTION_ZONE]: { id: ZONE_IDS.RESOLUTION_ZONE, name: "Resolution Zone", stackIds: []             },
+      [ZONE_IDS.EX]:              { id: ZONE_IDS.EX,              name: "EX",              stackIds: []             },
+      [ZONE_IDS.GR]:              { id: ZONE_IDS.GR,              name: "GR",              stackIds: []             },
     },
     selectedCardIds: [],
     nextStackId:     stackCounter,

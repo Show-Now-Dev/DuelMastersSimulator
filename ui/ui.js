@@ -24,6 +24,7 @@
 
   const CARD_BACK = "./src/assets/images/card-back.png";
 
+  // All zones rendered from GameState — EX and GR are now full GameState zones.
   const zoneEls = {
     [ZONE_IDS.BATTLEFIELD]:     document.getElementById("zone-battlefield"),
     [ZONE_IDS.RESOLUTION_ZONE]: document.getElementById("zone-stack"),
@@ -32,10 +33,30 @@
     [ZONE_IDS.GRAVEYARD]:       document.getElementById("zone-graveyard"),
     [ZONE_IDS.MANA]:            document.getElementById("zone-mana"),
     [ZONE_IDS.HAND]:            document.getElementById("zone-hand"),
+    [ZONE_IDS.EX]:              document.getElementById("zone-ex"),
+    [ZONE_IDS.GR]:              document.getElementById("zone-gr"),
   };
 
-  const exEl = document.getElementById("zone-ex");
-  const grEl = document.getElementById("zone-gr");
+  // Stacked zones: clicking them opens the CARD_SELECTOR modal for the whole zone.
+  // Cards are never selected individually in these zones from the board.
+  const STACKED_ZONE_IDS = [
+    ZONE_IDS.DECK,
+    ZONE_IDS.GRAVEYARD,
+    ZONE_IDS.EX,
+    ZONE_IDS.GR,
+  ];
+
+  // ── Parse the "move to" dropdown value into { zoneId, position } ───────────
+  //
+  // Dropdown values encode both zone and position for zones with ordering:
+  //   "deck-top"    → DECK zone, position "top"   (insert as new top card)
+  //   "deck-bottom" → DECK zone, position "bottom" (insert as new bottom card)
+  //   anything else → that zone, position "bottom"  (graveyard top enforced by reducer)
+  function parseMoveTarget(value) {
+    if (value === "deck-top")    return { zoneId: ZONE_IDS.DECK, position: "top" };
+    if (value === "deck-bottom") return { zoneId: ZONE_IDS.DECK, position: "bottom" };
+    return { zoneId: value, position: "bottom" };
+  }
 
   // ── Game-store event listeners ─────────────────────────────────────────────
 
@@ -71,13 +92,14 @@
     uiStore.dispatch(setSelectedTargetZone(moveTargetEl.value));
   });
 
-  // Move reads selectedCardIds from game state; target zone from uiState.
+  // Move reads selectedCardIds from game state; target zone+position from dropdown.
   moveButtonEl.addEventListener("click", function () {
     const gameState = gameStore.getState();
     const uiSt      = uiStore.getState();
-    const toZone    = uiSt.selectedTargetZone || moveTargetEl.value;
-    if (!(gameState.selectedCardIds || []).length || !toZone) return;
-    gameStore.dispatch(moveSelectedCards(toZone));
+    const raw       = uiSt.selectedTargetZone || moveTargetEl.value;
+    const parsed    = parseMoveTarget(raw);
+    if (!(gameState.selectedCardIds || []).length || !parsed.zoneId) return;
+    gameStore.dispatch(moveSelectedCards(parsed.zoneId, parsed.position));
   });
 
   // ── Pick-mode & stack buttons ──────────────────────────────────────────────
@@ -111,6 +133,19 @@
     pickStackButtonEl.classList.remove("is-active");
     boardEl.classList.remove("pick-target-mode");
   }
+
+  // ── Stacked zone click handlers (attached once at startup) ─────────────────
+  // Clicking anywhere in the zone padding/background opens the card-selector modal.
+  // Card clicks within these zones also open the modal (handled in renderZone).
+
+  STACKED_ZONE_IDS.forEach(function (zoneId) {
+    var el = zoneEls[zoneId];
+    if (!el) return;
+    var visibility = (zoneId === ZONE_IDS.DECK) ? "hidden" : "all";
+    el.addEventListener("click", function () {
+      uiStore.dispatch(openModal({ type: "zone", id: zoneId }, "multiple", visibility));
+    });
+  });
 
   // ── Modal: close on overlay click or Escape ────────────────────────────────
 
@@ -147,14 +182,11 @@
     stackTopButtonEl.disabled    = !hasSelected || !hasTarget;
     stackBottomButtonEl.disabled = !hasSelected || !hasTarget;
 
-    // Board zones.
+    // Board zones — all zones including EX and GR are in zoneEls.
     Object.keys(zoneEls).forEach(function (zoneId) {
       const zone = gameState.zones[zoneId];
       if (zone) renderZone(zoneEls[zoneId], gameState, zone);
     });
-
-    renderZone(exEl, gameState, { id: "ex", name: "EX", stackIds: [] });
-    renderZone(grEl, gameState, { id: "gr", name: "GR", stackIds: [] });
 
     // Modal layer (rendered above the board).
     renderModal(gameState, uiSt);
@@ -175,6 +207,7 @@
     const stacks      = gameState.stacks || {};
     const stackIds    = zone.stackIds || [];
     const selectedIds = gameState.selectedCardIds || [];
+    const isStacked   = STACKED_ZONE_IDS.indexOf(zone.id) !== -1;
 
     // Header
     const headerEl = document.createElement("div");
@@ -230,31 +263,25 @@
         const card = gameState.cards[cardId];
         if (!card) return;
 
-        const depth  = stackSize - 1 - cardIdx; // 0 = top card
+        const depth     = stackSize - 1 - cardIdx; // 0 = top card
         const isTopCard = (depth === 0);
 
         const cardEl = document.createElement("button");
         cardEl.type  = "button";
 
         let cls = "card";
-        if (selectedIds.indexOf(cardId) !== -1) cls += " is-selected";
-        if (stack.isTapped)                     cls += " is-tapped";
-        if (isTarget)                           cls += " is-target-stack";
+        if (!isStacked && selectedIds.indexOf(cardId) !== -1) cls += " is-selected";
+        if (stack.isTapped)                                   cls += " is-tapped";
+        if (isTarget)                                         cls += " is-target-stack";
         cardEl.className = cls;
 
         cardEl.style.zIndex = String(stackBaseZ + cardIdx);
         cardEl.style.left   = (stackLeft + depth) + "px";
         cardEl.style.top    = (depth * DEPTH_OFFSET) + "px";
 
-        // Card face rendering (reused in modal via separate function).
         appendCardFace(cardEl, card);
 
         // ── Click behavior ─────────────────────────────────────────────────
-        // Priority 1: pick-mode — any card click sets the target stack.
-        // Priority 2 (multi-card stack):
-        //   Top card    → select all cards in the stack.
-        //   Non-top card → open STACK_CARD_SELECTOR modal.
-        // Priority 3 (single-card stack): toggle individual selection.
         cardEl.addEventListener("click", function (e) {
           e.stopPropagation();
 
@@ -265,6 +292,15 @@
             return;
           }
 
+          // Stacked zones (Deck, Graveyard, EX, GR): any card click opens the
+          // zone modal.  Individual card selection does not happen here.
+          if (isStacked) {
+            var vis = (zone.id === ZONE_IDS.DECK) ? "hidden" : "all";
+            uiStore.dispatch(openModal({ type: "zone", id: zone.id }, "multiple", vis));
+            return;
+          }
+
+          // Normal zones: top card of multi-card stack selects all; non-top opens modal.
           if (stackSize > 1) {
             if (isTopCard) {
               // Clicking the top card selects all cards in the stack at once.
@@ -277,10 +313,10 @@
                 : selectCards(stack.cardIds.slice()));
             } else {
               // Non-top card: open the card selector modal for this stack.
-              uiStore.dispatch(openModal("STACK_CARD_SELECTOR", stackId));
+              uiStore.dispatch(openModal({ type: "stack", id: stackId }, "multiple", "all"));
             }
           } else {
-            // Single-card stack: toggle selection as before.
+            // Single-card stack: toggle selection.
             gameStore.dispatch(toggleCardSelection(cardId));
           }
         });
@@ -288,8 +324,8 @@
         listEl.appendChild(cardEl);
       });
 
-      // Depth badge on multi-card stacks.
-      if (stackSize > 1) {
+      // Depth badge on multi-card stacks (not shown in stacked zones — count is in header).
+      if (stackSize > 1 && !isStacked) {
         const badge       = document.createElement("div");
         badge.className   = "stack-badge";
         badge.textContent = stackSize;
@@ -324,7 +360,6 @@
 
   // ── Modal rendering ────────────────────────────────────────────────────────
   // The modal layer is always rebuilt from scratch on every render call.
-  // This is safe because the layer is small (one stack's cards at most).
 
   function renderModal(gameState, uiSt) {
     const modal = uiSt.modal;
@@ -335,27 +370,96 @@
       return;
     }
 
-    if (modal.type === "STACK_CARD_SELECTOR") {
-      const stack = gameState.stacks[modal.targetId];
-      if (!stack) {
-        // Stack was destroyed while modal was open — close it next tick to
-        // avoid dispatching inside a subscribe callback.
-        modalLayerEl.classList.remove("is-open");
-        modalLayerEl.innerHTML = "";
-        setTimeout(function () { uiStore.dispatch(closeModal()); }, 0);
-        return;
-      }
-      renderStackSelectorModal(gameState, modal, stack);
+    if (modal.type === "CARD_SELECTOR") {
+      renderCardSelectorModal(gameState, modal);
     }
-
-    // Future modal types are added here (zone selector, effect resolution, …).
 
     modalLayerEl.classList.add("is-open");
   }
 
-  // ── STACK_CARD_SELECTOR modal ──────────────────────────────────────────────
+  // ── CARD_SELECTOR modal ────────────────────────────────────────────────────
+  // Reusable for both stack sources and zone sources (Deck, Graveyard, EX, GR).
 
-  function renderStackSelectorModal(gameState, modal, stack) {
+  // Returns an ordered array of cardIds to display in the modal (top-first).
+  // Returns null if the source no longer exists (e.g. stack was destroyed).
+  function getModalCardIds(gameState, modal) {
+    var source = modal.source;
+
+    if (source.type === "stack") {
+      var stack = gameState.stacks[source.id];
+      if (!stack) return null; // source destroyed
+      // cardIds stored bottom→top; reverse so top card is at index 0.
+      return stack.cardIds.slice().reverse();
+    }
+
+    if (source.type === "zone") {
+      var zone = gameState.zones[source.id];
+      if (!zone) return [];
+      // Collect cards in zone order: stackIds[0] is top, each stack's cards top-first.
+      var ordered = [];
+      zone.stackIds.forEach(function (stackId) {
+        var s = gameState.stacks[stackId];
+        if (!s) return;
+        s.cardIds.slice().reverse().forEach(function (cardId) { ordered.push(cardId); });
+      });
+      return ordered;
+    }
+
+    return [];
+  }
+
+  // Returns a (possibly synthetic) card object with visibility applied.
+  //   "all"   → card as-is (respects card.isFaceDown)
+  //   "hidden"→ force isFaceDown = true (show back regardless of actual state)
+  //   "top-n" → first modal.topN cards as-is, rest forced face-down
+  function applyVisibility(card, displayIdx, modal) {
+    if (modal.visibility === "hidden") {
+      return Object.assign({}, card, { isFaceDown: true });
+    }
+    if (modal.visibility === "top-n") {
+      var topN = modal.topN || 3;
+      if (displayIdx >= topN) {
+        return Object.assign({}, card, { isFaceDown: true });
+      }
+    }
+    return card;
+  }
+
+  function getModalTitle(gameState, modal) {
+    var source = modal.source;
+    var count  = 0;
+
+    if (source.type === "stack") {
+      var stack = gameState.stacks[source.id];
+      count = stack ? stack.cardIds.length : 0;
+      return "Select cards in stack (" + count + ")";
+    }
+
+    if (source.type === "zone") {
+      var zone = gameState.zones[source.id];
+      if (zone) {
+        zone.stackIds.forEach(function (sid) {
+          var s = gameState.stacks[sid];
+          if (s) count += s.cardIds.length;
+        });
+        return zone.name + " — select cards (" + count + ")";
+      }
+    }
+
+    return "Select cards";
+  }
+
+  function renderCardSelectorModal(gameState, modal) {
+    var cardIds = getModalCardIds(gameState, modal);
+
+    if (cardIds === null) {
+      // Source stack was destroyed while modal was open — close it next tick.
+      modalLayerEl.classList.remove("is-open");
+      modalLayerEl.innerHTML = "";
+      setTimeout(function () { uiStore.dispatch(closeModal()); }, 0);
+      return;
+    }
+
     modalLayerEl.innerHTML = "";
 
     const panel = document.createElement("div");
@@ -367,7 +471,7 @@
 
     const title = document.createElement("span");
     title.className   = "modal-title";
-    title.textContent = "Select cards in stack (" + stack.cardIds.length + ")";
+    title.textContent = getModalTitle(gameState, modal);
 
     const closeBtn = document.createElement("button");
     closeBtn.className   = "modal-close-btn";
@@ -381,29 +485,26 @@
     panel.appendChild(header);
 
     // ── Card list (displayed top-first) ─────────────────────────────────────
-    // cardIds are stored bottom→top; reverse to show top card first in the modal.
-    const cardListEl  = document.createElement("div");
+    const cardListEl = document.createElement("div");
     cardListEl.className = "modal-card-list";
 
-    const cardsTopFirst = stack.cardIds.slice().reverse();
-
-    cardsTopFirst.forEach(function (cardId, displayIdx) {
+    cardIds.forEach(function (cardId, displayIdx) {
       const card = gameState.cards[cardId];
       if (!card) return;
 
       const isModalSelected = modal.selectedCardIds.indexOf(cardId) !== -1;
-      const isTopCard       = displayIdx === 0;
+      const displayCard     = applyVisibility(card, displayIdx, modal);
 
-      const cardEl      = document.createElement("button");
-      cardEl.type       = "button";
-      cardEl.className  = "modal-card" + (isModalSelected ? " is-selected" : "");
+      const cardEl     = document.createElement("button");
+      cardEl.type      = "button";
+      cardEl.className = "modal-card" + (isModalSelected ? " is-selected" : "");
 
-      appendCardFace(cardEl, card);
+      appendCardFace(cardEl, displayCard);
 
-      // Position label (Top / index).
+      // Position label.
       const posLabel       = document.createElement("div");
       posLabel.className   = "modal-card-position";
-      posLabel.textContent = isTopCard ? "Top" : "#" + (displayIdx + 1);
+      posLabel.textContent = displayIdx === 0 ? "Top" : "#" + (displayIdx + 1);
       cardEl.appendChild(posLabel);
 
       // Toggle this card within the modal's internal selection.
@@ -428,7 +529,7 @@
     const selectAllBtn       = document.createElement("button");
     selectAllBtn.textContent = "Select all";
     selectAllBtn.addEventListener("click", function () {
-      uiStore.dispatch(selectModalCards(stack.cardIds.slice()));
+      uiStore.dispatch(selectModalCards(cardIds.slice()));
     });
 
     const clearBtn       = document.createElement("button");

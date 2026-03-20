@@ -134,9 +134,12 @@ function applyMoveCards(state, cardIds, target, position) {
       return id;
     });
 
-    // "top" = prepend (front of zone, e.g. top of deck).
+    // Graveyard always receives cards on top (newest first), ignoring caller position.
+    var effectivePosition = (targetZoneId === ZONE_IDS.GRAVEYARD) ? "top" : position;
+
+    // "top" = prepend (front of zone, e.g. top of deck or graveyard).
     // "bottom" = append (back of zone).
-    var updatedStackIds = (position === "top")
+    var updatedStackIds = (effectivePosition === "top")
       ? newStackIds.concat(targetZone.stackIds)
       : targetZone.stackIds.concat(newStackIds);
 

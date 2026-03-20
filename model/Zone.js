@@ -9,6 +9,8 @@ const ZONE_IDS = {
   GRAVEYARD:       "graveyard",
   MANA:            "mana",
   RESOLUTION_ZONE: "resolutionZone",
+  EX:              "ex",
+  GR:              "gr",
 };
 
 function createZone(id, name) {
