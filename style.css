@@ -177,10 +177,44 @@ main#layout.game-board {
   border-color: var(--accent);
 }
 
+/* Target stack: blue outline, distinguishable from orange selection */
+.card.is-target-stack {
+  border-color: #60a5fa;
+  box-shadow:
+    0 0 0 2px rgba(96, 165, 250, 0.30),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
 .card.is-tapped,
 .card.tapped {
   transform: rotate(90deg);
   transform-origin: center center;
+}
+
+/* ── Stack depth badge ───────────────────────────────────────────────────────
+   Absolute overlay on the top-right of the topmost card in a multi-card stack. */
+.stack-badge {
+  position: absolute;
+  background: rgba(2, 6, 23, 0.88);
+  border: 1px solid var(--border-2);
+  border-radius: 0.3rem;
+  font-size: calc(var(--card-w) * 0.115);
+  line-height: 1.4;
+  padding: 0 4px;
+  color: var(--muted);
+  pointer-events: none; /* never intercept card clicks */
+}
+
+/* ── Active button state (pick-target mode) ─────────────────────────────────*/
+button.is-active {
+  border-color: #60a5fa;
+  background: #1e3a5f;
+  color: #bfdbfe;
+}
+
+/* Cursor hint while the user is in pick-target-stack mode */
+.pick-target-mode .card {
+  cursor: crosshair;
 }
 
 .card__back {

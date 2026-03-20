@@ -1,78 +1,80 @@
 // GameState represents the entire game for a single-player solitaire setup.
+//
+// Shape:
+//   cards:           { [cardId]: CardInstance }
+//   stacks:          { [stackId]: CardStack }   ← cardIds ordered bottom→top
+//   zones:           { [zoneId]: Zone }          ← stackIds ordered left→right
+//   selectedCardIds: string[]
+//   nextStackId:     number                      ← monotone counter for new stack IDs
+//   turn:            number
+//   status:          string
+//   players:         { id }[]
+//   ui:              { selectedTargetZone }      ← UI-only, not part of game spec
 
 const PLAYER_ID = "player1";
 
 function createInitialGameState() {
   const rawInstances = getInitialDeckCardInstances();
-  const instances = {};
-  rawInstances.forEach((raw) => {
+  const cards = {};
+  rawInstances.forEach(function (raw) {
     const inst = createCardInstance(raw);
-    instances[inst.id] = inst;
+    cards[inst.id] = inst;
   });
 
-  // Shuffle starting deck
-  const deckOrder = Object.keys(instances);
-  shuffleArray(deckOrder);
+  const allIds = Object.keys(cards);
+  shuffleArray(allIds);
 
-  // Initial placement:
-  // - Top 5 cards -> shield (face-down)
-  // - Next 5 cards -> hand (face-up)
-  const shieldCardIds = deckOrder.slice(0, 5);
-  const handCardIds = deckOrder.slice(5, 10);
-  const remainingDeckIds = deckOrder.slice(10);
+  const shieldCardIds    = allIds.slice(0, 5);
+  const handCardIds      = allIds.slice(5, 10);
+  const deckCardIds      = allIds.slice(10);
 
-  // Apply zone visibility rules at initialization time.
-  shieldCardIds.forEach((id) => {
-    instances[id] = { ...instances[id], isFaceDown: true };
-  });
-  handCardIds.forEach((id) => {
-    instances[id] = { ...instances[id], isFaceDown: false };
-  });
-  remainingDeckIds.forEach((id) => {
-    instances[id] = { ...instances[id], isFaceDown: true };
-  });
+  // Apply zone visibility rules.
+  shieldCardIds.forEach(function (id) { cards[id] = Object.assign({}, cards[id], { isFaceDown: true  }); });
+  handCardIds  .forEach(function (id) { cards[id] = Object.assign({}, cards[id], { isFaceDown: false }); });
+  deckCardIds  .forEach(function (id) { cards[id] = Object.assign({}, cards[id], { isFaceDown: true  }); });
+
+  // Build stacks: one single-card stack per card.
+  var stackCounter = 1;
+  const stacks = {};
+
+  function makeStacks(cardIds) {
+    return cardIds.map(function (cardId) {
+      const id = "stack_" + (stackCounter++);
+      stacks[id] = createCardStack(id, [cardId]);
+      return id;
+    });
+  }
+
+  const shieldStackIds = makeStacks(shieldCardIds);
+  const handStackIds   = makeStacks(handCardIds);
+  const deckStackIds   = makeStacks(deckCardIds);
 
   return {
-    players: [
-      {
-        id: PLAYER_ID,
-      },
-    ],
+    cards:  cards,
+    stacks: stacks,
     zones: {
-      deck: {
-        id: ZONE_IDS.DECK,
-        name: "Deck",
-        cardIds: remainingDeckIds,
-      },
-      hand: {
-        id: ZONE_IDS.HAND,
-        name: "Hand",
-        cardIds: handCardIds,
-      },
-      battlefield: createZone(ZONE_IDS.BATTLEFIELD, "Battlefield"),
-      shield: {
-        id: ZONE_IDS.SHIELD,
-        name: "Shield",
-        cardIds: shieldCardIds,
-      },
-      graveyard: createZone(ZONE_IDS.GRAVEYARD, "Graveyard"),
-      mana: createZone(ZONE_IDS.MANA, "Mana"),
+      [ZONE_IDS.DECK]:            { id: ZONE_IDS.DECK,            name: "Deck",            stackIds: deckStackIds   },
+      [ZONE_IDS.HAND]:            { id: ZONE_IDS.HAND,            name: "Hand",            stackIds: handStackIds   },
+      [ZONE_IDS.BATTLEFIELD]:     { id: ZONE_IDS.BATTLEFIELD,     name: "Battlefield",     stackIds: []             },
+      [ZONE_IDS.SHIELD]:          { id: ZONE_IDS.SHIELD,          name: "Shield",          stackIds: shieldStackIds },
+      [ZONE_IDS.GRAVEYARD]:       { id: ZONE_IDS.GRAVEYARD,       name: "Graveyard",       stackIds: []             },
+      [ZONE_IDS.MANA]:            { id: ZONE_IDS.MANA,            name: "Mana",            stackIds: []             },
+      [ZONE_IDS.RESOLUTION_ZONE]: { id: ZONE_IDS.RESOLUTION_ZONE, name: "Resolution Zone", stackIds: []             },
     },
-    cards: instances,
-    turn: 1,
+    selectedCardIds: [],
+    nextStackId:     stackCounter,
+    turn:            1,
+    status:          "Game initialized",
+    players:         [{ id: PLAYER_ID }],
     ui: {
-      selectedCardIds: [],
       selectedTargetZone: null,
     },
-    status: "Game initialized",
   };
 }
 
 function shuffleArray(arr) {
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
   }
 }

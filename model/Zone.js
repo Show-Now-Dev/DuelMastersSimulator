@@ -1,39 +1,43 @@
-// Zone is represented in state as: { id, name, cardIds: [] }
+// Zone holds an ordered list of CardStack IDs (left → right).
+// Zones do NOT directly hold cardIds — cards live inside stacks.
 
 const ZONE_IDS = {
-  DECK: "deck",
-  HAND: "hand",
-  BATTLEFIELD: "battlefield",
-  SHIELD: "shield",
-  GRAVEYARD: "graveyard",
-  MANA: "mana",
+  DECK:            "deck",
+  HAND:            "hand",
+  BATTLEFIELD:     "battlefield",
+  SHIELD:          "shield",
+  GRAVEYARD:       "graveyard",
+  MANA:            "mana",
+  RESOLUTION_ZONE: "resolutionZone",
 };
 
 function createZone(id, name) {
   return {
-    id,
-    name,
-    cardIds: [],
+    id:       id,
+    name:     name,
+    stackIds: [],
   };
 }
 
-function removeCardId(zone, cardId) {
+function removeStackId(zone, stackId) {
   return {
     ...zone,
-    cardIds: zone.cardIds.filter((id) => id !== cardId),
+    stackIds: zone.stackIds.filter(function (id) { return id !== stackId; }),
   };
 }
 
-function addCardIdOnTop(zone, cardId) {
+// addStackIdFirst / Last correspond to "top" / "bottom" of a zone's order.
+// "top" = front of the list (e.g. top of deck, drawn first).
+function addStackIdFirst(zone, stackId) {
   return {
     ...zone,
-    cardIds: [cardId, ...zone.cardIds],
+    stackIds: [stackId].concat(zone.stackIds),
   };
 }
 
-function addCardIdToBottom(zone, cardId) {
+function addStackIdLast(zone, stackId) {
   return {
     ...zone,
-    cardIds: [...zone.cardIds, cardId],
+    stackIds: zone.stackIds.concat([stackId]),
   };
 }
