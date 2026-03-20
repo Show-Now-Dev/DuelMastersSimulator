@@ -155,3 +155,32 @@ Clear all selected cards.
 
 payload:
 none
+
+---
+
+## UI ACTIONS (UI State Only)
+
+These actions do NOT affect GameState.
+They are handled separately in UI state.
+
+---
+
+### OPEN_MODAL
+
+payload:
+type
+targetId
+
+---
+
+### CLOSE_MODAL
+
+payload:
+none
+
+---
+
+### SELECT_MODAL_CARDS
+
+payload:
+cardIds[]

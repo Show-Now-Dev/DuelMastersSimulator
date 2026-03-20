@@ -1,5 +1,25 @@
 # UI Rules
 
+## Modal / Overlay Rules
+
+- Modal must be rendered above all UI layers
+- Modal must use a semi-transparent background overlay
+- Modal content must be centered on screen
+
+- Modal must NOT affect layout structure
+- Modal must NOT shift or resize underlying zones
+
+- Modal must be controlled via UI state (not Game state)
+
+- Modal must be reusable:
+  - Stack card selection
+  - Zone card selection
+  - Future UI interactions
+
+- Modal must support:
+  - Close (cancel)
+  - Confirm actions
+  - Multi-selection (if needed)
 ---
 
 ## Core Principles (Highest Priority)

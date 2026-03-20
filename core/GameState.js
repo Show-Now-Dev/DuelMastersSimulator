@@ -9,7 +9,8 @@
 //   turn:            number
 //   status:          string
 //   players:         { id }[]
-//   ui:              { selectedTargetZone }      ← UI-only, not part of game spec
+//
+// UI-only state (selectedTargetZone, modal) lives in uiState.js — never here.
 
 const PLAYER_ID = "player1";
 
@@ -66,9 +67,6 @@ function createInitialGameState() {
     turn:            1,
     status:          "Game initialized",
     players:         [{ id: PLAYER_ID }],
-    ui: {
-      selectedTargetZone: null,
-    },
   };
 }
 

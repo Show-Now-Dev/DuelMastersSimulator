@@ -376,3 +376,147 @@ select {
   padding-top: 0.6rem;
 }
 
+/* ── Modal layer ─────────────────────────────────────────────────────────────
+   position:fixed + z-index keep the modal above all board content.
+   The board layout is unaffected — the modal is outside <main> in the DOM.  */
+
+#modal-layer {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.75);
+  backdrop-filter: blur(2px);
+}
+
+#modal-layer.is-open {
+  display: flex;
+}
+
+/* ── Modal panel ─────────────────────────────────────────────────────────────
+   --modal-card-w is scoped to this element so it never bleeds into board CSS. */
+
+.modal-panel {
+  --modal-card-w: clamp(80px, 10vw, 120px);
+  --modal-card-h: calc(var(--modal-card-w) * 7 / 5);
+
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.modal-close-btn {
+  background: none;
+  border: 1px solid var(--border-2);
+  color: var(--muted);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.modal-close-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ── Modal card list ─────────────────────────────────────────────────────────
+   Wraps naturally; all sizing derived from --modal-card-w, not pixels.       */
+
+.modal-card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--modal-card-w) * 0.1);
+  justify-content: flex-start;
+}
+
+/* Individual card inside the modal — uses relative flow (not absolute).
+   Reuses .card__front and .card__back for face rendering.                    */
+.modal-card {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--modal-card-w);
+  height: var(--modal-card-h);
+  border-radius: 0.65rem;
+  border: 2px solid var(--border-2);
+  background: color-mix(in srgb, var(--panel) 92%, white 8%);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.12s ease;
+}
+
+.modal-card:hover {
+  border-color: #4b5563;
+}
+
+.modal-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+/* Scale card text to the modal card size. */
+.modal-card .card__name {
+  font-size: calc(var(--modal-card-w) * 0.12);
+}
+
+/* "Top" label shown on the top card of the stack in the modal. */
+.modal-card-position {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: calc(var(--modal-card-w) * 0.10);
+  background: rgba(2, 6, 23, 0.80);
+  border: 1px solid var(--border-2);
+  border-radius: 0.25rem;
+  padding: 1px 4px;
+  color: var(--muted);
+  z-index: 10;
+  pointer-events: none;
+  line-height: 1.4;
+}
+
+/* ── Modal footer ────────────────────────────────────────────────────────────*/
+
+.modal-footer {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.modal-confirm-btn {
+  border-color: var(--accent);
+  background: rgba(249, 115, 22, 0.10);
+  color: var(--accent);
+}
+
+.modal-confirm-btn:hover {
+  background: rgba(249, 115, 22, 0.20);
+}
+

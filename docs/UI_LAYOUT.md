@@ -1,5 +1,21 @@
 # UI Layout
 
+## UI Layers
+
+- Base Layer:
+  Contains the main board layout
+
+- Modal Layer:
+  Renders overlay UI above the board
+  Used for:
+  - Stack card selection
+  - Future selection dialogs
+
+  Must:
+  - Cover entire viewport
+  - Be centered
+  - Use semi-transparent background
+
 ## Board Structure
 
 ① Battlefield  

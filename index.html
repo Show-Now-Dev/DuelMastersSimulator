@@ -66,6 +66,12 @@
       <section id="log-panel" class="zone"></section>
     </main>
 
+    <!--
+      Modal layer: position:fixed, lives outside the board grid.
+      Rendered above all game elements without affecting board layout.
+    -->
+    <div id="modal-layer" role="dialog" aria-modal="true"></div>
+
     <script src="./model/CardDefinition.js"></script>
     <script src="./model/CardInstance.js"></script>
     <script src="./model/CardStack.js"></script>
@@ -74,6 +80,7 @@
     <script src="./core/actions.js"></script>
     <script src="./core/reducer.js"></script>
     <script src="./engine/GameEngine.js"></script>
+    <script src="./ui/uiState.js"></script>
     <script src="./ui/ui.js"></script>
   </body>
 </html>

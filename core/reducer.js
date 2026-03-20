@@ -25,7 +25,7 @@ function rootReducer(state, action) {
     case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state);
     case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state);
     case TOGGLE_CARD_SELECTION:      return handleToggleCardSelection(state, action.payload);
-    case SET_SELECTED_TARGET_ZONE:   return handleSetSelectedTargetZone(state, action.payload);
+    // SET_SELECTED_TARGET_ZONE is now handled by uiReducer — ignore here.
     default:                         return state;
   }
 }
@@ -295,10 +295,3 @@ function handleToggleCardSelection(state, payload) {
   return Object.assign({}, state, { selectedCardIds: nextSelected });
 }
 
-// Store which zone the UI intends to move selected cards into.
-function handleSetSelectedTargetZone(state, payload) {
-  var zoneId = (payload && payload.zoneId) || null;
-  return Object.assign({}, state, {
-    ui: Object.assign({}, state.ui, { selectedTargetZone: zoneId }),
-  });
-}
