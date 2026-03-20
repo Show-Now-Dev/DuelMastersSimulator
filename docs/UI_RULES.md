@@ -1,60 +1,82 @@
 # UI Rules
 
-## Size Rules
+## Core Principles
 
-All layout sizes must be based on card units.
+- UI must fit within viewport
+- No horizontal scrolling allowed
+- All zones must remain visible
+- Zone labels must always be visible
+
+---
+
+## Size System
 
 ### Card Unit
+
 - 1 card width = base unit width
 - 1 card height = base unit height
 - Include margin/padding in the unit
 
-### Zone Width Rules
-- Battle Zone: 8 cards width
-- Mana Zone: 8 cards width
-- Hand: 8 cards width
+---
 
-- Stack: 2 cards width
+## Layout Enforcement
 
-- Deck: 1 card width
-- Graveyard: 1 card width
-- EX Zone: 1 card width
-- GR Zone: 1 card width
-
-### Height Rules
-- All zones in the same row must have the same height
-- Shield row and Deck/Grave/EX/GR must align vertically
-
-### Overflow Rules
-- Cards must never overflow outside their zone
-- If cards exceed width, overlap them horizontally
-
-### Strict Layout Requirement
 - CSS Grid must match both:
-  - structure (grid-template-areas)
-  - AND size (grid-template-columns / rows)
+  - grid-template-areas (structure)
+  - grid-template-columns / rows (size)
+
 - Do NOT auto-size zones
 - Do NOT use content-based sizing
 
+- All zones in the same row must have equal height
+
+---
+
 ## Card Layout
 
-- Cards must NEVER overflow their zone
-- If cards exceed width:
+- Cards are left-aligned
+- Cards have minimal horizontal gap
+- Cards must stay within their zone boundaries
+
+- If cards exceed available width:
   → overlap them horizontally
 
 - Do NOT use scrollbars
 
+---
+
+## Tap / Rotation Behavior
+
+- Tapped cards rotate 90 degrees
+- Rotation must use center origin
+- Rotated cards must stay inside their zone
+
+- Overlap is allowed when cards are tapped
+
+---
+
+## Overflow Control
+
+- Cards must NEVER overflow outside their zone
+- Zones must include internal padding to prevent overflow (especially when rotated)
+- Use clipping if necessary
+
+---
+
+## Alignment Rules
+
+- Single-card zones (Deck, Graveyard, ExZone, GRZone):
+  Cards must be centered both vertically and horizontally
+
+---
+
 ## Responsive Behavior
 
+- Layout must adapt to smaller screens
 - Layout must not break on resize
-- If space is limited:
-  → reduce card size proportionally
+- Layout must not overflow viewport width
 
-## Tap Behavior
+- Cards must scale proportionally
+- Maintain aspect ratio
 
-- Rotated cards must stay inside zone
-- Use center rotation
-
-## Zone Constraints
-
-- All zones must remain visible
+- Use relative units (%, vw, flex, grid)

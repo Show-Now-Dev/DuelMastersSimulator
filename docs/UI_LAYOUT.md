@@ -1,16 +1,30 @@
 # UI Layout
 
 ## Board Structure
-①Battle Zone
-②stack
-③Shield Zone
-④Deck
-⑤Grave Yard
-⑥Ex-dim Zone
-⑦GR Zone
-⑧Mana Zone
-⑨Hand 
-[------------①------------][--②--][control] [---------③---------][④][⑤][⑥][⑦][control] [------------⑧------------][ space ][control] [------------⑨------------][ space ][-logs-]
+
+① Battlefield  
+② Stack  
+③ Shield  
+④ Deck  
+⑤ Graveyard  
+⑥ ExZone  
+⑦ GRZone  
+⑧ Mana  
+⑨ Hand  
+
+Row 1:
+[------------①------------][--②--][control]
+
+Row 2:
+[---------③---------][④][⑤][⑥][⑦][control]
+
+Row 3:
+[------------⑧------------][space][control]
+
+Row 4:
+[------------⑨------------][space][-logs-]
+
+---
 
 ## Zone Definitions
 
@@ -27,33 +41,53 @@
   Shows game actions and history.
 
 - space:
-  Empty flexible area.
-  Used for layout spacing.
-  Must not contain cards.
+  Flexible empty area.
+  Expands to fill remaining horizontal space.
+  Must not contain cards or interactive elements.
 
-- stack:
+- Stack:
   Temporary zone for resolving effects.
   Cards do not remain here.
+  Displays cards stacked in a single pile
 
-- Ex-dim Zone:
+- ExZone:
   Extra deck zone.
   Cards can be played from here.
 
-- GR Zone:
+- GRZone:
   Special summon zone.
   May contain 0 or multiple cards.
 
+---
 
 ## Layout Constraints
 
-- Deck / Grave / Ex-dim / GR:
-  Must be sized to fit ONE card only
-
 - control:
-  Fixed width column
+  Fixed width (approx. 200px)
+  Height matches row height
 
 - logs:
-  Scrollable vertical area
+  Fixed width (approx. 200px)
+  Height fills available vertical space
+  Vertical scroll enabled
 
-- main zones (Battle / Shield / Mana / Hand):
-  Must expand horizontally
+Main zones (Battlefield, Shield, Mana, Hand):
+- Must occupy their defined unit width (8 units)
+- Must stretch to fill available horizontal space
+---
+
+## Layout Units
+
+- 1 unit = width of 1 card + margin
+
+Zone widths:
+- Battlefield: 8 units
+- Shield: 6 units
+- Mana: 8 units
+- Hand: 8 units
+- Stack: 2 units
+- Deck / Graveyard / ExZone / GRZone:
+  Must display only one card at a time
+
+---
+

@@ -8,8 +8,15 @@
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --accent: #f97316;
+
+  /* Card size units — all zone sizing derives from these */
   --card-w: 80px;
   --card-h: 120px;
+
+  /* Derived layout constants */
+  --ctrl-w: 220px;
+  /* zone-row-h = card-h + top-pad(20) + zone-header(~24) + bottom-pad(20) + border(2) */
+  --zone-row-h: calc(var(--card-h) + 66px);
 }
 
 html,
@@ -25,6 +32,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  overflow-x: hidden; /* UI must fit within viewport — no horizontal scroll */
 }
 
 header {
@@ -48,29 +56,34 @@ main#layout.game-board {
   gap: 12px;
 
   /*
-   * Card-based column sizing (--card-w = 80px):
-   *   col1: ≥6 cards — shield base; also left part of battlefield/mana/hand
-   *   col2–3: 1 card each — deck, graveyard; also 2nd+3rd card of battlefield
-   *   col4–5: 1 card each — ex, gr; also stack (2 cards)
-   *   col6: fixed controls panel
+   * Column layout (card-based units):
+   *   col1 : 1fr  — all 8-unit main zones (Battlefield, Shield, Mana, Hand)
+   *   col2–3: 1 card each — Deck + Grave (also the 2 cards of Stack in row 1)
+   *   col4–5: 1 card each — Ex + GR      (empty / unused in row 1)
+   *   col6  : --ctrl-w    — Controls (rows 1–3) and Logs (row 4)
    *
-   * Row widths (excl. controls):
-   *   Row 1: battlefield(col1+2+3 = ≥8cw) + stack(col4+5 = 2cw)
-   *   Row 2: shield(col1 = ≥6cw) + deck + grave + ex + gr (4×1cw)
-   *   Row 3/4: mana/hand (col1+2+3 = ≥8cw) + empty(col4+5)
+   * Zone widths per spec:
+   *   Battlefield = col1 (8u, fills 1fr)      Stack    = col2+col3 (2u)
+   *   Shield      = col1 (8u, same as BF)     Deck     = col2 (1u)
+   *   Mana        = col1 (8u)                 Graveyard= col3 (1u)
+   *   Hand        = col1 (8u)                 Ex       = col4 (1u)
+   *                                           GR       = col5 (1u)
+   *
+   * Row heights: all rows use --zone-row-h (explicit, no auto/content sizing).
    */
   grid-template-columns:
-    minmax(calc(6 * var(--card-w)), 1fr)
+    1fr
     var(--card-w)
     var(--card-w)
     var(--card-w)
     var(--card-w)
-    220px;
+    var(--ctrl-w);
+  grid-template-rows: repeat(4, var(--zone-row-h));
   grid-template-areas:
-    "battlefield battlefield battlefield stack       stack     controls"
-    "shield      deck        graveyard   ex          gr        controls"
-    "mana        mana        mana        .           .         controls"
-    "hand        hand        hand        .           .         log";
+    "battlefield  stack       stack      .   .   controls"
+    "shield       deck        graveyard  ex  gr  controls"
+    "mana         .           .          .   .   controls"
+    "hand         .           .          .   .   log";
 }
 
 .zone {
@@ -109,7 +122,9 @@ main#layout.game-board {
 .card-list {
   position: relative;
   flex: 1;
-  overflow: hidden;
+  /* overflow: visible so rotated cards use the zone's padding as buffer.
+     The parent .zone has overflow: hidden which is the final clip boundary. */
+  overflow: visible;
   padding: 0;
 }
 
@@ -179,21 +194,43 @@ main#layout.game-board {
   -webkit-line-clamp: 2;
 }
 
-/* Compact zones: single-card area — width/height controlled by grid */
+/* ── Compact zones (Deck, Graveyard, Ex, GR, Stack) ─────────────────────────
+   Width = 1 card (grid column = var(--card-w)).
+   Height = zone-row-h (grid row, same as all other rows).
+   No padding: card fills zone, label overlays as gradient header.
+   Cards centered both axes per UI_RULES alignment rule.              */
 .compact-zone {
-  padding: 0;           /* no padding so the card fills the full zone */
-  min-height: var(--card-h);
-  overflow: hidden;     /* enforce no-overflow rule */
+  padding: 0;
+  overflow: hidden;
 }
 
+/* Zone label as gradient overlay — satisfies "Zone labels must always be visible" */
+.compact-zone .zone-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 4px 6px;
+  background: linear-gradient(to bottom, rgba(2, 6, 23, 0.88) 55%, transparent);
+}
+
+/* Card-list sized to exactly one card, centered in the zone.
+   JS sets card at left:0/top:0 within card-list → card is centered in zone. */
 .compact-zone .card-list {
   position: absolute;
-  inset: 0;             /* fill the zone exactly */
+  width: var(--card-w);
+  height: var(--card-h);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: visible;
 }
 
-/* Spread zones: need enough height for one card + zone header */
-.zone--spread {
-  min-height: calc(var(--card-h) + 40px);
+/* Stack spans 2 card columns + 1 gap — widen the card-list to match */
+#zone-stack .card-list {
+  width: calc(2 * var(--card-w) + 12px);
 }
 
 /* Grid placement */
@@ -281,9 +318,13 @@ select {
   padding-top: 0.6rem;
 }
 
-@media (max-width: 980px) {
+/* ── Responsive: narrow viewport ────────────────────────────────────────────
+   Below the min comfortable desktop width, collapse to 2-column stack.
+   Row heights revert to auto here — explicit card-unit rows are desktop-only. */
+@media (max-width: 1100px) {
   main#layout.game-board {
     grid-template-columns: 1fr var(--card-w);
+    grid-template-rows: auto;
     grid-template-areas:
       "controls    controls"
       "battlefield stack"
@@ -295,5 +336,11 @@ select {
       "hand        hand"
       "log         log";
   }
+
+  /* Restore compact-zone height for auto-height rows */
+  .compact-zone {
+    min-height: var(--card-h);
+  }
+
   button { text-align: center; }
 }
