@@ -1,5 +1,30 @@
 (function () {
 
+  // ── Startup: load card/deck definitions, then initialize ───────────────────
+  Promise.all([
+    fetch("./src/data/cards.json").then(function (r) { return r.json(); }),
+    fetch("./src/data/decks.json").then(function (r) { return r.json(); }),
+  ]).then(function (results) {
+    CARD_DEFINITIONS = results[0];
+
+    var deck = results[1][0]; // deck_sample (first deck)
+    var nextInstanceId = 1;
+    INITIAL_DECK_INSTANCES = [];
+    deck.cards.forEach(function (entry) {
+      for (var i = 0; i < entry.count; i++) {
+        INITIAL_DECK_INSTANCES.push({
+          id:           "ci_" + nextInstanceId++,
+          definitionId: entry.cardId,
+          isFaceDown:   true,
+        });
+      }
+    });
+
+    init();
+  });
+
+  function init() {
+
   // ── Two separate stores ────────────────────────────────────────────────────
   // gameStore: card/stack/zone data and selectedCardIds.
   // uiStore:   selectedTargetZone and modal.  Never mixed.
@@ -348,12 +373,38 @@
       img.addEventListener("error", function () { cardEl.textContent = "?"; });
       cardEl.appendChild(img);
     } else {
-      const front     = document.createElement("div");
+      const vm    = buildCardViewModel(card);
+      const front = document.createElement("div");
       front.className = "card__front";
-      const nameEl    = document.createElement("div");
-      nameEl.className  = "card__name";
-      nameEl.textContent = card.name;
-      front.appendChild(nameEl);
+
+      front.style.background = vm.backgroundStyle;
+
+      // Top row: cost → name (left to right, top-aligned).
+      var topRow = document.createElement("div");
+      topRow.className = "card__top-row";
+
+      if (vm.cost != null) {
+        var costEl = document.createElement("span");
+        costEl.className   = "card__cost";
+        costEl.textContent = vm.cost;
+        topRow.appendChild(costEl);
+      }
+
+      var nameEl = document.createElement("span");
+      nameEl.className   = "card__name";
+      nameEl.textContent = vm.name;
+      topRow.appendChild(nameEl);
+
+      front.appendChild(topRow);
+
+      // Power at bottom-left.
+      if (vm.power != null) {
+        var powerEl = document.createElement("div");
+        powerEl.className   = "card__power";
+        powerEl.textContent = vm.power;
+        front.appendChild(powerEl);
+      }
+
       cardEl.appendChild(front);
     }
   }
@@ -564,5 +615,7 @@
   uiStore.subscribe(render);
   window.addEventListener("resize", render);
   render();
+
+  } // end init()
 
 })();

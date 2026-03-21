@@ -230,25 +230,55 @@ button.is-active {
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 0.45rem 0.5rem;
-  background:
-    linear-gradient(to top, rgba(2, 6, 23, 0.86), rgba(2, 6, 23, 0.25)),
-    rgba(17, 24, 39, 0.35);
+  justify-content: space-between;
+  padding: 0.35rem 0.4rem;
+  /* background set inline per-card (civilization color + readability overlay) */
   backdrop-filter: blur(2px);
 }
 
+/* Top row: cost badge followed by card name */
+.card__top-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.2em;
+  min-width: 0;
+}
+
+.card__cost {
+  flex-shrink: 0;
+  font-size: calc(var(--card-w) * 0.14);
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 0.2em;
+  padding: 0.1em 0.25em;
+  color: #fff;
+}
+
 .card__name {
-  font-size: calc(var(--card-w) * 0.12);
-  line-height: 1.1;
+  font-size: calc(var(--card-w) * 0.11);
+  line-height: 1.15;
   font-weight: 650;
   letter-spacing: 0.01em;
+  color: #fff;
   /* Hard clip — text must never leave the card */
   overflow: hidden;
-  max-width: 100%;
+  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* Power value at the bottom-left of the card */
+.card__power {
+  align-self: flex-start;
+  font-size: calc(var(--card-w) * 0.115);
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 0.2em;
+  padding: 0.1em 0.25em;
+  color: #fff;
 }
 
 /* ── Compact zones (Deck, Graveyard, Ex, GR, Stack) ─────────────────────────
@@ -488,9 +518,9 @@ select {
 }
 
 /* Scale card text to the modal card size. */
-.modal-card .card__name {
-  font-size: calc(var(--modal-card-w) * 0.12);
-}
+.modal-card .card__cost  { font-size: calc(var(--modal-card-w) * 0.14); }
+.modal-card .card__name  { font-size: calc(var(--modal-card-w) * 0.11); }
+.modal-card .card__power { font-size: calc(var(--modal-card-w) * 0.115); }
 
 /* "Top" label shown on the top card of the stack in the modal. */
 .modal-card-position {

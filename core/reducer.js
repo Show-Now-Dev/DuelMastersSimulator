@@ -7,14 +7,49 @@
 //   - State is never mutated directly (all updates are immutable copies).
 //   - No UI logic lives inside this file.
 
+// ── Game Setup ────────────────────────────────────────────────────────────────
+//
+// Applies the standard game setup on top of a freshly created initial state:
+//   1. Shuffle the deck
+//   2. Move top 5 cards to Shield (face-down via zone default)
+//   3. Move next 5 cards to Hand  (face-up via zone default)
+//
+// All movements go through applyMoveCards so no invariants are bypassed.
+function applyGameSetup(state) {
+  // Step 1: Shuffle
+  var s1 = handleShuffleDeck(state, {});
+
+  // Helper: get the top card ID from a stack (bottom→top order → last element).
+  function topCardOf(stacks, stackId) {
+    var stack = stacks[stackId];
+    return stack ? stack.cardIds[stack.cardIds.length - 1] : null;
+  }
+
+  // Step 2: Move top 5 stacks' cards → Shield (face-down by zone default)
+  var deckAfterShuffle = s1.zones[ZONE_IDS.DECK];
+  var shieldCardIds = deckAfterShuffle.stackIds.slice(0, 5).map(function (sid) {
+    return topCardOf(s1.stacks, sid);
+  }).filter(Boolean);
+  var s2 = applyMoveCards(s1, shieldCardIds, { type: "zone", zoneId: ZONE_IDS.SHIELD }, "bottom");
+
+  // Step 3: Move next 5 stacks' cards → Hand (face-up by zone default)
+  var deckAfterShield = s2.zones[ZONE_IDS.DECK];
+  var handCardIds = deckAfterShield.stackIds.slice(0, 5).map(function (sid) {
+    return topCardOf(s2.stacks, sid);
+  }).filter(Boolean);
+  var s3 = applyMoveCards(s2, handCardIds, { type: "zone", zoneId: ZONE_IDS.HAND }, "bottom");
+
+  return Object.assign({}, s3, { status: "Game ready." });
+}
+
 function rootReducer(state, action) {
-  if (!state) return createInitialGameState();
+  if (!state) return applyGameSetup(createInitialGameState());
 
   switch (action.type) {
     // ── Core game actions ────────────────────────────────────────────────────
     case DRAW_CARD:              return handleDrawCard(state, action.payload);
     case SHUFFLE_DECK:           return handleShuffleDeck(state, action.payload);
-    case RESET_GAME:             return createInitialGameState();
+    case RESET_GAME:             return applyGameSetup(createInitialGameState());
     case MOVE_CARDS:             return handleMoveCards(state, action.payload);
     case MOVE_SELECTED_CARDS:    return handleMoveSelectedCards(state, action.payload);
     case TOGGLE_TAP_STACK:       return handleToggleTapStack(state, action.payload);
@@ -233,7 +268,9 @@ function handleDrawCard(state, payload) {
   }
 
   var topCardId = topStack.cardIds[topStack.cardIds.length - 1];
-  var cardName  = state.cards[topCardId].name;
+  var topCard   = state.cards[topCardId];
+  var topDef    = topCard ? getCardDefinition(topCard.definitionId) : null;
+  var cardName  = topDef ? topDef.name : topCardId;
 
   var next = applyMoveCards(
     state,

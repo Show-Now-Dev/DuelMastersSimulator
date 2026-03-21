@@ -1,0 +1,74 @@
+[
+  {
+    "id": "dm-bolshack",
+    "name": "ボルシャック・ドラゴン",
+    "type": "creature",
+    "civilization": "fire",
+    "cost": 6,
+    "race": "アーマード・ドラゴン",
+    "power": 6000,
+    "mana": 1,
+    "text": "スピードアタッカー（このクリーチャーは召喚酔いしない）"
+  },
+  {
+    "id": "dm-fairy-life",
+    "name": "フェアリー・ライフ",
+    "type": "spell",
+    "civilization": "nature",
+    "cost": 2,
+    "race": null,
+    "power": null,
+    "mana": 1,
+    "text": "自分の山札の上から1枚目をマナゾーンに置く。"
+  },
+  {
+    "id": "dm-holy-spark",
+    "name": "ホーリー・スパーク",
+    "type": "spell",
+    "civilization": "light",
+    "cost": 6,
+    "race": null,
+    "power": null,
+    "mana": 1,
+    "text": "相手のクリーチャーをすべてタップする。"
+  },
+  {
+    "id": "dm-dark-reversal",
+    "name": "デーモン・ハンド",
+    "type": "spell",
+    "civilization": "darkness",
+    "cost": 6,
+    "race": null,
+    "power": null,
+    "mana": 1,
+    "text": "相手のクリーチャーを1体破壊する。"
+  },
+  {
+    "id": "dm-twin-sample",
+    "name": "爆炎竜＋大地の恵み",
+    "type": "twin",
+    "mana": 1,
+    "sides": [
+      {
+        "side": "top",
+        "name": "爆炎竜",
+        "type": "creature",
+        "civilization": "fire",
+        "cost": 5,
+        "race": "ドラゴン",
+        "power": 5000,
+        "text": "W・ブレイカー"
+      },
+      {
+        "side": "bottom",
+        "name": "大地の恵み",
+        "type": "spell",
+        "civilization": "nature",
+        "cost": 3,
+        "race": null,
+        "power": null,
+        "text": "自分の山札の上から1枚をマナゾーンに置く。"
+      }
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "deck_sample",
+    "name": "サンプルデッキ",
+
+    "cards": [
+      { "cardId": "dm-bolshack", "count": 8 },
+      { "cardId": "dm-fairy-life", "count": 8 },
+      { "cardId": "dm-holy-spark", "count": 8 },
+      { "cardId": "dm-dark-reversal", "count": 8 },
+      { "cardId": "dm-twin-sample", "count": 8 }
+    ]
+  }
+]

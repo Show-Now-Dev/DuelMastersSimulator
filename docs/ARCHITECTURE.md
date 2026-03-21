@@ -29,4 +29,7 @@ engine/
   Game engine
 
 ui/
-  Rendering
+  viewModel.js  — Pure transformation layer: GameState → UI-ready display data
+                  (civilization colors, gradients, name/cost/power formatting)
+  uiState.js    — UI-only state (modal, selection)
+  ui.js         — Rendering only; consumes viewModel output
