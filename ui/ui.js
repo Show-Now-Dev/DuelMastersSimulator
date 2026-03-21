@@ -39,9 +39,11 @@
   const statusTextEl        = document.getElementById("status-text");
   const moveTargetEl        = document.getElementById("move-target");
   const moveButtonEl        = document.getElementById("move-button");
-  const toggleTapButtonEl   = document.getElementById("toggle-tap-button");
-  const toggleFaceButtonEl  = document.getElementById("toggle-face-button");
-  const pickStackButtonEl   = document.getElementById("pick-stack-button");
+  const toggleTapButtonEl        = document.getElementById("toggle-tap-button");
+  const toggleFaceButtonEl       = document.getElementById("toggle-face-button");
+  const peekButtonEl             = document.getElementById("peek-button");
+  const clearSelectionButtonEl   = document.getElementById("clear-selection-button");
+  const pickStackButtonEl        = document.getElementById("pick-stack-button");
   const stackTopButtonEl    = document.getElementById("stack-top-button");
   const stackBottomButtonEl = document.getElementById("stack-bottom-button");
   const boardEl             = document.getElementById("layout");
@@ -71,6 +73,35 @@
     ZONE_IDS.GR,
   ];
 
+  // Selectable zones: clicking the zone background/header toggles selection of
+  // all cards in the zone (select-all ↔ deselect-all).
+  const SELECTABLE_ZONE_IDS = [
+    ZONE_IDS.BATTLEFIELD,
+    ZONE_IDS.SHIELD,
+    ZONE_IDS.MANA,
+    ZONE_IDS.HAND,
+    ZONE_IDS.RESOLUTION_ZONE,
+  ];
+
+  // Pure helper: collect all cardIds from every stack in a zone.
+  function getZoneCardIds(zone, stacks) {
+    var ids = [];
+    (zone.stackIds || []).forEach(function (stackId) {
+      var stack = stacks[stackId];
+      if (stack) ids = ids.concat(stack.cardIds);
+    });
+    return ids;
+  }
+
+  // Pure helper: return a display-card with isFaceDown overridden to false if
+  // the card is currently being peeked at.  Game state is never mutated.
+  function applyPeek(card, peekedCardIds) {
+    if (peekedCardIds && peekedCardIds.indexOf(card.id) !== -1) {
+      return Object.assign({}, card, { isFaceDown: false });
+    }
+    return card;
+  }
+
   // ── Parse the "move to" dropdown value into { zoneId, position } ───────────
   //
   // Dropdown values encode both zone and position for zones with ordering:
@@ -91,12 +122,14 @@
 
   document.getElementById("shuffle-button").addEventListener("click", function () {
     gameStore.dispatch(shuffleDeck(PLAYER_ID));
+    uiStore.dispatch(clearPeekedCards());
   });
 
   document.getElementById("reset-button").addEventListener("click", function () {
     targetStackId = null;
     exitPickMode();
     uiStore.dispatch(closeModal());
+    uiStore.dispatch(clearPeekedCards());
     gameStore.dispatch(resetGame());
   });
 
@@ -108,6 +141,27 @@
   toggleFaceButtonEl.addEventListener("click", function () {
     if (!(gameStore.getState().selectedCardIds || []).length) return;
     gameStore.dispatch(toggleFaceSelectedCards());
+  });
+
+  // Peek: display selected face-down cards as face-up without changing game state.
+  peekButtonEl.addEventListener("click", function () {
+    var state = gameStore.getState();
+    var faceDownSelected = (state.selectedCardIds || []).filter(function (id) {
+      var card = state.cards[id];
+      return card && card.isFaceDown;
+    });
+    if (!faceDownSelected.length) return;
+    var peeked = uiStore.getState().peekedCardIds;
+    var allAlreadyPeeked = faceDownSelected.every(function (id) {
+      return peeked.indexOf(id) !== -1;
+    });
+    uiStore.dispatch(
+      allAlreadyPeeked ? removePeekedCards(faceDownSelected) : peekCards(faceDownSelected)
+    );
+  });
+
+  clearSelectionButtonEl.addEventListener("click", function () {
+    gameStore.dispatch(clearSelection());
   });
 
   // ── UI-store event listeners ───────────────────────────────────────────────
@@ -123,8 +177,10 @@
     const uiSt      = uiStore.getState();
     const raw       = uiSt.selectedTargetZone || moveTargetEl.value;
     const parsed    = parseMoveTarget(raw);
-    if (!(gameState.selectedCardIds || []).length || !parsed.zoneId) return;
+    const toMove    = gameState.selectedCardIds || [];
+    if (!toMove.length || !parsed.zoneId) return;
     gameStore.dispatch(moveSelectedCards(parsed.zoneId, parsed.position));
+    uiStore.dispatch(removePeekedCards(toMove));
   });
 
   // ── Pick-mode & stack buttons ──────────────────────────────────────────────
@@ -134,15 +190,19 @@
   });
 
   stackTopButtonEl.addEventListener("click", function () {
-    if (!targetStackId || !(gameStore.getState().selectedCardIds || []).length) return;
+    var toMove = gameStore.getState().selectedCardIds || [];
+    if (!targetStackId || !toMove.length) return;
     gameStore.dispatch(stackSelectedCards(targetStackId, "top"));
+    uiStore.dispatch(removePeekedCards(toMove));
     targetStackId = null;
     render();
   });
 
   stackBottomButtonEl.addEventListener("click", function () {
-    if (!targetStackId || !(gameStore.getState().selectedCardIds || []).length) return;
+    var toMove = gameStore.getState().selectedCardIds || [];
+    if (!targetStackId || !toMove.length) return;
     gameStore.dispatch(stackSelectedCards(targetStackId, "bottom"));
+    uiStore.dispatch(removePeekedCards(toMove));
     targetStackId = null;
     render();
   });
@@ -169,6 +229,28 @@
     var visibility = (zoneId === ZONE_IDS.DECK) ? "hidden" : "all";
     el.addEventListener("click", function () {
       uiStore.dispatch(openModal({ type: "zone", id: zoneId }, "multiple", visibility));
+    });
+  });
+
+  // ── Selectable zone click handlers (attached once at startup) ─────────────
+  // Clicking the zone background or header selects all cards in the zone.
+  // If all cards are already selected, the click clears the selection instead.
+  // Card-level clicks stop propagation, so they do not trigger this handler.
+
+  SELECTABLE_ZONE_IDS.forEach(function (zoneId) {
+    var el = zoneEls[zoneId];
+    if (!el) return;
+    el.addEventListener("click", function () {
+      var state      = gameStore.getState();
+      var zone       = state.zones[zoneId];
+      if (!zone) return;
+      var allCardIds = getZoneCardIds(zone, state.stacks);
+      if (!allCardIds.length) return;
+      var selected   = state.selectedCardIds || [];
+      var allSelected = allCardIds.every(function (id) {
+        return selected.indexOf(id) !== -1;
+      });
+      gameStore.dispatch(allSelected ? clearSelection() : selectCards(allCardIds));
     });
   });
 
@@ -210,7 +292,7 @@
     // Board zones — all zones including EX and GR are in zoneEls.
     Object.keys(zoneEls).forEach(function (zoneId) {
       const zone = gameState.zones[zoneId];
-      if (zone) renderZone(zoneEls[zoneId], gameState, zone);
+      if (zone) renderZone(zoneEls[zoneId], gameState, zone, uiSt.peekedCardIds);
     });
 
     // Modal layer (rendered above the board).
@@ -226,7 +308,7 @@
     return parseFloat(raw) || 80;
   }
 
-  function renderZone(container, gameState, zone) {
+  function renderZone(container, gameState, zone, peekedCardIds) {
     container.innerHTML = "";
 
     const stacks      = gameState.stacks || {};
@@ -304,7 +386,7 @@
         cardEl.style.left   = (stackLeft + depth) + "px";
         cardEl.style.top    = (depth * DEPTH_OFFSET) + "px";
 
-        appendCardFace(cardEl, card);
+        appendCardFace(cardEl, applyPeek(card, peekedCardIds));
 
         // ── Click behavior ─────────────────────────────────────────────────
         cardEl.addEventListener("click", function (e) {
@@ -422,7 +504,7 @@
     }
 
     if (modal.type === "CARD_SELECTOR") {
-      renderCardSelectorModal(gameState, modal);
+      renderCardSelectorModal(gameState, modal, uiSt.peekedCardIds);
     }
 
     modalLayerEl.classList.add("is-open");
@@ -461,12 +543,9 @@
 
   // Returns a (possibly synthetic) card object with visibility applied.
   //   "all"   → card as-is (respects card.isFaceDown)
-  //   "hidden"→ force isFaceDown = true (show back regardless of actual state)
+  //   "hidden"→ respect actual game-state isFaceDown (do NOT override — game state is truth)
   //   "top-n" → first modal.topN cards as-is, rest forced face-down
   function applyVisibility(card, displayIdx, modal) {
-    if (modal.visibility === "hidden") {
-      return Object.assign({}, card, { isFaceDown: true });
-    }
     if (modal.visibility === "top-n") {
       var topN = modal.topN || 3;
       if (displayIdx >= topN) {
@@ -500,7 +579,7 @@
     return "Select cards";
   }
 
-  function renderCardSelectorModal(gameState, modal) {
+  function renderCardSelectorModal(gameState, modal, peekedCardIds) {
     var cardIds = getModalCardIds(gameState, modal);
 
     if (cardIds === null) {
@@ -544,7 +623,7 @@
       if (!card) return;
 
       const isModalSelected = modal.selectedCardIds.indexOf(cardId) !== -1;
-      const displayCard     = applyVisibility(card, displayIdx, modal);
+      const displayCard     = applyPeek(applyVisibility(card, displayIdx, modal), peekedCardIds);
 
       const cardEl     = document.createElement("button");
       cardEl.type      = "button";
@@ -588,6 +667,20 @@
     clearBtn.addEventListener("click", function () {
       uiStore.dispatch(selectModalCards([]));
     });
+
+    // "Look at": peek at selected cards without changing game state.
+    // Shown only when visibility is "hidden" (deck modal = search).
+    if (modal.visibility === "hidden") {
+      const peekBtn       = document.createElement("button");
+      peekBtn.textContent = "Look at";
+      peekBtn.addEventListener("click", function () {
+        const sel = uiStore.getState().modal.selectedCardIds;
+        if (sel.length > 0) {
+          uiStore.dispatch(peekCards(sel));
+        }
+      });
+      footer.appendChild(peekBtn);
+    }
 
     // Confirm: push the modal selection into the game's selectedCardIds,
     // then close the modal.  The user can then act on them (move, tap, etc.).

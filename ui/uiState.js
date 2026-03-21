@@ -5,6 +5,9 @@
 //
 // Shape:
 //   selectedTargetZone: string | null    ← raw dropdown value (e.g. "deck-top", "graveyard")
+//   peekedCardIds: string[]              ← cards the viewer is peeking at (displayed face-up
+//                                           without changing game state isFaceDown).
+//                                           Future: key this by playerId for multi-player.
 //   modal: null | {                       ← active CARD_SELECTOR modal, or null when closed
 //     type:            "CARD_SELECTOR"
 //     source: {                           ← what the modal is browsing
@@ -24,6 +27,9 @@
 const OPEN_MODAL         = "OPEN_MODAL";
 const CLOSE_MODAL        = "CLOSE_MODAL";
 const SELECT_MODAL_CARDS = "SELECT_MODAL_CARDS";
+const PEEK_CARDS         = "PEEK_CARDS";
+const REMOVE_PEEKED_CARDS = "REMOVE_PEEKED_CARDS";
+const CLEAR_PEEKED_CARDS  = "CLEAR_PEEKED_CARDS";
 
 // ── Action creators ───────────────────────────────────────────────────────────
 
@@ -54,11 +60,27 @@ function selectModalCards(cardIds) {
   return { type: SELECT_MODAL_CARDS, payload: { cardIds: cardIds } };
 }
 
+// Add cards to the peeked set (union — no duplicates).
+function peekCards(cardIds) {
+  return { type: PEEK_CARDS, payload: { cardIds: cardIds } };
+}
+
+// Remove specific cards from the peeked set (call after moving cards).
+function removePeekedCards(cardIds) {
+  return { type: REMOVE_PEEKED_CARDS, payload: { cardIds: cardIds } };
+}
+
+// Clear all peeked cards (call on reset).
+function clearPeekedCards() {
+  return { type: CLEAR_PEEKED_CARDS, payload: null };
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 function createInitialUiState() {
   return {
     selectedTargetZone: null,
+    peekedCardIds:      [],
     modal:              null,
   };
 }
@@ -96,6 +118,27 @@ function uiReducer(state, action) {
           selectedCardIds: action.payload.cardIds || [],
         }),
       });
+
+    case PEEK_CARDS: {
+      var incoming = action.payload.cardIds || [];
+      var current  = state.peekedCardIds;
+      var merged   = current.concat(incoming.filter(function (id) {
+        return current.indexOf(id) === -1;
+      }));
+      return Object.assign({}, state, { peekedCardIds: merged });
+    }
+
+    case REMOVE_PEEKED_CARDS: {
+      var toRemove = action.payload.cardIds || [];
+      return Object.assign({}, state, {
+        peekedCardIds: state.peekedCardIds.filter(function (id) {
+          return toRemove.indexOf(id) === -1;
+        }),
+      });
+    }
+
+    case CLEAR_PEEKED_CARDS:
+      return Object.assign({}, state, { peekedCardIds: [] });
 
     default:
       return state;

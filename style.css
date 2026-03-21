@@ -315,12 +315,6 @@ button.is-active {
   overflow: visible;
 }
 
-/* Stack spans 2 card-unit columns + their shared gap.
-   Card-list matches the full stack zone width so cards spread within it. */
-#zone-stack .card-list {
-  width: calc(2 * var(--card-unit) + var(--gap));
-}
-
 /* Stacked zones open the card-selector modal on click */
 #zone-deck,
 #zone-graveyard,
@@ -422,7 +416,7 @@ select {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 9999;
   align-items: center;
   justify-content: center;
   background: rgba(2, 6, 23, 0.75);
