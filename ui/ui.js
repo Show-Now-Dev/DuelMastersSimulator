@@ -1,27 +1,21 @@
 (function () {
 
-  // ── Startup: load card/deck definitions, then initialize ───────────────────
-  Promise.all([
-    fetch("./src/data/cards.json").then(function (r) { return r.json(); }),
-    fetch("./src/data/decks.json").then(function (r) { return r.json(); }),
-  ]).then(function (results) {
-    CARD_DEFINITIONS = results[0];
+  // ── Game simulation entry point ────────────────────────────────────────────
+  // Called by MenuUI once the user selects a deck and clicks "Start".
+  // cardDefs:      CardDefinition[] — full card registry for this session
+  // deckInstances: { id, definitionId, isFaceDown }[] — flat deck card list
+  window.startGameSimulation = function (cardDefs, deckInstances) {
+    CARD_DEFINITIONS      = cardDefs;
+    INITIAL_DECK_INSTANCES = deckInstances;
 
-    var deck = results[1][0]; // deck_sample (first deck)
-    var nextInstanceId = 1;
-    INITIAL_DECK_INSTANCES = [];
-    deck.cards.forEach(function (entry) {
-      for (var i = 0; i < entry.count; i++) {
-        INITIAL_DECK_INSTANCES.push({
-          id:           "ci_" + nextInstanceId++,
-          definitionId: entry.cardId,
-          isFaceDown:   true,
-        });
-      }
-    });
+    // Hide pre-game screens, reveal the game board.
+    var preGame   = document.getElementById('pre-game');
+    var layoutEl  = document.getElementById('layout');
+    if (preGame)  preGame.style.display  = 'none';
+    if (layoutEl) layoutEl.style.display = '';
 
     init();
-  });
+  };
 
   function init() {
 

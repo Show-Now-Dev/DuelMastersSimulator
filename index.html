@@ -11,7 +11,17 @@
       <h1>Card Game Simulator</h1>
     </header>
 
-    <main id="layout" class="game-board">
+    <!--
+      Pre-game screens: menu, card editor, deck builder.
+      Shown before the game board. Hidden by startGameSimulation().
+    -->
+    <div id="pre-game">
+      <div id="screen-menu"         class="screen is-active"></div>
+      <div id="screen-card-editor"  class="screen"></div>
+      <div id="screen-deck-builder" class="screen"></div>
+    </div>
+
+    <main id="layout" class="game-board" style="display:none">
       <section id="zone-battlefield" class="zone zone--spread"></section>
       <section id="zone-stack" class="zone zone--spread"></section>
 
@@ -78,16 +88,39 @@
     -->
     <div id="modal-layer" role="dialog" aria-modal="true"></div>
 
+    <!-- Model -->
     <script src="./model/CardDefinition.js"></script>
     <script src="./model/CardInstance.js"></script>
     <script src="./model/CardStack.js"></script>
     <script src="./model/Zone.js"></script>
+    <script src="./model/DeckDefinition.js"></script>
+
+    <!-- Core game engine -->
     <script src="./core/GameState.js"></script>
     <script src="./core/actions.js"></script>
     <script src="./core/reducer.js"></script>
     <script src="./engine/GameEngine.js"></script>
+
+    <!-- Parser & storage -->
+    <script src="./parser/cardParser.js"></script>
+    <script src="./storage/cardStorage.js"></script>
+
+    <!-- Logic -->
+    <script src="./logic/deckBuilder.js"></script>
+
+    <!-- UI -->
     <script src="./ui/uiState.js"></script>
     <script src="./ui/viewModel.js"></script>
+    <script src="./ui/cardEditor/cardEditor.js"></script>
+    <script src="./ui/deckBuilder/deckBuilderUI.js"></script>
+    <script src="./ui/menu/menuUI.js"></script>
     <script src="./ui/ui.js"></script>
+
+    <!-- Bootstrap: start the menu -->
+    <script>
+      MenuUI.init(function (cardDefs, deckInstances) {
+        startGameSimulation(cardDefs, deckInstances);
+      });
+    </script>
   </body>
 </html>
