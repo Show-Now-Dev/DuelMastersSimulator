@@ -54,6 +54,9 @@ logic/                ← business logic; depends on storage, never on UI
                          addDeck(deck) → { ok, id? }     (validates, generates id)
                          updateDeck(id, patch) → { ok }  (partial update; id immutable)
                          deleteDeck(id) → { ok }
+  dataPorter.js      — Export/Import JSON; routes through CardRepository + DeckRepository
+                         exportData() → triggers JSON download; { ok, cards, decks }
+                         importData(jsonText) → { ok, stats: { cards, decks }, errors[] }
 
 core/
   GameState.js       — createInitialGameState(); reads CARD_DEFINITIONS + INITIAL_DECK_INSTANCES
@@ -71,8 +74,12 @@ ui/                   ← calls Repositories only; never CardStorage directly
     cardEditor.js      — Card registration screen → CardRepository.addCard()
   deckBuilder/
     deckBuilderUI.js   — Deck builder screen → CardRepository.getAllCards(), DeckRepository.addDeck()
+  cardManager/
+    cardManagerUI.js   — Card management screen: search, edit (modal), delete → CardRepository
+  deckEditor/
+    deckEditorUI.js    — Deck management screen: edit name/counts, delete → DeckRepository
   menu/
-    menuUI.js          — Menu screen → DeckRepository.getAllDecks/deleteDeck, CardRepository.getAllCards
+    menuUI.js          — Menu screen → DeckRepository, CardRepository, DataPorter (export/import)
 ```
 
 ---

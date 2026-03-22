@@ -1,14 +1,32 @@
 [
   {
-    "id": "deck_sample",
-    "name": "サンプルデッキ",
-
+    "id": "deck_ulsaikueza",
+    "name": "ウルクエーサーユニバース",
     "cards": [
-      { "cardId": "dm-bolshack", "count": 8 },
-      { "cardId": "dm-fairy-life", "count": 8 },
-      { "cardId": "dm-holy-spark", "count": 8 },
-      { "cardId": "dm-dark-reversal", "count": 8 },
-      { "cardId": "dm-twin-sample", "count": 8 }
+      { "cardId": "9ccded7e-d124-450e-9948-cb6e2daf1f29", "count": 2 },
+      { "cardId": "1409aadd-15e7-43b0-a2fc-f7cb8ade2db2", "count": 4 },
+      { "cardId": "97edf433-7a53-4de4-8eed-83f700312e63", "count": 4 },
+      { "cardId": "6ce63f5e-4494-480b-b75f-823694c1490f", "count": 4 },
+      { "cardId": "d8ae454c-d6cc-4069-a1a8-78efdff73bfc", "count": 4 },
+      { "cardId": "461e8f52-141a-4e7c-9315-ea254b22e1cb", "count": 4 },
+      { "cardId": "099e4ecb-65ca-40b4-ada3-2001772b2d61", "count": 3 },
+      { "cardId": "38dc4385-3ed5-42cd-912b-6bda02411040", "count": 4 },
+      { "cardId": "c6e8dcc8-6ec2-4537-94ac-7bdd0ebfda4c", "count": 4 },
+      { "cardId": "a8602d7e-bdae-41f7-83d6-a97dedd69d3d", "count": 3 },
+      { "cardId": "f88957de-59e3-40e3-8f07-81b067edf7b6", "count": 4 }
+    ]
+  },
+  {
+    "id": "deck_test",
+    "name": "テストデッキ",
+    "cards": [
+      { "cardId": "dm-ultimate-galaxy-universe", "count": 4 },
+      { "cardId": "dm-meteor-rage-lizard",       "count": 4 },
+      { "cardId": "dm-holy-spark",               "count": 8 },
+      { "cardId": "dm-colorful-dance",           "count": 8 },
+      { "cardId": "dm-fairy-life",               "count": 8 },
+      { "cardId": "dm-ichigocci-tank",           "count": 4 },
+      { "cardId": "dm-twin-sample",              "count": 4 }
     ]
   }
 ]

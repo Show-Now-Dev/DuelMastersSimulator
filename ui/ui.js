@@ -4,6 +4,19 @@
   // Called by MenuUI once the user selects a deck and clicks "Start".
   // cardDefs:      CardDefinition[] — full card registry for this session
   // deckInstances: { id, definitionId, isFaceDown }[] — flat deck card list
+  // ── Return-to-menu button (wired once — outside init so it survives re-starts) ─
+  (function () {
+    var btn = document.getElementById("return-to-menu-button");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var preGame  = document.getElementById("pre-game");
+      var layoutEl = document.getElementById("layout");
+      if (layoutEl) layoutEl.style.display = "none";
+      if (preGame)  preGame.style.display   = "";
+      MenuUI.showMenu();
+    });
+  }());
+
   window.startGameSimulation = function (cardDefs, deckInstances) {
     CARD_DEFINITIONS      = cardDefs;
     INITIAL_DECK_INSTANCES = deckInstances;
@@ -25,12 +38,45 @@
   const gameStore = GameEngine.createStore(rootReducer);
   const uiStore   = GameEngine.createStore(uiReducer);
 
+  // ── Action log ──────────────────────────────────────────────────────────────
+  var _logLines   = [];
+  var logPanelEl  = document.getElementById("log-panel");
+
+  function logAction(msg) {
+    var now = new Date();
+    var hh  = String(now.getHours()).padStart(2, "0");
+    var mm  = String(now.getMinutes()).padStart(2, "0");
+    var ss  = String(now.getSeconds()).padStart(2, "0");
+    _logLines.unshift("[" + hh + ":" + mm + ":" + ss + "] " + msg);
+    if (_logLines.length > 60) _logLines.length = 60;
+    if (logPanelEl) _renderLog();
+  }
+
+  function _renderLog() {
+    logPanelEl.innerHTML = "";
+    var header = document.createElement("div");
+    header.className = "log-header";
+    header.textContent = "ログ";
+    logPanelEl.appendChild(header);
+    var body = document.createElement("div");
+    body.className = "log-body";
+    _logLines.forEach(function (line) {
+      var el = document.createElement("div");
+      el.className = "log-line";
+      el.textContent = line;
+      body.appendChild(el);
+    });
+    logPanelEl.appendChild(body);
+  }
+
+  // Initial empty log render
+  _renderLog();
+
   // ── Ephemeral pick-mode state (not persisted in any store) ─────────────────
   let targetStackId        = null;
   let isPickingTargetStack = false;
 
   // ── DOM refs ───────────────────────────────────────────────────────────────
-  const statusTextEl        = document.getElementById("status-text");
   const moveTargetEl        = document.getElementById("move-target");
   const moveButtonEl        = document.getElementById("move-button");
   const toggleTapButtonEl        = document.getElementById("toggle-tap-button");
@@ -42,6 +88,7 @@
   const stackBottomButtonEl = document.getElementById("stack-bottom-button");
   const boardEl             = document.getElementById("layout");
   const modalLayerEl        = document.getElementById("modal-layer");
+  const cardDetailPanelEl   = document.getElementById("card-detail-panel");
 
   const CARD_BACK = "./src/assets/images/card-back.png";
 
@@ -112,11 +159,13 @@
 
   document.getElementById("draw-button").addEventListener("click", function () {
     gameStore.dispatch(drawCard(PLAYER_ID));
+    logAction("ドロー");
   });
 
   document.getElementById("shuffle-button").addEventListener("click", function () {
     gameStore.dispatch(shuffleDeck(PLAYER_ID));
     uiStore.dispatch(clearPeekedCards());
+    logAction("山札をシャッフル");
   });
 
   document.getElementById("reset-button").addEventListener("click", function () {
@@ -125,16 +174,22 @@
     uiStore.dispatch(closeModal());
     uiStore.dispatch(clearPeekedCards());
     gameStore.dispatch(resetGame());
+    _logLines = [];
+    logAction("ゲームをリセット");
   });
 
   toggleTapButtonEl.addEventListener("click", function () {
-    if (!(gameStore.getState().selectedCardIds || []).length) return;
+    var sel = gameStore.getState().selectedCardIds || [];
+    if (!sel.length) return;
     gameStore.dispatch(toggleTapSelectedCards());
+    logAction("タップ切り替え（" + sel.length + "枚）");
   });
 
   toggleFaceButtonEl.addEventListener("click", function () {
-    if (!(gameStore.getState().selectedCardIds || []).length) return;
+    var sel = gameStore.getState().selectedCardIds || [];
+    if (!sel.length) return;
     gameStore.dispatch(toggleFaceSelectedCards());
+    logAction("表向き/裏向き切り替え（" + sel.length + "枚）");
   });
 
   // Peek: display selected face-down cards as face-up without changing game state.
@@ -152,10 +207,12 @@
     uiStore.dispatch(
       allAlreadyPeeked ? removePeekedCards(faceDownSelected) : peekCards(faceDownSelected)
     );
+    logAction(allAlreadyPeeked ? "確認解除（" + faceDownSelected.length + "枚）" : "カードを見る（" + faceDownSelected.length + "枚）");
   });
 
   clearSelectionButtonEl.addEventListener("click", function () {
     gameStore.dispatch(clearSelection());
+    logAction("選択解除");
   });
 
   // ── UI-store event listeners ───────────────────────────────────────────────
@@ -175,6 +232,7 @@
     if (!toMove.length || !parsed.zoneId) return;
     gameStore.dispatch(moveSelectedCards(parsed.zoneId, parsed.position));
     uiStore.dispatch(removePeekedCards(toMove));
+    logAction(toMove.length + "枚を " + moveTargetEl.options[moveTargetEl.selectedIndex].text + " へ移動");
   });
 
   // ── Pick-mode & stack buttons ──────────────────────────────────────────────
@@ -188,6 +246,7 @@
     if (!targetStackId || !toMove.length) return;
     gameStore.dispatch(stackSelectedCards(targetStackId, "top"));
     uiStore.dispatch(removePeekedCards(toMove));
+    logAction(toMove.length + "枚を上に重ねた");
     targetStackId = null;
     render();
   });
@@ -197,6 +256,7 @@
     if (!targetStackId || !toMove.length) return;
     gameStore.dispatch(stackSelectedCards(targetStackId, "bottom"));
     uiStore.dispatch(removePeekedCards(toMove));
+    logAction(toMove.length + "枚を下に重ねた");
     targetStackId = null;
     render();
   });
@@ -292,7 +352,9 @@
     // Modal layer (rendered above the board).
     renderModal(gameState, uiSt);
 
-    statusTextEl.textContent = gameState.status || "Ready.";
+    // Card detail panel (space area, rows 3–4).
+    if (cardDetailPanelEl) renderCardDetail(gameState, uiSt.peekedCardIds);
+
   }
 
   // ── Zone rendering ─────────────────────────────────────────────────────────
@@ -485,6 +547,117 @@
     }
   }
 
+  // ── Card detail panel rendering ────────────────────────────────────────────
+  // Shows the definition of the first face-up selected card.
+  // For twin cards the panel is split into two halves (top side / bottom side).
+
+  function renderCardDetail(gameState, peekedCardIds) {
+    cardDetailPanelEl.innerHTML = "";
+
+    // Find the first face-up selected card.
+    var selectedIds = gameState.selectedCardIds || [];
+    var targetCard  = null;
+    for (var i = selectedIds.length - 1; i >= 0; i--) {
+      var c = gameState.cards[selectedIds[i]];
+      if (!c) continue;
+      var visible = applyPeek(c, peekedCardIds);
+      if (!visible.isFaceDown) { targetCard = visible; break; }
+    }
+
+    if (!targetCard) {
+      var ph = document.createElement("div");
+      ph.className   = "cd-placeholder";
+      ph.textContent = "表向きのカードを選択すると詳細が表示されます";
+      cardDetailPanelEl.appendChild(ph);
+      return;
+    }
+
+    var def = getCardDefinition(targetCard.definitionId);
+    if (!def) {
+      var ph2 = document.createElement("div");
+      ph2.className   = "cd-placeholder";
+      ph2.textContent = "カード情報が見つかりません";
+      cardDetailPanelEl.appendChild(ph2);
+      return;
+    }
+
+    if (def.type === "twin") {
+      var twinEl = document.createElement("div");
+      twinEl.className = "cd-twin";
+      (def.sides || []).forEach(function (side) {
+        twinEl.appendChild(_buildDetailHalf(side, "cd-twin-half"));
+      });
+      cardDetailPanelEl.appendChild(twinEl);
+    } else {
+      cardDetailPanelEl.appendChild(_buildDetailHalf(def));
+    }
+  }
+
+  // Build a detail section (used for a normal card or one side of a twin).
+  // cls controls whether it fills the full panel ("cd-card") or a half ("cd-twin-half").
+  function _buildDetailHalf(def, cls) {
+    var wrap = document.createElement("div");
+    wrap.className = cls || "cd-card";
+
+    // Top row: cost + name
+    var topRow = document.createElement("div");
+    topRow.className = "cd-top-row";
+
+    if (def.cost != null) {
+      var costEl = document.createElement("span");
+      costEl.className   = "cd-cost";
+      costEl.textContent = def.cost;
+      topRow.appendChild(costEl);
+    }
+
+    var nameEl = document.createElement("span");
+    nameEl.className   = "cd-name";
+    nameEl.textContent = def.name || "—";
+    topRow.appendChild(nameEl);
+    wrap.appendChild(topRow);
+
+    // Type / race row
+    var meta = [];
+    if (def.type) meta.push(def.type);
+    var races = Array.isArray(def.races) ? def.races : (def.race ? [def.race] : []);
+    if (races.length) meta.push(races.join(" / "));
+    if (meta.length) {
+      var typeRow = document.createElement("div");
+      typeRow.className   = "cd-type-row";
+      typeRow.textContent = meta.join("  ·  ");
+      wrap.appendChild(typeRow);
+    }
+
+    // Abilities (scrollable)
+    var abilities = Array.isArray(def.abilities) ? def.abilities : (def.text ? [def.text] : []);
+    if (abilities.length) {
+      var abilitiesEl = document.createElement("div");
+      abilitiesEl.className = "cd-abilities";
+      abilities.forEach(function (line) {
+        var p = document.createElement("div");
+        p.className   = "cd-ability-line";
+        p.textContent = line;
+        abilitiesEl.appendChild(p);
+      });
+      wrap.appendChild(abilitiesEl);
+    } else {
+      // Spacer so power stays at the bottom even with no abilities.
+      var spacer = document.createElement("div");
+      spacer.className = "cd-abilities";
+      wrap.appendChild(spacer);
+    }
+
+    // Power
+    if (def.power != null) {
+      var powerEl = document.createElement("div");
+      powerEl.className   = "cd-power";
+      powerEl.textContent = def.power.toLocaleString();
+      wrap.appendChild(powerEl);
+    }
+
+    return wrap;
+  }
+
   // ── Modal rendering ────────────────────────────────────────────────────────
   // The modal layer is always rebuilt from scratch on every render call.
 
@@ -646,18 +819,74 @@
 
     panel.appendChild(cardListEl);
 
+    // ── Modal action bar (face toggle + move) ────────────────────────────────
+    var actionBar = document.createElement("div");
+    actionBar.className = "modal-action-bar";
+
+    // Face toggle
+    var modalFaceBtn       = document.createElement("button");
+    modalFaceBtn.textContent = "表向き / 裏向き";
+    modalFaceBtn.addEventListener("click", function () {
+      var sel = uiStore.getState().modal.selectedCardIds;
+      if (!sel.length) return;
+      gameStore.dispatch(selectCards(sel));
+      gameStore.dispatch(toggleFaceSelectedCards());
+      uiStore.dispatch(removePeekedCards(sel));
+      logAction("表向き/裏向き切り替え（" + sel.length + "枚）");
+    });
+    actionBar.appendChild(modalFaceBtn);
+
+    // Move: dropdown + button
+    var modalMoveSelect = document.createElement("select");
+    modalMoveSelect.className = "modal-move-select";
+    [
+      ["hand",           "手札"],
+      ["resolutionZone", "待機ゾーン"],
+      ["battlefield",    "バトルゾーン"],
+      ["shield",         "シールド"],
+      ["graveyard",      "墓地"],
+      ["mana",           "マナ"],
+      ["deck-top",       "山札（上）"],
+      ["deck-bottom",    "山札（下）"],
+      ["ex",             "EX"],
+      ["gr",             "GR"],
+    ].forEach(function (pair) {
+      var opt = document.createElement("option");
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      modalMoveSelect.appendChild(opt);
+    });
+    actionBar.appendChild(modalMoveSelect);
+
+    var modalMoveBtn       = document.createElement("button");
+    modalMoveBtn.textContent = "移動";
+    modalMoveBtn.addEventListener("click", function () {
+      var sel = uiStore.getState().modal.selectedCardIds;
+      if (!sel.length) return;
+      var parsed = parseMoveTarget(modalMoveSelect.value);
+      if (!parsed.zoneId) return;
+      gameStore.dispatch(selectCards(sel));
+      gameStore.dispatch(moveSelectedCards(parsed.zoneId, parsed.position));
+      uiStore.dispatch(removePeekedCards(sel));
+      uiStore.dispatch(selectModalCards([]));
+      logAction(sel.length + "枚を " + modalMoveSelect.options[modalMoveSelect.selectedIndex].text + " へ移動");
+    });
+    actionBar.appendChild(modalMoveBtn);
+
+    panel.appendChild(actionBar);
+
     // ── Footer: bulk actions + confirm ──────────────────────────────────────
     const footer = document.createElement("div");
     footer.className = "modal-footer";
 
     const selectAllBtn       = document.createElement("button");
-    selectAllBtn.textContent = "Select all";
+    selectAllBtn.textContent = "すべて選択";
     selectAllBtn.addEventListener("click", function () {
       uiStore.dispatch(selectModalCards(cardIds.slice()));
     });
 
     const clearBtn       = document.createElement("button");
-    clearBtn.textContent = "Clear";
+    clearBtn.textContent = "選択解除";
     clearBtn.addEventListener("click", function () {
       uiStore.dispatch(selectModalCards([]));
     });
@@ -666,11 +895,12 @@
     // Shown only when visibility is "hidden" (deck modal = search).
     if (modal.visibility === "hidden") {
       const peekBtn       = document.createElement("button");
-      peekBtn.textContent = "Look at";
+      peekBtn.textContent = "見る";
       peekBtn.addEventListener("click", function () {
         const sel = uiStore.getState().modal.selectedCardIds;
         if (sel.length > 0) {
           uiStore.dispatch(peekCards(sel));
+          logAction("カードを見る（" + sel.length + "枚）");
         }
       });
       footer.appendChild(peekBtn);
@@ -680,11 +910,12 @@
     // then close the modal.  The user can then act on them (move, tap, etc.).
     const confirmBtn       = document.createElement("button");
     confirmBtn.className   = "modal-confirm-btn";
-    confirmBtn.textContent = "Confirm selection";
+    confirmBtn.textContent = "選択を確定";
     confirmBtn.addEventListener("click", function () {
       const sel = uiStore.getState().modal.selectedCardIds;
       if (sel.length > 0) {
         gameStore.dispatch(selectCards(sel));
+        logAction("モーダルで " + sel.length + "枚を選択確定");
       }
       uiStore.dispatch(closeModal());
     });

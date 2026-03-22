@@ -19,6 +19,8 @@
       <div id="screen-menu"         class="screen is-active"></div>
       <div id="screen-card-editor"  class="screen"></div>
       <div id="screen-deck-builder" class="screen"></div>
+      <div id="screen-card-manager" class="screen"></div>
+      <div id="screen-deck-editor"  class="screen"></div>
     </div>
 
     <main id="layout" class="game-board" style="display:none">
@@ -34,49 +36,53 @@
       <section id="zone-mana" class="zone zone--spread"></section>
       <section id="zone-hand" class="zone zone--spread"></section>
 
+      <section id="card-detail-panel" class="card-detail-panel"></section>
+
       <aside id="controls">
         <div class="controls-group">
-          <button id="draw-button">Draw card</button>
-          <button id="shuffle-button">Shuffle deck</button>
-          <button id="reset-button">Reset game</button>
+          <button id="return-to-menu-button" class="btn--return-to-menu">← メニューへ</button>
         </div>
 
         <div class="controls-group">
-          <label for="move-target">Move selected to</label>
+          <button id="shuffle-button">シャッフル</button>
+          <button id="reset-button">リセット</button>
+          <small class="control-guide">各操作はカードを選択してから実行してください</small>
+        </div>
+
+        <div class="controls-group">
           <div class="controls-inline">
             <select id="move-target">
-              <option value="hand">Hand</option>
-              <option value="resolutionZone">Resolution Zone</option>
-              <option value="battlefield">Battlefield</option>
-              <option value="shield">Shield</option>
-              <option value="graveyard">Graveyard</option>
-              <option value="mana">Mana</option>
-              <option value="deck-top">Deck (top)</option>
-              <option value="deck-bottom">Deck (bottom)</option>
+              <option value="hand">手札</option>
+              <option value="resolutionZone">待機ゾーン</option>
+              <option value="battlefield">バトルゾーン</option>
+              <option value="shield">シールド</option>
+              <option value="graveyard">墓地</option>
+              <option value="mana">マナ</option>
+              <option value="deck-top">山札（上）</option>
+              <option value="deck-bottom">山札（下）</option>
               <option value="ex">EX</option>
               <option value="gr">GR</option>
             </select>
-            <button id="move-button">Move</button>
+            <button id="move-button">移動</button>
           </div>
         </div>
 
         <div class="controls-group">
-          <button id="toggle-tap-button">Toggle tap (selected)</button>
-          <button id="toggle-face-button">Toggle face (selected)</button>
-          <button id="peek-button">Look at (selected)</button>
-          <button id="clear-selection-button">Clear selection</button>
+          <button id="toggle-tap-button">タップ / アンタップ</button>
+          <button id="toggle-face-button">表向き / 裏向き</button>
+          <button id="peek-button">見る</button>
+          <button id="clear-selection-button">全選択解除</button>
         </div>
 
         <div class="controls-group">
-          <label>Stack selected cards</label>
-          <button id="pick-stack-button">Pick target stack</button>
-          <div class="controls-inline">
-            <button id="stack-top-button" disabled>Stack on top</button>
-            <button id="stack-bottom-button" disabled>Stack on bottom</button>
+          <button id="pick-stack-button">①重ねる対象を選ぶ</button>
+          <div class="controls-inline controls-inline--split">
+            <button id="stack-top-button" disabled>②上に重ねる</button>
+            <button id="stack-bottom-button" disabled>②下に重ねる</button>
           </div>
         </div>
 
-        <div id="status-text">Ready.</div>
+        <button id="draw-button" class="ctrl-draw-btn">ドロー</button>
       </aside>
 
       <section id="log-panel" class="zone"></section>
@@ -109,12 +115,15 @@
     <script src="./logic/deckBuilder.js"></script>
     <script src="./logic/CardRepository.js"></script>
     <script src="./logic/DeckRepository.js"></script>
+    <script src="./logic/dataPorter.js"></script>
 
     <!-- UI -->
     <script src="./ui/uiState.js"></script>
     <script src="./ui/viewModel.js"></script>
     <script src="./ui/cardEditor/cardEditor.js"></script>
     <script src="./ui/deckBuilder/deckBuilderUI.js"></script>
+    <script src="./ui/cardManager/cardManagerUI.js"></script>
+    <script src="./ui/deckEditor/deckEditorUI.js"></script>
     <script src="./ui/menu/menuUI.js"></script>
     <script src="./ui/ui.js"></script>
 

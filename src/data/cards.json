@@ -3,72 +3,302 @@
     "id": "dm-bolshack",
     "name": "ボルシャック・ドラゴン",
     "type": "creature",
-    "civilization": "fire",
+    "civilization": ["fire"],
     "cost": 6,
-    "race": "アーマード・ドラゴン",
+    "races": ["アーマード・ドラゴン"],
     "power": 6000,
     "mana": 1,
-    "text": "スピードアタッカー（このクリーチャーは召喚酔いしない）"
+    "abilities": ["スピードアタッカー（このクリーチャーは召喚酔いしない）"]
   },
   {
     "id": "dm-fairy-life",
     "name": "フェアリー・ライフ",
     "type": "spell",
-    "civilization": "nature",
+    "civilization": ["nature"],
     "cost": 2,
-    "race": null,
+    "races": [],
     "power": null,
     "mana": 1,
-    "text": "自分の山札の上から1枚目をマナゾーンに置く。"
+    "abilities": ["自分の山札の上から1枚目をマナゾーンに置く。"]
   },
   {
     "id": "dm-holy-spark",
     "name": "ホーリー・スパーク",
     "type": "spell",
-    "civilization": "light",
+    "civilization": ["light"],
     "cost": 6,
-    "race": null,
+    "races": [],
     "power": null,
     "mana": 1,
-    "text": "相手のクリーチャーをすべてタップする。"
+    "abilities": ["相手のクリーチャーをすべてタップする。"]
   },
   {
     "id": "dm-dark-reversal",
     "name": "デーモン・ハンド",
     "type": "spell",
-    "civilization": "darkness",
+    "civilization": ["darkness"],
     "cost": 6,
-    "race": null,
+    "races": [],
     "power": null,
     "mana": 1,
-    "text": "相手のクリーチャーを1体破壊する。"
+    "abilities": ["相手のクリーチャーを1体破壊する。"]
   },
   {
     "id": "dm-twin-sample",
-    "name": "爆炎竜＋大地の恵み",
+    "name": "爆炎竜 / 大地の恵み",
     "type": "twin",
     "mana": 1,
     "sides": [
       {
-        "side": "top",
         "name": "爆炎竜",
         "type": "creature",
-        "civilization": "fire",
+        "civilization": ["fire"],
         "cost": 5,
-        "race": "ドラゴン",
+        "races": ["ドラゴン"],
         "power": 5000,
-        "text": "W・ブレイカー"
+        "abilities": ["W・ブレイカー"]
       },
       {
-        "side": "bottom",
         "name": "大地の恵み",
         "type": "spell",
-        "civilization": "nature",
+        "civilization": ["nature"],
         "cost": 3,
-        "race": null,
+        "races": [],
         "power": null,
-        "text": "自分の山札の上から1枚をマナゾーンに置く。"
+        "abilities": ["自分の山札の上から1枚をマナゾーンに置く。"]
       }
+    ]
+  },
+  {
+    "id": "dm-ultimate-galaxy-universe",
+    "name": "究極銀河ユニバース",
+    "type": "creature",
+    "civilization": ["light"],
+    "cost": 5,
+    "races": ["フェニックス"],
+    "power": 17000,
+    "mana": 1,
+    "abilities": [
+      "進化：フェニックス・クリーチャー1体の上に置く。",
+      "T・ブレイカー",
+      "メテオバーン：このクリーチャーが攻撃する時、このクリーチャーの下にあるカードを1枚墓地に置いてもよい。それがこのクリーチャーの下にあった最後の1枚でフェニックス・カードなら、自分はゲームに勝つ。"
+    ]
+  },
+  {
+    "id": "dm-meteor-rage-lizard",
+    "name": "メテオレイジ・リザード",
+    "type": "creature",
+    "civilization": ["fire"],
+    "cost": 6,
+    "races": ["メルト・ウォリアー"],
+    "power": 5000,
+    "mana": 1,
+    "abilities": []
+  },
+  {
+    "id": "dm-colorful-dance",
+    "name": "カラフル・ダンス",
+    "type": "spell",
+    "civilization": ["nature"],
+    "cost": 4,
+    "races": [],
+    "power": null,
+    "mana": 1,
+    "abilities": ["自分の山札の上から5枚を、自分のマナゾーンに置く。その後、自分のマナゾーンのカードを5枚、墓地に置く"]
+  },
+  {
+    "id": "dm-ichigocci-tank",
+    "name": "イチゴッチ・タンク / レッツ・ゴイチゴ",
+    "type": "twin",
+    "mana": 1,
+    "sides": [
+      {
+        "name": "イチゴッチ・タンク",
+        "type": "creature",
+        "civilization": ["nature"],
+        "cost": 7,
+        "races": ["グランセクト"],
+        "power": 12000,
+        "abilities": ["T・ブレイカー"]
+      },
+      {
+        "name": "レッツ・ゴイチゴ",
+        "type": "spell",
+        "civilization": ["nature"],
+        "cost": 2,
+        "races": [],
+        "power": null,
+        "abilities": ["自分の山札の上から1枚目をマナゾーンに置く。"]
+      }
+    ]
+  },
+  {
+    "id": "f88957de-59e3-40e3-8f07-81b067edf7b6",
+    "name": "超愛銀河クエーサー・ラブエクスパンジョン",
+    "type": "creature",
+    "civilization": ["light", "water", "darkness", "fire", "nature"],
+    "cost": 6,
+    "races": ["フェニックス"],
+    "power": 16000,
+    "mana": 1,
+    "abilities": [
+      "G-NEO進化：クリーチャー1体の上に置いてもよい。",
+      "T・ブレイカー",
+      "このクリーチャーが出た時、自分の山札の上から5枚を見る。その中から1枚をシールド化し、1枚を手札に加え、残りを1枚ずつ、マナゾーン、墓地、このクリーチャーの下に置く。",
+      "このクリーチャーが離れた時、自分の墓地にあるカードを好きな枚数選び、山札に加えてシャッフルする。"
+    ]
+  },
+  {
+    "id": "a8602d7e-bdae-41f7-83d6-a97dedd69d3d",
+    "name": "究極銀河ユニバース（進化）",
+    "type": "creature",
+    "civilization": ["light"],
+    "cost": 5,
+    "races": ["フェニックス"],
+    "power": 17000,
+    "mana": 1,
+    "abilities": [
+      "進化：フェニックス・クリーチャー1体の上に置く。",
+      "T・ブレイカー",
+      "メテオバーン：このクリーチャーが攻撃する時、このクリーチャーの下にあるカードを1枚墓地に置いてもよい。それがこのクリーチャーの下にあった最後の1枚でフェニックス・カードなら、自分はゲームに勝つ。"
+    ]
+  },
+  {
+    "id": "c6e8dcc8-6ec2-4537-94ac-7bdd0ebfda4c",
+    "name": "グレートブルーの海幻",
+    "type": "tamaseed",
+    "civilization": ["water"],
+    "cost": 3,
+    "races": ["ポセイディア・ドラゴン", "フュージョナー"],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "シンカライズ",
+      "このタマシードが出た時、自分の山札の上から3枚を表向きにする。その中からクリーチャーとクリーチャーではないカードを最大1枚ずつ手札に加えてもよい。残りを好きな順序で山札の下に置く。",
+      "超魂X（これがクリーチャーの下にあれば、そのクリーチャーにも以下の能力を与える）",
+      "このクリーチャーが攻撃する時、コスト4以下の、クリーチャーではないカードを1枚、自分の手札からコストを支払わずに実行してもよい。"
+    ]
+  },
+  {
+    "id": "38dc4385-3ed5-42cd-912b-6bda02411040",
+    "name": "俳句爵 Drache der'Bande",
+    "type": "creature",
+    "civilization": ["light", "water", "nature"],
+    "cost": 3,
+    "races": ["マジック・コマンド・ドラゴン"],
+    "power": 3000,
+    "mana": 1,
+    "abilities": [
+      "G-NEO進化：光、水、または自然のクリーチャー1体の上に置いてもよい。",
+      "パワード・ブレイカー",
+      "このクリーチャーが攻撃する時、コスト4以下の、クリーチャーでないカードを1枚、自分の、手札またはマナゾーンからコストを支払わずに実行してもよい。",
+      "自分がクリーチャーではないカードを実行した時、このターン、このクリーチャーはブロックされず、パワーを+3000する。"
+    ]
+  },
+  {
+    "id": "099e4ecb-65ca-40b4-ada3-2001772b2d61",
+    "name": "SSS級天災 デッドダムド",
+    "type": "creature",
+    "civilization": ["water", "darkness", "nature"],
+    "cost": 8,
+    "races": ["トリニティ・コマンド", "S級侵略者"],
+    "power": 11000,
+    "mana": 1,
+    "abilities": [
+      "進化：水、闇、または自然のクリーチャー1体の上に置く。",
+      "SSS級侵略［天災］：水、闇、または自然のコマンド",
+      "W・ブレイカー",
+      "このクリーチャーを他のクリーチャーの上に重ねた時、相手のクリーチャーを1体選び、破壊するか、持ち主のマナゾーンに置くか、手札に戻す。"
+    ]
+  },
+  {
+    "id": "461e8f52-141a-4e7c-9315-ea254b22e1cb",
+    "name": "トレジャー・ルーン",
+    "type": "spell",
+    "civilization": ["nature"],
+    "cost": 2,
+    "races": [],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "S・トリガー（この呪文をシールドゾーンから手札に加える時、コストを支払わずにすぐ唱えてもよい）",
+      "コストの合計が4以下になるよう、タマシードを好きな数自分のマナゾーンから選んで出す。"
+    ]
+  },
+  {
+    "id": "d8ae454c-d6cc-4069-a1a8-78efdff73bfc",
+    "name": "ウルの天宝",
+    "type": "tamaseed",
+    "civilization": ["light"],
+    "cost": 4,
+    "races": ["エンジェル・コマンド", "フュージョナー"],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "S・トリガー",
+      "シンカライズ",
+      "このタマシードが出た時、このタマシードから進化できるコスト6以下のNEOクリーチャーを1体、自分の手札からこの上に置いてもよい。",
+      "超魂X（これがクリーチャーの下にあれば、そのクリーチャーにも以下の能力を与える）",
+      "ブロッカー"
+    ]
+  },
+  {
+    "id": "6ce63f5e-4494-480b-b75f-823694c1490f",
+    "name": "母なる聖地",
+    "type": "spell",
+    "civilization": ["nature"],
+    "cost": 4,
+    "races": [],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "バトルゾーンにある自分のクリーチャーを1体、タップしてマナゾーンに置く。その後、そのクリーチャーよりコストが小さいクリーチャーを1体、自分のマナゾーンから出す。"
+    ]
+  },
+  {
+    "id": "97edf433-7a53-4de4-8eed-83f700312e63",
+    "name": "超魂設計図",
+    "type": "spell",
+    "civilization": ["nature"],
+    "cost": 2,
+    "races": [],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "G・ストライク（このカードを自分のシールドゾーンから手札に加える時、表向きにし、相手のクリーチャーを1体選んでもよい。このターン、そのクリーチャーは攻撃できない）",
+      "自分の山札の上から6枚を表向きにする。その中からNEOクリーチャー1体とフュージョナー・カードを1枚手札に加え、残りを好きな順序で山札の下に置く。"
+    ]
+  },
+  {
+    "id": "1409aadd-15e7-43b0-a2fc-f7cb8ade2db2",
+    "name": "邪尾の魔法陣",
+    "type": "tamaseed",
+    "civilization": ["light", "fire", "nature"],
+    "cost": 4,
+    "races": ["デーモン・コマンド"],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "G・ストライク",
+      "シンカライズ：このタマシードがクリーチャーであるかのように、この上に進化クリーチャーを置いてもよい。",
+      "このタマシードが出た時、カードを1枚引く。その後、コスト3以下のコマンドを1つ、自分の手札またはマナゾーンから出してもよい。",
+      "このカードを自分の手札からマナゾーンに置いた時、アンタップする。"
+    ]
+  },
+  {
+    "id": "9ccded7e-d124-450e-9948-cb6e2daf1f29",
+    "name": "Dの天災 海底研究所",
+    "type": "d2field",
+    "civilization": ["water"],
+    "cost": 2,
+    "races": [],
+    "power": null,
+    "mana": 1,
+    "abilities": [
+      "このD2フィールドが出た時、カードを1枚引く。",
+      "自分の進化クリーチャーはブロックされない。",
+      "相手の進化クリーチャーは、出たターン攻撃できない。",
+      "（他のD2フィールドが出た時、このD2フィールドを破壊する。）"
     ]
   }
 ]

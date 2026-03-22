@@ -64,8 +64,8 @@ function getCivBackground(civs) {
 function getDisplayInfo(def) {
   if (!def) return { name: "?", cost: null, power: null };
   if (def.type === "twin") {
-    var top    = (def.sides || []).filter(function (s) { return s.side === "top";    })[0] || {};
-    var bottom = (def.sides || []).filter(function (s) { return s.side === "bottom"; })[0] || {};
+    var top    = (def.sides || [])[0] || {};
+    var bottom = (def.sides || [])[1] || {};
     return {
       name:  (top.name || "?") + " / " + (bottom.name || "?"),
       cost:  (top.cost != null ? top.cost : "?") + "/" + (bottom.cost != null ? bottom.cost : "?"),
