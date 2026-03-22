@@ -27,21 +27,33 @@ Redux-style state management.
 
 ```
 model/
-  CardDefinition.js  — Static card data; populated at startup from cards.json or localStorage
+  CardDefinition.js  — Static card data shape (populated from parser output or JSON)
   CardInstance.js    — Runtime card object (id, definitionId, isFaceDown)
   CardStack.js       — Ordered group of cards (bottom→top); holds isTapped
   Zone.js            — Ordered list of stack IDs; defines ZONE_IDS constants
-  DeckDefinition.js  — Saved deck: { id, name, cards: [{ cardId, count }] }
+  DeckDefinition.js  — Saved deck shape: { id, name, cards: [{ cardId, count }] }
 
 parser/
-  cardParser.js      — parseCardText(text) → CardDefinition; pure, no side effects
+  cardParser.js      — parseCardText(text) → { card, errors }; pure, no side effects
 
-storage/
-  cardStorage.js     — saveCards/loadCards/saveDecks/loadDecks via localStorage
+storage/              ← pure I/O only; never contains business logic
+  cardStorage.js     — loadCards/saveCards/loadDecks/saveDecks via localStorage
+                       Internal format: { version: 1, cards: [] }
 
-logic/
+logic/                ← business logic; depends on storage, never on UI
   deckBuilder.js     — buildDeckInstances(deckDef, cardDefs) → { instances, errors }
                        deckCardCount(deckDef) → number
+  CardRepository.js  — Card CRUD + search; only layer that calls CardStorage for cards
+                         getAllCards() getCardById(id)
+                         addCard(card) → { ok, id? }     (validates, deduplicates by name)
+                         updateCard(id, patch) → { ok }  (partial update; id immutable)
+                         deleteCard(id) → { ok }
+                         searchCards(filters) → CardDefinition[]
+  DeckRepository.js  — Deck CRUD; only layer that calls CardStorage for decks
+                         getAllDecks() getDeckById(id)
+                         addDeck(deck) → { ok, id? }     (validates, generates id)
+                         updateDeck(id, patch) → { ok }  (partial update; id immutable)
+                         deleteDeck(id) → { ok }
 
 core/
   GameState.js       — createInitialGameState(); reads CARD_DEFINITIONS + INITIAL_DECK_INSTANCES
@@ -51,16 +63,16 @@ core/
 engine/
   GameEngine.js      — Minimal Redux-style store (createStore)
 
-ui/
+ui/                   ← calls Repositories only; never CardStorage directly
   viewModel.js         — Pure: GameState → UI display objects (colors, gradients, names)
   uiState.js           — UI-only state (modal, selection, peeked cards); separate store
   ui.js                — Game board rendering; exposes window.startGameSimulation()
   cardEditor/
-    cardEditor.js      — Card registration screen (paste → parse → save)
+    cardEditor.js      — Card registration screen → CardRepository.addCard()
   deckBuilder/
-    deckBuilderUI.js   — Deck builder screen (select cards → set counts → save deck)
+    deckBuilderUI.js   — Deck builder screen → CardRepository.getAllCards(), DeckRepository.addDeck()
   menu/
-    menuUI.js          — Menu screen (deck list, navigation, game launch)
+    menuUI.js          — Menu screen → DeckRepository.getAllDecks/deleteDeck, CardRepository.getAllCards
 ```
 
 ---
@@ -91,11 +103,21 @@ User selects deck → Start
 
 ---
 
+## Layer rules (enforced by convention)
+
+| Layer       | May call            | Must NOT call     |
+|-------------|---------------------|-------------------|
+| UI          | Repository, Parser  | Storage directly  |
+| Repository  | Storage             | UI, Parser        |
+| Storage     | (none)              | Repository, UI    |
+| Parser      | (none — pure fn)    | Everything        |
+
 ## Invariants
 
 - CardDefinition = static data; never mutated during gameplay
 - CardInstance   = runtime object; lives in GameState.cards
 - DeckDefinition = static data; stored in localStorage; never in GameState
 - GameState structure must not be modified (add no new top-level keys)
-- Parsing logic must never appear in UI modules
-- UI logic must never appear in model or logic modules
+- Parsing logic must never appear in UI or Repository modules
+- Search / validation logic lives only in Repository modules
+- UI logic must never appear in model, logic, or storage modules

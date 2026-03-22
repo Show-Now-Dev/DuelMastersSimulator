@@ -726,6 +726,28 @@ select {
   border-bottom: none;
 }
 
+.card-preview__twin-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-preview__twin-name em {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.card-preview__twin-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0.6rem 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ── Messages ────────────────────────────────────────────────────────────── */
 
 .msg {

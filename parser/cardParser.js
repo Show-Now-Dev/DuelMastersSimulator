@@ -1,23 +1,17 @@
 // parser/cardParser.js
 //
-// Parses wiki-format card text into a CardDefinition-shaped object.
+// Parses Duel Masters Wiki card text into CardDefinition objects.
+// Spec: docs/CARD_FORMAT.md
+//
 // Pure function — no DOM access, no side effects.
 //
-// Supported input format (key: value lines, full/half-width colons, ■ bullets):
-//
-//   ボルシャック・ドラゴン
-//   文明：火
-//   コスト：6
-//   種類：クリーチャー
-//   種族：アーマード・ドラゴン
-//   パワー：6000
-//   テキスト：スピードアタッカー
-//
-// Returns a CardDefinition object, or null if parsing fails.
+// Entry point:
+//   parseCardText(text) → { card: CardDefinition | null, errors: string[] }
 
 (function () {
 
-  // ── Mapping tables ──────────────────────────────────────────────────────────
+  // ── Civilization mapping ──────────────────────────────────────────────────
+  // Source: CARD_FORMAT.md §General Rules ("文明" suffix is stripped before lookup)
 
   var CIV_MAP = {
     '光':   'light',
@@ -27,174 +21,271 @@
     '自然': 'nature',
   };
 
+  // ── Non-creature card type mapping ────────────────────────────────────────
+
   var TYPE_MAP = {
-    'クリーチャー':   'creature',
-    '呪文':          'spell',
-    'ツインパクト':  'twin',
-    'クロスギア':    'crossgear',
-    'フォートレス':  'fortress',
-    'タマシード':    'tamaseed',
-    'オーラ':        'aura',
+    '呪文':         'spell',
+    'タマシード':   'tamaseed',
+    'クロスギア':   'crossgear',
+    'フォートレス': 'fortress',
+    'D2フィールド': 'd2field',
+    'オーラ':       'aura',
   };
 
-  var RARITY_MAP = {
-    'コモン': 'common',     'C':  'common',
-    'アンコモン': 'uncommon', 'UC': 'uncommon',
-    'レア': 'rare',          'R':  'rare',
-    'ベリーレア': 'very_rare', 'VR': 'very_rare',
-    'スーパーレア': 'super_rare', 'SR': 'super_rare',
-    'レジェンドレア': 'legend_rare', 'LR': 'legend_rare',
-    'マスターレア': 'master_rare', 'MR': 'master_rare',
-  };
+  // ── Whitespace: matches full-width (U+3000) and half-width space/tab ──────
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  var WS  = '[\\s\\u3000]';     // one whitespace char
+  var WSP = '[\\s\\u3000]+';    // one or more whitespace chars
 
-  // Parse "火" or "火/自然" or "火・自然" into civilization array.
-  function parseCivilization(str) {
+  // ── Civilization string → string[] ───────────────────────────────────────
+  //
+  // "光文明"              → ["light"]
+  // "光/水/闇/火/自然文明" → ["light","water","darkness","fire","nature"]
+  // "無色"               → []   (colorless — no civilizations)
+
+  function parseCivilizationString(str) {
     if (!str) return [];
-    var parts = str.split(/[\/・,、\s]+/);
-    var civs  = [];
-    parts.forEach(function (p) {
-      var c = CIV_MAP[p.trim()];
-      if (c && civs.indexOf(c) === -1) civs.push(c);
-    });
-    return civs;
+    var s = str.trim();
+    if (s === '無色') return [];
+    // Strip trailing 文明 (only the last occurrence, covering "光/水文明")
+    s = s.replace(/文明$/, '');
+    return s.split('/').reduce(function (acc, part) {
+      var c = CIV_MAP[part.trim()];
+      if (c && acc.indexOf(c) === -1) acc.push(c);
+      return acc;
+    }, []);
   }
 
-  // Extract first integer from a string (e.g. "6" or "(6)" or "6000").
-  function parseNumber(str) {
-    var m = str.match(/\d+/);
-    return m ? parseInt(m[0], 10) : null;
-  }
+  // ── Header line parser ────────────────────────────────────────────────────
+  //
+  // Format: カード名　レアリティ　文明　(コスト)
+  //
+  // Strategy: strip the last three whitespace-separated fields from the right.
+  //   1. cost   → token matching \(\d+\) at end
+  //   2. civ    → token ending with 文明 or equal to 無色
+  //   3. rarity → any remaining last token
+  //   4. name   → everything before rarity (preserves internal spaces)
+  //
+  // Returns { name, civilization, cost } or null on failure.
 
-  function parseType(str) {
-    var t = str.trim();
-    return TYPE_MAP[t] || t.toLowerCase();
-  }
+  function parseHeaderLine(line) {
+    var s = line.trim();
 
-  function parseRarity(str) {
-    var t = str.trim();
-    return RARITY_MAP[t] || t;
-  }
+    // Step 1 — strip cost: "...(6)"
+    var costRe = new RegExp('\\((\\d+)\\)' + WS + '*$');
+    var costM  = s.match(costRe);
+    if (!costM) return null;
+    var cost = parseInt(costM[1], 10);
+    s = s.slice(0, costM.index).replace(new RegExp(WSP + '$'), '');
 
-  // Split a line into [label, value] around the first ： or :
-  // Strips leading ■ • ※ ◆ decorators.
-  // Returns [null, line] when no separator is found.
-  function splitLabelValue(line) {
-    var cleaned = line.replace(/^[■•※◆]\s*/, '');
-    var idx = cleaned.search(/[：:]/);
-    if (idx !== -1) {
-      return [cleaned.slice(0, idx).trim(), cleaned.slice(idx + 1).trim()];
-    }
-    // Tab-separated (table paste)
-    var tab = cleaned.indexOf('\t');
-    if (tab !== -1) {
-      return [cleaned.slice(0, tab).trim(), cleaned.slice(tab + 1).trim()];
-    }
-    return [null, cleaned.trim()];
-  }
+    // Step 2 — strip civilization: last token ending in 文明 or equal to 無色
+    // Allows / and Japanese chars inside the token.
+    var civRe = new RegExp('(' + WSP + ')([^\\s\\u3000]+文明|無色)$');
+    var civM  = s.match(civRe);
+    if (!civM) return null;
+    var civStr = civM[2];
+    s = s.slice(0, s.length - civM[0].length);
 
-  // Map a Japanese label string to a canonical field key, or null.
-  function normalizeLabel(label) {
-    if (!label) return null;
-    var L = label.trim();
-    if (/^(名前|カード名)$/.test(L))                    return 'name';
-    if (/^(文明|文明色)$/.test(L))                      return 'civilization';
-    if (/^(コスト|マナコスト|使用マナ)$/.test(L))       return 'cost';
-    if (/^(種類|タイプ|カードタイプ|カード種別)$/.test(L)) return 'type';
-    if (/^(種族|クリーチャータイプ)$/.test(L))          return 'race';
-    if (/^(パワー|P)$/.test(L))                         return 'power';
-    if (/^(テキスト|効果|能力テキスト|テキスト・フレーバー)$/.test(L)) return 'text';
-    if (/^(レアリティ|希少度|レア度)$/.test(L))         return 'rarity';
-    if (/^(マナ|マナ数)$/.test(L))                      return 'mana';
-    return null;
-  }
+    // Step 3 — strip rarity: last non-whitespace token
+    var rarityRe = new RegExp('(' + WSP + ')(\\S+)$');
+    var rarityM  = s.match(rarityRe);
+    if (!rarityM) return null;
+    s = s.slice(0, s.length - rarityM[0].length);
 
-  // Generate a stable card ID from a card name.
-  function generateCardId(name) {
-    var slug = name
-      .replace(/\s+/g, '-')
-      .replace(/[^\w\u3000-\u9fff\u30a0-\u30ff\u3040-\u309f\uff00-\uffef-]+/g, '')
-      .toLowerCase()
-      .slice(0, 40);
-    var rand = Math.random().toString(36).slice(2, 6);
-    return 'card_' + (slug || 'unknown') + '_' + rand;
-  }
-
-  // ── Main parser ─────────────────────────────────────────────────────────────
-
-  function parseCardText(text) {
-    if (!text || !text.trim()) return null;
-
-    var lines        = text.split(/\r?\n/);
-    var fields       = {};       // canonical key → raw string
-    var abilityLines = [];       // collected ability/text lines
-    var candidateName = null;    // first unlabeled line → name
-
-    lines.forEach(function (rawLine) {
-      var line = rawLine.trim();
-      if (!line) return;
-
-      var pair  = splitLabelValue(line);
-      var label = normalizeLabel(pair[0]);
-      var value = pair[1];
-
-      if (label) {
-        if (label === 'text') {
-          if (value) abilityLines.push(value);
-        } else {
-          fields[label] = value;
-        }
-        return;
-      }
-
-      // No recognized label.
-      // Lines that start with ■/•/※ (after stripping) are ability text.
-      if (/^[■•※◆]/.test(rawLine.trim())) {
-        var clean = rawLine.trim().replace(/^[■•※◆]\s*/, '');
-        if (clean) abilityLines.push(clean);
-        return;
-      }
-
-      // First unlabeled, non-decorated line is treated as the card name.
-      if (!candidateName) {
-        candidateName = line;
-        return;
-      }
-
-      // Remaining unlabeled lines → ability text.
-      abilityLines.push(line);
-    });
-
-    var name = fields.name || candidateName;
+    var name = s.trim();
     if (!name) return null;
 
-    var civs = parseCivilization(fields.civilization || '');
-    var cost   = fields.cost != null    ? parseNumber(fields.cost)   : null;
-    var power  = fields.power != null   ? parseNumber(fields.power)  : null;
-    var mana   = fields.mana != null    ? parseNumber(fields.mana)   : 1;
-    var type   = fields.type            ? parseType(fields.type)     : 'creature';
-    var race   = fields.race            || null;
-    var rarity = fields.rarity          ? parseRarity(fields.rarity) : null;
-
-    var def = {
-      id:           generateCardId(name),
+    return {
       name:         name,
-      type:         type,
-      civilization: civs.length === 1 ? civs[0] : (civs.length > 1 ? civs : null),
+      civilization: parseCivilizationString(civStr),
       cost:         cost,
-      race:         race,
-      power:        power,
-      mana:         mana != null ? mana : 1,
-      abilities:    abilityLines,
     };
-
-    if (rarity) def.rarity = rarity;
-
-    return def;
   }
 
-  // ── Export ──────────────────────────────────────────────────────────────────
+  // ── Type line parser ──────────────────────────────────────────────────────
+  //
+  // Creature formats (CARD_FORMAT.md §1):
+  //   クリーチャー：種族　パワー
+  //   進化クリーチャー：種族　パワー
+  //   G-NEOクリーチャー：種族　パワー
+  //   エグザイル・クリーチャー：種族1/種族2　パワー
+  //   (any type label containing "クリーチャー" before "：")
+  //
+  // Non-creature formats (CARD_FORMAT.md §2):
+  //   呪文  /  呪文：サブタイプ
+  //   タマシード：種族1/種族2
+  //   D2フィールド  /  クロスギア  / etc.
+  //
+  // Returns { type: string, races: string[], power: number | null }
+
+  function parseTypeLine(line) {
+    if (!line || !line.trim()) {
+      return { type: 'unknown', races: [], power: null };
+    }
+    var s = line.trim();
+
+    // ── Creature branch ───────────────────────────────────────────────────
+    if (s.indexOf('クリーチャー') !== -1) {
+      var colonIdx = s.indexOf('：');
+      if (colonIdx === -1) {
+        // No colon: bare "クリーチャー" with no races/power info
+        return { type: 'creature', races: [], power: null };
+      }
+
+      var afterColon = s.slice(colonIdx + 1).trim();
+
+      // Power: last whitespace-separated token of form \d+\+?
+      var powerRe = new RegExp('(' + WSP + ')(\\d+\\+?)$');
+      var powerM  = afterColon.match(powerRe);
+      var power   = null;
+      var racePart = afterColon;
+
+      if (powerM) {
+        power    = parseInt(powerM[2], 10);
+        racePart = afterColon.slice(0, afterColon.length - powerM[0].length).trim();
+      }
+
+      var races = racePart
+        ? racePart.split('/').map(function (r) { return r.trim(); }).filter(Boolean)
+        : [];
+
+      return { type: 'creature', races: races, power: power };
+    }
+
+    // ── Non-creature branch ───────────────────────────────────────────────
+    var colonIdx2 = s.indexOf('：');
+    var typeName  = colonIdx2 !== -1 ? s.slice(0, colonIdx2).trim() : s;
+    var canonical = TYPE_MAP[typeName] || typeName;
+
+    // Races: only extracted for タマシード
+    var races2 = [];
+    if (colonIdx2 !== -1 && typeName === 'タマシード') {
+      races2 = s.slice(colonIdx2 + 1).trim()
+        .split('/').map(function (r) { return r.trim(); }).filter(Boolean);
+    }
+
+    return { type: canonical, races: races2, power: null };
+  }
+
+  // ── Single block → single CardDefinition ─────────────────────────────────
+  //
+  // lines: string[] — trimmed, non-empty lines of one card block.
+  //   lines[0] → header
+  //   lines[1] → type line
+  //   lines[2+] → abilities
+
+  function parseSingleCard(lines) {
+    var errors = [];
+
+    var header = parseHeaderLine(lines[0]);
+    if (!header) {
+      errors.push('ヘッダー行の解析に失敗しました: ' + lines[0]);
+      return { card: null, errors: errors };
+    }
+
+    if (lines.length < 2) {
+      errors.push('タイプ行がありません (カード: ' + header.name + ')');
+      return { card: null, errors: errors };
+    }
+
+    var typeInfo  = parseTypeLine(lines[1]);
+    var abilities = lines.slice(2).map(function (l) { return l.trim(); }).filter(Boolean);
+
+    var card = {
+      name:         header.name,
+      civilization: header.civilization,
+      cost:         header.cost,
+      type:         typeInfo.type,
+      races:        typeInfo.races,
+      power:        typeInfo.power,
+      abilities:    abilities,
+      mana:         1,
+    };
+
+    return { card: card, errors: errors };
+  }
+
+  // ── Two blocks → twin pact CardDefinition ────────────────────────────────
+  //
+  // CARD_FORMAT.md §3 — Expected output:
+  //   { type: "twin", name: "A / B", sides: [sideA, sideB] }
+
+  function parseTwinPact(blockA, blockB) {
+    var rA = parseSingleCard(blockA);
+    var rB = parseSingleCard(blockB);
+    var errors = rA.errors.concat(rB.errors);
+
+    if (!rA.card || !rB.card) {
+      return { card: null, errors: errors };
+    }
+
+    var card = {
+      name:  rA.card.name + ' / ' + rB.card.name,
+      type:  'twin',
+      mana:  1,
+      sides: [rA.card, rB.card],
+    };
+
+    return { card: card, errors: errors };
+  }
+
+  // ── Split raw text into card blocks ───────────────────────────────────────
+  //
+  // Blocks are separated by empty (or whitespace-only) lines.
+  // "---" document separator lines are stripped before splitting.
+
+  function splitBlocks(text) {
+    var normalized = text
+      .replace(/\r\n/g, '\n')
+      .replace(/^[ \t\u3000]*---[ \t\u3000]*$/gm, ''); // strip markdown rulers
+
+    var rawBlocks = normalized.split(/\n[ \t\u3000]*\n/);
+
+    return rawBlocks.map(function (block) {
+      return block.split('\n')
+        .map(function (l) { return l.trim(); })
+        .filter(function (l) { return l.length > 0; });
+    }).filter(function (block) { return block.length > 0; });
+  }
+
+  // ── Main entry point ──────────────────────────────────────────────────────
+  //
+  // parseCardText(text)
+  // Returns { card: CardDefinition | null, errors: string[] }
+  //
+  // Dispatches to:
+  //   1 block  → parseSingleCard
+  //   2 blocks → parseTwinPact (CARD_FORMAT.md §3)
+  //   0 blocks → error
+
+  function parseCardText(text) {
+    if (!text || !text.trim()) {
+      return { card: null, errors: ['テキストが空です'] };
+    }
+
+    var blocks = splitBlocks(text);
+
+    if (blocks.length === 0) {
+      return { card: null, errors: ['有効なテキストが見つかりません'] };
+    }
+
+    if (blocks.length === 1) {
+      return parseSingleCard(blocks[0]);
+    }
+
+    if (blocks.length === 2) {
+      return parseTwinPact(blocks[0], blocks[1]);
+    }
+
+    // More than 2 blocks: parse first two as twin, warn about extras.
+    var result = parseTwinPact(blocks[0], blocks[1]);
+    result.errors.push(
+      '警告: ' + blocks.length + ' ブロックを検出しました。最初の2つをツインパクトとして解析しました。'
+    );
+    return result;
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
   window.parseCardText = parseCardText;
 
 })();

@@ -68,9 +68,9 @@ var MenuUI = (function () {
     heading.textContent = 'デッキを選択';
     container.appendChild(heading);
 
-    // Saved deck list
-    var decks = CardStorage.loadDecks();
-    var cards = CardStorage.loadCards();
+    // Saved deck list — read via repositories, never CardStorage directly.
+    var decks = DeckRepository.getAllDecks();
+    var cards = CardRepository.getAllCards();
 
     if (decks.length) {
       var listEl = document.createElement('div');
@@ -90,8 +90,7 @@ var MenuUI = (function () {
 
         var deleteBtn = _btn('削除', 'btn btn--danger', function () {
           if (!confirm(deck.name + ' を削除しますか？')) return;
-          var remaining = CardStorage.loadDecks().filter(function (d) { return d.id !== deck.id; });
-          CardStorage.saveDecks(remaining);
+          DeckRepository.deleteDeck(deck.id);
           _renderMenu();
         });
 

@@ -30,20 +30,27 @@ var CardEditor = (function () {
     var heading = _el('h2', { textContent: 'カード登録' });
     var desc    = _el('p',  {
       className: 'screen-desc',
-      textContent: 'Wikiからコピーしたカードテキストを貼り付けてパースします。',
+      textContent: 'Wikiからコピーしたカードテキストを貼り付けてパースします。ツインパクトは上面と下面の間1行だけ空けてね',
     });
 
     var textarea = document.createElement('textarea');
     textarea.className   = 'card-editor__input';
     textarea.rows        = 10;
     textarea.placeholder = [
-      '名前：ボルシャック・ドラゴン',
-      '文明：火',
-      'コスト：6',
-      '種類：クリーチャー',
-      '種族：アーマード・ドラゴン',
-      'パワー：6000',
-      'テキスト：スピードアタッカー',
+      '(サンプル)超越男　P(R)　光/水/闇/火/自然文明　(5)',
+      'クリーチャー：アウトレイジ/へドリアン/シノビ/ダイナモ/ハンター/チルドレン/ロスト・クルセイダー/カレーパン/ピアニスト/ワールドアイドル　2000+',
+      'U・ソウル',
+      'S・トリガー',
+      'S・バック：多色',
+      'シールド・ゴー',
+      'ニンジャ・ストライク 5',
+      'ロスト・プリズム',
+      'ガードマン',
+      'スレイヤー',
+      'エスケープ',
+      'パワーアタッカー+1000',
+      'ハンティング',
+      'ダイナモ',
     ].join('\n');
 
     var parseBtn = _el('button', { className: 'btn', textContent: '解析する' });
@@ -59,36 +66,33 @@ var CardEditor = (function () {
     var currentParsed = null;
 
     parseBtn.addEventListener('click', function () {
+      // parseCardText now returns { card, errors } per CARD_FORMAT.md spec.
       var result = parseCardText(textarea.value);
-      if (!result) {
-        preview.innerHTML = '<p class="msg msg--error">解析失敗: カード名が見つかりませんでした。</p>';
+      if (!result.card) {
+        var errMsg = result.errors.length ? result.errors.join(' / ') : '解析失敗';
+        preview.innerHTML = '<p class="msg msg--error">解析失敗: ' + errMsg + '</p>';
         saveBtn.disabled  = true;
         currentParsed     = null;
         return;
       }
-      currentParsed    = result;
-      preview.innerHTML = _buildPreviewHTML(result);
-      saveBtn.disabled  = false;
+      currentParsed     = result.card;
+      preview.innerHTML = _buildPreviewHTML(result.card);
+      // Show non-fatal warnings if any
+      if (result.errors.length) {
+        preview.innerHTML += '<p class="msg msg--error">警告: ' + result.errors.join(' / ') + '</p>';
+      }
+      saveBtn.disabled = false;
     });
 
     saveBtn.addEventListener('click', function () {
       if (!currentParsed) return;
 
-      var existing = CardStorage.loadCards();
-
-      // If a card with the same name already exists, update it (keep its ID).
-      var idx = -1;
-      for (var i = 0; i < existing.length; i++) {
-        if (existing[i].name === currentParsed.name) { idx = i; break; }
+      // Delegate to CardRepository — never call CardStorage directly from UI.
+      var saveResult = CardRepository.addCard(currentParsed);
+      if (!saveResult.ok) {
+        preview.innerHTML += '<p class="msg msg--error">保存失敗: ' + saveResult.error + '</p>';
+        return;
       }
-      if (idx !== -1) {
-        currentParsed = Object.assign({}, currentParsed, { id: existing[idx].id });
-        existing[idx] = currentParsed;
-      } else {
-        existing.push(currentParsed);
-      }
-
-      CardStorage.saveCards(existing);
 
       var msg = _el('p', { className: 'msg msg--success', textContent: '保存しました！' });
       preview.appendChild(msg);
@@ -105,19 +109,39 @@ var CardEditor = (function () {
     _container.appendChild(saveBtn);
   }
 
-  // Build the card preview table HTML string.
+  // Build preview HTML for a parsed CardDefinition.
+  // Handles single cards and twin pact cards (type: "twin").
   function _buildPreviewHTML(def) {
+    if (def.type === 'twin') {
+      var partsHTML = (def.sides || []).map(function (side, i) {
+        return '<div class="card-preview__twin-label">Side ' + (i + 1) + ': ' + (side.name || '—') + '</div>'
+          + _buildSideTableHTML(side);
+      }).join('');
+      return '<div class="card-preview">'
+        + '<div class="card-preview__twin-name">' + def.name + ' <em>(ツインパクト)</em></div>'
+        + partsHTML
+        + '</div>';
+    }
+    return '<div class="card-preview">' + _buildSideTableHTML(def) + '</div>';
+  }
+
+  // Build one <table> for a card or side.
+  function _buildSideTableHTML(def) {
     var civs = Array.isArray(def.civilization)
       ? def.civilization.join(', ')
       : (def.civilization || '—');
 
+    var races = Array.isArray(def.races) && def.races.length
+      ? def.races.join(' / ')
+      : (def.race || '—');
+
     var rows = [
-      ['名前',   def.name],
+      ['名前',   def.name  || '—'],
       ['文明',   civs],
-      ['コスト', def.cost   != null ? def.cost  : '—'],
-      ['種類',   def.type   || '—'],
-      ['種族',   def.race   || '—'],
-      ['パワー', def.power  != null ? def.power : '—'],
+      ['コスト', def.cost  != null ? def.cost  : '—'],
+      ['種類',   def.type  || '—'],
+      ['種族',   races],
+      ['パワー', def.power != null ? def.power : '—'],
     ];
 
     if (def.abilities && def.abilities.length) {
@@ -128,7 +152,7 @@ var CardEditor = (function () {
       return '<tr><th>' + row[0] + '</th><td>' + row[1] + '</td></tr>';
     }).join('');
 
-    return '<div class="card-preview"><table class="card-preview__table"><tbody>' + trs + '</tbody></table></div>';
+    return '<table class="card-preview__table"><tbody>' + trs + '</tbody></table>';
   }
 
   // ── Minimal DOM helper ──────────────────────────────────────────────────────

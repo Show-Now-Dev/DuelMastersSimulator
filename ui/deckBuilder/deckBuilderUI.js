@@ -6,7 +6,7 @@
 // Rules:
 //   - No game state access
 //   - No DOM manipulation outside the provided container
-//   - Delegates persistence to storage/cardStorage.js
+//   - Reads cards via CardRepository; saves decks via DeckRepository
 //   - Delegates count logic to logic/deckBuilder.js
 
 var DeckBuilderUI = (function () {
@@ -24,10 +24,10 @@ var DeckBuilderUI = (function () {
     _onSave    = onSave;
   }
 
-  // Reload cards from storage and re-render.
+  // Reload cards from repository and re-render.
   // Call this each time the screen becomes visible.
   function show() {
-    _cards  = CardStorage.loadCards();
+    _cards  = CardRepository.getAllCards();
     _counts = {};
     _render();
   }
@@ -147,16 +147,18 @@ var DeckBuilderUI = (function () {
       }
 
       var deckName = nameInput.value.trim() || '新しいデッキ';
-      var cards = Object.keys(_counts)
+      var entries = Object.keys(_counts)
         .filter(function (id) { return _counts[id] > 0; })
         .map(function (id) { return { cardId: id, count: _counts[id] }; });
 
-      var deck = createDeckDefinition('deck_' + Date.now(), deckName, cards);
+      // Delegate to DeckRepository — id is generated there.
+      var result = DeckRepository.addDeck(createDeckDefinition('', deckName, entries));
+      if (!result.ok) {
+        alert('保存失敗: ' + result.error);
+        return;
+      }
 
-      var existing = CardStorage.loadDecks();
-      existing.push(deck);
-      CardStorage.saveDecks(existing);
-
+      var deck = DeckRepository.getDeckById(result.id);
       if (_onSave) _onSave(deck);
       alert('デッキを保存しました: ' + deckName);
 
