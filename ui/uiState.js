@@ -24,12 +24,13 @@
 // SET_SELECTED_TARGET_ZONE is declared in actions.js.
 // The uiReducer handles it here so it never touches the game reducer.
 
-const OPEN_MODAL         = "OPEN_MODAL";
-const CLOSE_MODAL        = "CLOSE_MODAL";
-const SELECT_MODAL_CARDS = "SELECT_MODAL_CARDS";
-const PEEK_CARDS         = "PEEK_CARDS";
-const REMOVE_PEEKED_CARDS = "REMOVE_PEEKED_CARDS";
-const CLEAR_PEEKED_CARDS  = "CLEAR_PEEKED_CARDS";
+const OPEN_MODAL              = "OPEN_MODAL";
+const OPEN_CARD_DETAIL_MODAL  = "OPEN_CARD_DETAIL_MODAL";
+const CLOSE_MODAL             = "CLOSE_MODAL";
+const SELECT_MODAL_CARDS      = "SELECT_MODAL_CARDS";
+const PEEK_CARDS              = "PEEK_CARDS";
+const REMOVE_PEEKED_CARDS     = "REMOVE_PEEKED_CARDS";
+const CLEAR_PEEKED_CARDS      = "CLEAR_PEEKED_CARDS";
 
 // ── Action creators ───────────────────────────────────────────────────────────
 
@@ -48,6 +49,14 @@ function openModal(source, selectionMode, visibility, topN) {
       visibility:    visibility    || "all",
       topN:          topN          || 3,
     },
+  };
+}
+
+// Open a CARD_DETAIL modal for the given card definition id.
+function openCardDetailModal(definitionId) {
+  return {
+    type: OPEN_CARD_DETAIL_MODAL,
+    payload: { definitionId: definitionId },
   };
 }
 
@@ -105,6 +114,14 @@ function uiReducer(state, action) {
           visibility:      action.payload.visibility,
           topN:            action.payload.topN,
           selectedCardIds: [],
+        },
+      });
+
+    case OPEN_CARD_DETAIL_MODAL:
+      return Object.assign({}, state, {
+        modal: {
+          type:         "CARD_DETAIL",
+          definitionId: action.payload.definitionId,
         },
       });
 

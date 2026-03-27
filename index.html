@@ -9,6 +9,15 @@
   <body>
     <header>
       <h1>Card Game Simulator</h1>
+      <!--
+        Game-only controls: shown when the board is active, hidden on menu screens.
+        Toggled by startGameSimulation() / return-to-menu handler.
+      -->
+      <div id="header-game-controls" style="display:none">
+        <button id="return-to-menu-button" class="btn--return-to-menu">← メニューへ</button>
+        <button id="shuffle-button">シャッフル</button>
+        <button id="reset-button">リセット</button>
+      </div>
     </header>
 
     <!--
@@ -32,15 +41,7 @@
       <section id="card-detail-panel" class="card-detail-panel"></section>
 
       <aside id="controls">
-        <div class="controls-group">
-          <button id="return-to-menu-button" class="btn--return-to-menu">← メニューへ</button>
-        </div>
-
-        <div class="controls-group">
-          <button id="shuffle-button">シャッフル</button>
-          <button id="reset-button">リセット</button>
-          <small class="control-guide">各操作はカードを選択してから実行してください</small>
-        </div>
+        <button id="draw-button" class="ctrl-draw-btn">ドロー</button>
 
         <div class="controls-group">
           <div class="controls-inline">
@@ -66,8 +67,6 @@
             <button id="stack-bottom-button" disabled>②下に重ねる</button>
           </div>
         </div>
-
-        <button id="draw-button" class="ctrl-draw-btn">ドロー</button>
       </aside>
 
       <section id="log-panel" class="zone"></section>

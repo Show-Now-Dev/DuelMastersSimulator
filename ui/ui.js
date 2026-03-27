@@ -6,10 +6,12 @@
     var btn = document.getElementById("return-to-menu-button");
     if (!btn) return;
     btn.addEventListener("click", function () {
-      var preGame  = document.getElementById("pre-game");
-      var layoutEl = document.getElementById("layout");
-      if (layoutEl) layoutEl.style.display = "none";
-      if (preGame)  preGame.style.display   = "";
+      var preGame      = document.getElementById("pre-game");
+      var layoutEl     = document.getElementById("layout");
+      var headerCtrls  = document.getElementById("header-game-controls");
+      if (layoutEl)    layoutEl.style.display    = "none";
+      if (preGame)     preGame.style.display      = "";
+      if (headerCtrls) headerCtrls.style.display  = "none";
       MenuUI.showMenu();
     });
   }());
@@ -20,10 +22,12 @@
     CARD_DEFINITIONS       = cardDefs;
     INITIAL_DECK_INSTANCES = deckInstances;
 
-    var preGame  = document.getElementById("pre-game");
-    var layoutEl = document.getElementById("layout");
-    if (preGame)  preGame.style.display  = "none";
-    if (layoutEl) layoutEl.style.display = "";
+    var preGame     = document.getElementById("pre-game");
+    var layoutEl    = document.getElementById("layout");
+    var headerCtrls = document.getElementById("header-game-controls");
+    if (preGame)     preGame.style.display     = "none";
+    if (layoutEl)    layoutEl.style.display    = "";
+    if (headerCtrls) headerCtrls.style.display = "";
 
     init();
   };
@@ -173,6 +177,24 @@
         });
       });
     });
+
+    // ── Card detail panel click → open card detail modal ─────────────────────
+    if (cardDetailPanelEl) {
+      cardDetailPanelEl.addEventListener("click", function () {
+        var gameState = gameStore.getState();
+        var peeked    = uiStore.getState().peekedCardIds || [];
+        var selIds    = gameState.selectedCardIds || [];
+        for (var i = selIds.length - 1; i >= 0; i--) {
+          var c = gameState.cards[selIds[i]];
+          if (!c) continue;
+          var isFaceDown = (peeked.indexOf(c.id) !== -1) ? false : c.isFaceDown;
+          if (!isFaceDown) {
+            uiStore.dispatch(openCardDetailModal(c.definitionId));
+            return;
+          }
+        }
+      });
+    }
 
     // ── Modal close handlers ──────────────────────────────────────────────────
 

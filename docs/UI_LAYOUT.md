@@ -17,6 +17,22 @@
   - Be centered
   - Use semi-transparent background
 
+
+## Card Information display
+When you display the card information, follow the layout below.
+The modal panel is divided into two fixed regions:
+┌────────────────────────────┐
+│ cardname civilization cost │  ← always visible, does not scroll
+├────────────────────────────┤
+│         ┼                  │
+│ cardtext    (scrollable)   │  ← fills remaining space, scrolls
+│                            │
+├────────────────────────────┤
+│ power                      │  ← always visible, does not scroll
+└────────────────────────────┘
+
+
+
 ## Board Structure
 
 ① Battlefield

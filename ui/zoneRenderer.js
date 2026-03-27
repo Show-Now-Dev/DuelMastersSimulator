@@ -37,6 +37,15 @@
 
 var ZoneRenderer = (function () {
 
+  // ── Civilization name map (Japanese) ─────────────────────────────────────────
+  var CIV_NAMES_JP = {
+    light:    "光文明",
+    water:    "水文明",
+    darkness: "闇文明",
+    fire:     "火文明",
+    nature:   "自然文明",
+  };
+
   // ── Internal helpers ─────────────────────────────────────────────────────────
 
   // Read --card-w CSS variable; fall back to 80px.
@@ -298,6 +307,8 @@ var ZoneRenderer = (function () {
 
     if (modal.type === "CARD_SELECTOR") {
       _renderCardSelectorModal(container, gameState, modal, uiSt.peekedCardIds, callbacks);
+    } else if (modal.type === "CARD_DETAIL") {
+      _renderCardDetailModal(container, modal, callbacks);
     }
 
     container.classList.add("is-open");
@@ -505,6 +516,106 @@ var ZoneRenderer = (function () {
     footer.appendChild(clearBtn);
     footer.appendChild(confirmBtn);
     panel.appendChild(footer);
+
+    container.appendChild(panel);
+  }
+
+  // ── Card detail modal ────────────────────────────────────────────────────────
+  // Triggered by clicking the card-detail-panel.
+  // Layout: fixed header (name + civilization + cost) / scrollable body (abilities) / fixed footer (power).
+  // Twin cards: two sections side-by-side, each with its own header / body / footer.
+
+  function _buildCardInfoSection(def) {
+    var section = document.createElement("div");
+    section.className = "cdi-section";
+
+    // Header: name + civilization + cost (always visible)
+    var hd = document.createElement("div");
+    hd.className = "cdi-header";
+
+    var nameEl = document.createElement("span");
+    nameEl.className   = "cdi-name";
+    nameEl.textContent = def.name || "—";
+    hd.appendChild(nameEl);
+
+    var civs = Array.isArray(def.civilization) ? def.civilization
+      : (def.civilization ? [def.civilization] : []);
+    if (civs.length) {
+      var civEl = document.createElement("span");
+      civEl.className   = "cdi-civ";
+      civEl.textContent = civs.map(function (c) { return CIV_NAMES_JP[c] || c; }).join(" / ");
+      hd.appendChild(civEl);
+    }
+
+    if (def.cost != null) {
+      var costEl = document.createElement("span");
+      costEl.className   = "cdi-cost";
+      costEl.textContent = def.cost;
+      hd.appendChild(costEl);
+    }
+
+    section.appendChild(hd);
+
+    // Body: abilities / card text (scrollable)
+    var body = document.createElement("div");
+    body.className = "cdi-body";
+    var abilities = Array.isArray(def.abilities) ? def.abilities
+      : (def.text ? [def.text] : []);
+    abilities.forEach(function (line) {
+      var p = document.createElement("div");
+      p.className   = "cdi-ability-line";
+      p.textContent = line;
+      body.appendChild(p);
+    });
+    section.appendChild(body);
+
+    // Footer: power (always visible)
+    if (def.power != null) {
+      var ft = document.createElement("div");
+      ft.className   = "cdi-footer";
+      ft.textContent = def.power.toLocaleString();
+      section.appendChild(ft);
+    }
+
+    return section;
+  }
+
+  function _renderCardDetailModal(container, modal, cb) {
+    var def = getCardDefinition(modal.definitionId);
+    container.innerHTML = "";
+
+    var panel = document.createElement("div");
+    panel.className = "modal-panel modal-panel--card-detail";
+
+    // Close button bar
+    var closeBar = document.createElement("div");
+    closeBar.className = "cdi-close-bar";
+    var closeBtn = document.createElement("button");
+    closeBtn.className   = "modal-close-btn";
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", function () { cb.onClose(); });
+    closeBar.appendChild(closeBtn);
+    panel.appendChild(closeBar);
+
+    if (!def) {
+      var err = document.createElement("div");
+      err.className   = "cd-placeholder";
+      err.textContent = "カード情報が見つかりません";
+      panel.appendChild(err);
+      container.appendChild(panel);
+      return;
+    }
+
+    if (def.type === "twin") {
+      var twinWrap = document.createElement("div");
+      twinWrap.className = "cdi-twin";
+      (def.sides || []).forEach(function (side) {
+        twinWrap.appendChild(_buildCardInfoSection(side));
+      });
+      panel.appendChild(twinWrap);
+    } else {
+      panel.appendChild(_buildCardInfoSection(def));
+    }
 
     container.appendChild(panel);
   }
