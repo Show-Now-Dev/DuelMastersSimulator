@@ -281,10 +281,38 @@
       }
     }
 
+    // ── Board scale ───────────────────────────────────────────────────────────
+    // When the viewport is narrower than the board's natural minimum width,
+    // scale the entire board down so it fits without horizontal overflow.
+    //
+    // Technique: CSS zoom (not transform: scale) — zoom affects layout flow,
+    // so the scaled board takes up exactly the right amount of space in the
+    // document without any overflow or margin tricks.
+    //
+    // --card-w is overridden on :root so all derived variables (--card-h,
+    // --gap, --zone-row-h, …) resolve to the reference-layout values, and
+    // the JS card-spacing calculation (_getCardWidth) also returns the correct
+    // reference value.
+
+    var BOARD_MIN_VW = 728; // viewport width at which --card-w hits its clamp min (40px)
+
+    function applyBoardScale() {
+      var vw = window.innerWidth;
+      if (vw >= BOARD_MIN_VW) {
+        document.documentElement.style.removeProperty('--card-w');
+        boardEl.style.zoom = '';
+      } else {
+        // Freeze --card-w at minimum so the grid is at its natural reference size.
+        document.documentElement.style.setProperty('--card-w', '40px');
+        boardEl.style.zoom = (vw / BOARD_MIN_VW).toFixed(5);
+      }
+    }
+
     // ── Subscribe both stores to the same render function ────────────────────
     gameStore.subscribe(render);
     uiStore.subscribe(render);
-    window.addEventListener("resize", render);
+    window.addEventListener("resize", function () { applyBoardScale(); render(); });
+    applyBoardScale();
     render();
 
   } // end init()

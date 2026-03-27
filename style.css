@@ -25,9 +25,11 @@
    *  Clamped between 40 px (min playable) and 80 px (design maximum).
    *  At ≥ 1188 px viewport: card-w hits 80 px cap → board centres via justify-content.
    *  At  ≥  728 px viewport: board fills width exactly.
-   *  Below 728 px: board clips (acceptable — game is unplayable at that size).
+   *  Below 728 px: JS applies CSS zoom so the board scales to fit the viewport.
    */
   --card-w: clamp(40px, calc((100vw - var(--ctrl-w) - var(--board-pad) * 2) / 11.5), 80px);
+  /* Note: below 728px viewport, JS overrides --card-w to 40px and applies CSS zoom
+     on #layout so the board scales uniformly without horizontal overflow. */
   --card-h: calc(var(--card-w) * 7 / 5); /* fixed 5:7 aspect ratio */
 
   /* gap is 15% of card-w — this ratio is absorbed into the /11.5 formula above */
