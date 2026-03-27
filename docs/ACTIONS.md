@@ -40,7 +40,7 @@ cardIds: string[]
 
 target:
   type: "zone" | "stack"
-  zone?: ZoneType      // required when type is "zone"
+  zoneId?: string      // required when type is "zone"
   stackId?: string     // required when type is "stack"
 
 position: "top" | "bottom"
@@ -49,22 +49,30 @@ position: "top" | "bottom"
 
 behavior by target type:
 
-  target.type === "zone" && zone === "deck":
+  target.type === "zone" && zoneId === "deck":
     - position "top"    → insert card(s) at index 0 of deck.cardIds
     - position "bottom" → append card(s) at end of deck.cardIds
     - Deck order is strictly preserved; no implicit shuffling
 
-  target.type === "zone" && zone === "graveyard":
+  target.type === "zone" && zoneId === "graveyard":
     - Card(s) are always placed on top (index 0) of graveyard.cardIds
     - The position field is ignored for graveyard
 
-  target.type === "zone" && zone is other (hand, battlefield, mana, shield, ex, gr):
+  target.type === "zone" && zoneId is other (hand, battlefield, mana, shield, ex, gr):
+    - Each card becomes its own new single-card stack in the zone
     - position "top"    → insert at index 0
     - position "bottom" → append at end
 
   target.type === "stack":
-    - Card(s) are placed on top of the target stack
-    - The position field is ignored
+    - Card(s) are merged into the target stack
+    - position "top"    → placed on top of the stack (end of cardIds)
+    - position "bottom" → placed on bottom of the stack (start of cardIds)
+
+notes:
+  Stack operations are expressed as MOVE_CARDS:
+  - "Create stack": move cards to an existing stack target
+  - "Split stack":  move a subset of cards to a zone target
+  - "Merge stacks": move all cards of one stack onto another stack target
 
 ---
 
@@ -75,7 +83,7 @@ Move currently selected cards using the same behavior as MOVE_CARDS.
 payload:
 target:
   type: "zone" | "stack"
-  zone?: ZoneType
+  zoneId?: string
   stackId?: string
 
 position: "top" | "bottom"
@@ -83,40 +91,6 @@ position: "top" | "bottom"
 behavior:
 - Identical to MOVE_CARDS but operates on the current selection
 - Selection is cleared after the move
-
----
-
-## CREATE_STACK
-
-Create a new stack from selected cards in a zone.
-
-payload:
-zone: ZoneType
-
----
-
-## SPLIT_STACK
-
-Split a stack into two stacks.
-
-payload:
-stackId: string
-cardIndex: number
-
-description:
-Split the stack at the given index.
-Cards above the index form a new stack.
-
----
-
-## MERGE_STACK
-
-Merge two stacks.
-
-payload:
-sourceStackId: string
-targetStackId: string
-position: "top" | "bottom"
 
 ---
 
@@ -129,7 +103,7 @@ stackId: string
 
 ---
 
-## TOGGLE_TAP_SELECTED_STACKS
+## TOGGLE_TAP_SELECTED_CARDS
 
 Toggle tap state of stacks that contain selected cards.
 
@@ -162,19 +136,19 @@ none
 
 ## SELECT_CARDS
 
-Set selected cards.
+Replace the current selection with a new list of card IDs.
 
 payload:
 cardIds: string[]
 
 ---
 
-## ADD_SELECTION
+## TOGGLE_CARD_SELECTION
 
-Add cards to current selection.
+Toggle one card in/out of the current selection.
 
 payload:
-cardIds: string[]
+cardId: string
 
 ---
 
@@ -190,19 +164,30 @@ none
 ## UI ACTIONS (UI State Only)
 
 These actions do NOT affect GameState.
-They are handled separately in UI state.
+They are handled separately in UI state (uiState.js).
+
+---
+
+### SET_SELECTED_TARGET_ZONE
+
+Set the currently selected target zone in the UI (e.g. dropdown value).
+
+payload:
+zoneId: string | null
 
 ---
 
 ### OPEN_MODAL
 
-Open the modal for card selection within a stack or zone.
+Open the CARD_SELECTOR modal for browsing cards in a stack or zone.
 
 payload:
-type: "stack" | "zone"
-targetId: string
-  // When type is "stack": targetId is the stackId
-  // When type is "zone":  targetId is the ZoneType (e.g. "deck", "graveyard", "ex", "gr")
+source:
+  type: "stack" | "zone"
+  id:   string            // stackId when type is "stack"; ZoneType when type is "zone"
+selectionMode: "single" | "multiple"   // default "multiple"
+visibility:    "all" | "top-n" | "hidden"  // default "all"
+topN:          number                  // used when visibility is "top-n", default 3
 
 ---
 
@@ -221,3 +206,33 @@ Set the card selection within the modal (does not affect main selection).
 
 payload:
 cardIds: string[]
+
+---
+
+### PEEK_CARDS
+
+Add cards to the peeked set (displayed face-up without changing game state isFaceDown).
+
+payload:
+cardIds: string[]
+
+behavior:
+- Union operation — duplicate IDs are ignored
+
+---
+
+### REMOVE_PEEKED_CARDS
+
+Remove specific cards from the peeked set (call after moving peeked cards).
+
+payload:
+cardIds: string[]
+
+---
+
+### CLEAR_PEEKED_CARDS
+
+Clear all peeked cards.
+
+payload:
+none

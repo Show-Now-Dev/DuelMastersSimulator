@@ -6,6 +6,29 @@
 //   - Empty stacks are removed automatically after any mutation.
 //   - State is never mutated directly (all updates are immutable copies).
 //   - No UI logic lives inside this file.
+//
+// context (third argument, injected by GameEngine.createStore):
+//   {
+//     cardDefinitions:    CardDefinition[]              — full card registry
+//     cardDefinitionsMap: { [id]: CardDefinition }      — pre-built map for O(1) lookup
+//   }
+//   All functions accept context so it can be threaded through without future
+//   callers needing to change their signatures.
+
+// ── Context helper ────────────────────────────────────────────────────────────
+
+// Look up a CardDefinition by id via the injected context.
+// Falls back to undefined when context is absent (e.g. during @@INIT).
+function _lookupCardDef(context, defId) {
+  if (!context) return undefined;
+  if (context.cardDefinitionsMap) return context.cardDefinitionsMap[defId];
+  // Fallback: linear search when map is not pre-built.
+  var defs = context.cardDefinitions || [];
+  for (var i = 0; i < defs.length; i++) {
+    if (defs[i].id === defId) return defs[i];
+  }
+  return undefined;
+}
 
 // ── Game Setup ────────────────────────────────────────────────────────────────
 //
@@ -15,9 +38,9 @@
 //   3. Move next 5 cards to Hand  (face-up via zone default)
 //
 // All movements go through applyMoveCards so no invariants are bypassed.
-function applyGameSetup(state) {
+function applyGameSetup(state, context) {
   // Step 1: Shuffle
-  var s1 = handleShuffleDeck(state, {});
+  var s1 = handleShuffleDeck(state, {}, context);
 
   // Helper: get the top card ID from a stack (bottom→top order → last element).
   function topCardOf(stacks, stackId) {
@@ -30,36 +53,36 @@ function applyGameSetup(state) {
   var shieldCardIds = deckAfterShuffle.stackIds.slice(0, 5).map(function (sid) {
     return topCardOf(s1.stacks, sid);
   }).filter(Boolean);
-  var s2 = applyMoveCards(s1, shieldCardIds, { type: "zone", zoneId: ZONE_IDS.SHIELD }, "bottom");
+  var s2 = applyMoveCards(s1, shieldCardIds, { type: "zone", zoneId: ZONE_IDS.SHIELD }, "bottom", context);
 
   // Step 3: Move next 5 stacks' cards → Hand (face-up by zone default)
   var deckAfterShield = s2.zones[ZONE_IDS.DECK];
   var handCardIds = deckAfterShield.stackIds.slice(0, 5).map(function (sid) {
     return topCardOf(s2.stacks, sid);
   }).filter(Boolean);
-  var s3 = applyMoveCards(s2, handCardIds, { type: "zone", zoneId: ZONE_IDS.HAND }, "bottom");
+  var s3 = applyMoveCards(s2, handCardIds, { type: "zone", zoneId: ZONE_IDS.HAND }, "bottom", context);
 
   return Object.assign({}, s3, { status: "Game ready." });
 }
 
-function rootReducer(state, action) {
-  if (!state) return applyGameSetup(createInitialGameState());
+function rootReducer(state, action, context) {
+  if (!state) return applyGameSetup(createInitialGameState(), context);
 
   switch (action.type) {
     // ── Core game actions ────────────────────────────────────────────────────
-    case DRAW_CARD:              return handleDrawCard(state, action.payload);
-    case SHUFFLE_DECK:           return handleShuffleDeck(state, action.payload);
-    case RESET_GAME:             return applyGameSetup(createInitialGameState());
-    case MOVE_CARDS:             return handleMoveCards(state, action.payload);
-    case MOVE_SELECTED_CARDS:    return handleMoveSelectedCards(state, action.payload);
-    case TOGGLE_TAP_STACK:       return handleToggleTapStack(state, action.payload);
-    case TOGGLE_FACE_CARDS:      return handleToggleFaceCards(state, action.payload);
-    case SELECT_CARDS:           return handleSelectCards(state, action.payload);
-    case CLEAR_SELECTION:        return handleClearSelection(state);
+    case DRAW_CARD:              return handleDrawCard(state, action.payload, context);
+    case SHUFFLE_DECK:           return handleShuffleDeck(state, action.payload, context);
+    case RESET_GAME:             return applyGameSetup(createInitialGameState(), context);
+    case MOVE_CARDS:             return handleMoveCards(state, action.payload, context);
+    case MOVE_SELECTED_CARDS:    return handleMoveSelectedCards(state, action.payload, context);
+    case TOGGLE_TAP_STACK:       return handleToggleTapStack(state, action.payload, context);
+    case TOGGLE_FACE_CARDS:      return handleToggleFaceCards(state, action.payload, context);
+    case SELECT_CARDS:           return handleSelectCards(state, action.payload, context);
+    case CLEAR_SELECTION:        return handleClearSelection(state, context);
     // ── Convenience actions (derive from the primitives above) ───────────────
-    case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state);
-    case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state);
-    case TOGGLE_CARD_SELECTION:      return handleToggleCardSelection(state, action.payload);
+    case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state, context);
+    case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state, context);
+    case TOGGLE_CARD_SELECTION:      return handleToggleCardSelection(state, action.payload, context);
     // SET_SELECTED_TARGET_ZONE is now handled by uiReducer — ignore here.
     default:                         return state;
   }
@@ -101,7 +124,7 @@ function getZoneDefaultIsFaceDown(zoneId) {
 //   - Cards not found in any stack are silently skipped.
 //   - Stacks that become empty after removal are deleted and unlinked from zones.
 //   - isFaceDown on moved cards is updated to match the target zone's default.
-function applyMoveCards(state, cardIds, target, position) {
+function applyMoveCards(state, cardIds, target, position, context) {
   var stacks      = state.stacks;
   var zones       = state.zones;
   var cards       = state.cards;
@@ -198,27 +221,27 @@ function applyMoveCards(state, cardIds, target, position) {
 }
 
 // ── Handler: MOVE_CARDS ───────────────────────────────────────────────────────
-function handleMoveCards(state, payload) {
+function handleMoveCards(state, payload, context) {
   var cardIds  = payload.cardIds;
   var target   = payload.target;
   var position = payload.position || "bottom";
   if (!cardIds || !cardIds.length || !target) return state;
-  return applyMoveCards(state, cardIds, target, position);
+  return applyMoveCards(state, cardIds, target, position, context);
 }
 
 // ── Handler: MOVE_SELECTED_CARDS ─────────────────────────────────────────────
-function handleMoveSelectedCards(state, payload) {
+function handleMoveSelectedCards(state, payload, context) {
   var target   = payload.target;
   var position = payload.position || "bottom";
   var cardIds  = state.selectedCardIds || [];
   if (!cardIds.length || !target) return state;
 
-  var next = applyMoveCards(state, cardIds, target, position);
+  var next = applyMoveCards(state, cardIds, target, position, context);
   return Object.assign({}, next, { selectedCardIds: [] });
 }
 
 // ── Handler: TOGGLE_TAP_STACK ────────────────────────────────────────────────
-function handleToggleTapStack(state, payload) {
+function handleToggleTapStack(state, payload, context) {
   var stackId = payload.stackId;
   var stack   = state.stacks[stackId];
   if (!stack) return state;
@@ -230,7 +253,7 @@ function handleToggleTapStack(state, payload) {
 }
 
 // ── Handler: TOGGLE_FACE_CARDS ───────────────────────────────────────────────
-function handleToggleFaceCards(state, payload) {
+function handleToggleFaceCards(state, payload, context) {
   var cardIds = payload.cardIds;
   if (!cardIds || !cardIds.length) return state;
   var newCards = Object.assign({}, state.cards);
@@ -243,18 +266,18 @@ function handleToggleFaceCards(state, payload) {
 }
 
 // ── Handler: SELECT_CARDS ─────────────────────────────────────────────────────
-function handleSelectCards(state, payload) {
+function handleSelectCards(state, payload, context) {
   return Object.assign({}, state, { selectedCardIds: payload.cardIds || [] });
 }
 
 // ── Handler: CLEAR_SELECTION ─────────────────────────────────────────────────
-function handleClearSelection(state) {
+function handleClearSelection(state, context) {
   return Object.assign({}, state, { selectedCardIds: [] });
 }
 
 // ── Handler: DRAW_CARD ────────────────────────────────────────────────────────
 // Takes the top card of the top deck stack and moves it to hand.
-function handleDrawCard(state, payload) {
+function handleDrawCard(state, payload, context) {
   var deckZone = state.zones[ZONE_IDS.DECK];
   if (!deckZone.stackIds.length) {
     return Object.assign({}, state, { status: "Deck is empty – cannot draw." });
@@ -269,21 +292,22 @@ function handleDrawCard(state, payload) {
 
   var topCardId = topStack.cardIds[topStack.cardIds.length - 1];
   var topCard   = state.cards[topCardId];
-  var topDef    = topCard ? getCardDefinition(topCard.definitionId) : null;
+  var topDef    = topCard ? _lookupCardDef(context, topCard.definitionId) : null;
   var cardName  = topDef ? topDef.name : topCardId;
 
   var next = applyMoveCards(
     state,
     [topCardId],
     { type: "zone", zoneId: ZONE_IDS.HAND },
-    "bottom"
+    "bottom",
+    context
   );
   return Object.assign({}, next, { status: "Drew card: " + cardName });
 }
 
 // ── Handler: SHUFFLE_DECK ─────────────────────────────────────────────────────
 // Shuffles the order of stacks in the deck zone (not card order within stacks).
-function handleShuffleDeck(state, payload) {
+function handleShuffleDeck(state, payload, context) {
   var deckZone    = state.zones[ZONE_IDS.DECK];
   var newStackIds = deckZone.stackIds.slice();
   shuffleArray(newStackIds);
@@ -298,7 +322,7 @@ function handleShuffleDeck(state, payload) {
 // ── Convenience handlers (delegate to primitives) ────────────────────────────
 
 // Toggle tap on all stacks that contain a selected card.
-function handleToggleTapSelectedCards(state) {
+function handleToggleTapSelectedCards(state, context) {
   var selected = state.selectedCardIds || [];
   if (!selected.length) return state;
 
@@ -318,13 +342,13 @@ function handleToggleTapSelectedCards(state) {
 }
 
 // Toggle face on all selected cards.
-function handleToggleFaceSelectedCards(state) {
+function handleToggleFaceSelectedCards(state, context) {
   var selected = state.selectedCardIds || [];
-  return handleToggleFaceCards(state, { cardIds: selected });
+  return handleToggleFaceCards(state, { cardIds: selected }, context);
 }
 
 // Toggle one card in/out of the selection.
-function handleToggleCardSelection(state, payload) {
+function handleToggleCardSelection(state, payload, context) {
   var cardId  = payload.cardId;
   if (!cardId) return state;
   var current  = state.selectedCardIds || [];
@@ -334,4 +358,3 @@ function handleToggleCardSelection(state, payload) {
     : current.concat([cardId]);
   return Object.assign({}, state, { selectedCardIds: nextSelected });
 }
-

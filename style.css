@@ -590,7 +590,6 @@ select {
   gap: 1rem;
   max-width: 90vw;
   max-height: 85vh;
-  overflow-y: auto;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
 }
 
@@ -629,9 +628,11 @@ select {
 
 .modal-card-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: calc(var(--modal-card-w) * 0.1);
   justify-content: flex-start;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Individual card inside the modal — uses relative flow (not absolute).
@@ -704,6 +705,39 @@ select {
 
 .modal-confirm-btn:hover {
   background: rgba(249, 115, 22, 0.20);
+}
+
+/* ── Modal orientation layout ────────────────────────────────────────────────
+   Portrait : cards in a single vertical column, list scrolls vertically.
+   Landscape: cards in a single horizontal row,  list scrolls horizontally.
+   Header and action/footer areas are always fully visible (flex-shrink: 0).  */
+
+@media (orientation: portrait) {
+  .modal-panel {
+    /* Wider card on a narrow screen — single-column layout */
+    --modal-card-w: clamp(100px, 45vw, 200px);
+    --modal-card-h: calc(var(--modal-card-w) * 7 / 5);
+    width: min(92vw, 420px);
+  }
+  .modal-card-list {
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+@media (orientation: landscape) {
+  .modal-panel {
+    /* Card height derived from vh so it fills the available list area */
+    --modal-card-h: clamp(100px, 50vh, 200px);
+    --modal-card-w: calc(var(--modal-card-h) * 5 / 7);
+    width: min(95vw, 1000px);
+  }
+  .modal-card-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

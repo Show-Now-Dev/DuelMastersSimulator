@@ -14,7 +14,7 @@
 
 const PLAYER_ID = "player1";
 
-// Populated at startup from decks.json by ui.js before createStore is called.
+// Populated at startup by ui.js (via startGameSimulation) before createStore is called.
 // Each entry: { id, definitionId, isFaceDown }
 let INITIAL_DECK_INSTANCES = [];
 
@@ -23,29 +23,30 @@ function createInitialGameState() {
   const stacks = {};
   var stackCounter = 1;
 
-  // Build one stack per card, all placed in the Deck zone.
-  const deckStackIds = INITIAL_DECK_INSTANCES.map(function (raw) {
-    const inst = createCardInstance(raw);
-    cards[inst.id] = inst;
-    const stackId = "stack_" + (stackCounter++);
-    stacks[stackId] = createCardStack(stackId, [inst.id]);
-    return stackId;
+  // Build zones from ZONE_DEFINITIONS.
+  // The zone whose initial.placement === "deck" receives all initial deck cards;
+  // all other zones start empty.
+  var zones = {};
+  ZONE_DEFINITIONS.forEach(function (def) {
+    var stackIds = [];
+
+    if (def.initial.placement === "deck") {
+      stackIds = INITIAL_DECK_INSTANCES.map(function (raw) {
+        const inst    = createCardInstance(raw);
+        cards[inst.id] = inst;
+        const stackId  = "stack_" + (stackCounter++);
+        stacks[stackId] = createCardStack(stackId, [inst.id]);
+        return stackId;
+      });
+    }
+
+    zones[def.id] = { id: def.id, name: def.name, stackIds: stackIds };
   });
 
   return {
-    cards:  cards,
-    stacks: stacks,
-    zones: {
-      [ZONE_IDS.DECK]:            { id: ZONE_IDS.DECK,            name: "Deck",            stackIds: deckStackIds },
-      [ZONE_IDS.HAND]:            { id: ZONE_IDS.HAND,            name: "Hand",            stackIds: [] },
-      [ZONE_IDS.BATTLEFIELD]:     { id: ZONE_IDS.BATTLEFIELD,     name: "Battlefield",     stackIds: [] },
-      [ZONE_IDS.SHIELD]:          { id: ZONE_IDS.SHIELD,          name: "Shield",          stackIds: [] },
-      [ZONE_IDS.GRAVEYARD]:       { id: ZONE_IDS.GRAVEYARD,       name: "Graveyard",       stackIds: [] },
-      [ZONE_IDS.MANA]:            { id: ZONE_IDS.MANA,            name: "Mana",            stackIds: [] },
-      [ZONE_IDS.RESOLUTION_ZONE]: { id: ZONE_IDS.RESOLUTION_ZONE, name: "Resolution Zone", stackIds: [] },
-      [ZONE_IDS.EX]:              { id: ZONE_IDS.EX,              name: "EX",              stackIds: [] },
-      [ZONE_IDS.GR]:              { id: ZONE_IDS.GR,              name: "GR",              stackIds: [] },
-    },
+    cards:           cards,
+    stacks:          stacks,
+    zones:           zones,
     selectedCardIds: [],
     nextStackId:     stackCounter,
     turn:            1,

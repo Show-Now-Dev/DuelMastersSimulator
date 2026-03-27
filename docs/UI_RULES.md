@@ -51,6 +51,50 @@ The modal system is reusable and supports two distinct types:
   - Close (cancel)
   - Confirm actions
   - Multi-selection
+
+### Modal Layout Rules
+
+The modal panel is divided into three fixed regions:
+
+```
+┌─────────────────────────────┐
+│ Header (title + close)      │  ← always visible, does not scroll
+├─────────────────────────────┤
+│                             │
+│  Card list  (scrollable)    │  ← fills remaining space, scrolls
+│                             │
+├─────────────────────────────┤
+│ Action bar + Footer         │  ← always visible, does not scroll
+└─────────────────────────────┘
+```
+
+- Header and action/footer areas must always be fully visible within the viewport
+- The card list area fills all remaining space between them
+- Cards are displayed at full size (never scaled down to fit)
+- Cards must not overflow outside the modal panel
+
+#### Card list scroll direction by orientation
+
+- Portrait (縦長, height > width):
+  - Cards are arranged in a single vertical column
+  - Card list scrolls vertically (overflow-y: auto)
+  - No horizontal scrolling within the card list
+
+- Landscape (横長, width ≥ height):
+  - Cards are arranged in a single horizontal row
+  - Card list scrolls horizontally (overflow-x: auto)
+  - No vertical scrolling within the card list
+
+Orientation is detected via CSS `@media (orientation: portrait / landscape)`.
+Do NOT use JavaScript to detect orientation.
+
+#### Implementation
+
+- Modal panel uses `display: flex; flex-direction: column`
+- Header: `flex-shrink: 0`
+- Card list: `flex: 1; min-height: 0` (+ overflow set per orientation)
+- Action bar + footer: `flex-shrink: 0`
+
 ---
 
 ## Core Principles (Highest Priority)
