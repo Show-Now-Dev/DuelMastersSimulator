@@ -79,6 +79,7 @@ function rootReducer(state, action, context) {
     case TOGGLE_FACE_CARDS:      return handleToggleFaceCards(state, action.payload, context);
     case SELECT_CARDS:           return handleSelectCards(state, action.payload, context);
     case CLEAR_SELECTION:        return handleClearSelection(state, context);
+    case PLACE_FROM_DECK:        return handlePlaceFromDeck(state, action.payload, context);
     // ── Convenience actions (derive from the primitives above) ───────────────
     case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state, context);
     case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state, context);
@@ -195,11 +196,20 @@ function applyMoveCards(state, cardIds, target, position, context) {
     // Graveyard always receives cards on top (newest first), ignoring caller position.
     var effectivePosition = (targetZoneId === ZONE_IDS.GRAVEYARD) ? "top" : position;
 
-    // "top" = prepend (front of zone, e.g. top of deck or graveyard).
+    // "top"    = prepend (front of zone, e.g. top of deck or graveyard).
     // "bottom" = append (back of zone).
-    var updatedStackIds = (effectivePosition === "top")
-      ? newStackIds.concat(targetZone.stackIds)
-      : targetZone.stackIds.concat(newStackIds);
+    // number   = insert at 0-based index in zone.stackIds (e.g. deck insertion at position N).
+    var updatedStackIds;
+    if (typeof effectivePosition === "number") {
+      var insertIdx = Math.max(0, Math.min(effectivePosition, targetZone.stackIds.length));
+      updatedStackIds = targetZone.stackIds.slice(0, insertIdx)
+        .concat(newStackIds)
+        .concat(targetZone.stackIds.slice(insertIdx));
+    } else if (effectivePosition === "top") {
+      updatedStackIds = newStackIds.concat(targetZone.stackIds);
+    } else {
+      updatedStackIds = targetZone.stackIds.concat(newStackIds);
+    }
 
     zones = Object.assign({}, zones, {
       [targetZoneId]: Object.assign({}, targetZone, { stackIds: updatedStackIds }),
@@ -303,6 +313,59 @@ function handleDrawCard(state, payload, context) {
     context
   );
   return Object.assign({}, next, { status: "Drew card: " + cardName });
+}
+
+// ── Handler: PLACE_FROM_DECK ──────────────────────────────────────────────────
+// Takes the top card of the deck, moves it to the target zone, then applies
+// explicit face and tap states (overriding zone defaults).
+// Used for Deck → Mana / Shield drag-and-drop.
+function handlePlaceFromDeck(state, payload, context) {
+  var zoneId     = payload.zoneId;
+  var isFaceDown = payload.isFaceDown;
+  var isTapped   = payload.isTapped;
+
+  var deckZone = state.zones[ZONE_IDS.DECK];
+  if (!deckZone || !deckZone.stackIds.length) {
+    return Object.assign({}, state, { status: "Deck is empty." });
+  }
+
+  var topStackId = deckZone.stackIds[0];
+  var topStack   = state.stacks[topStackId];
+  if (!topStack || !topStack.cardIds.length) {
+    return Object.assign({}, state, { status: "Deck is empty." });
+  }
+
+  var topCardId = topStack.cardIds[topStack.cardIds.length - 1];
+
+  // Move card to the target zone (zone default face state will be applied by applyMoveCards,
+  // then we override it below).
+  var next = applyMoveCards(
+    state,
+    [topCardId],
+    { type: "zone", zoneId: zoneId },
+    "bottom",
+    context
+  );
+
+  // Override face state with the explicit caller value.
+  var newCards = Object.assign({}, next.cards);
+  if (newCards[topCardId]) {
+    newCards[topCardId] = Object.assign({}, newCards[topCardId], { isFaceDown: isFaceDown });
+  }
+  next = Object.assign({}, next, { cards: newCards });
+
+  // Apply tap state to the newly created stack.
+  // The card was appended ("bottom"), so its stack is the last entry in the target zone.
+  var targetZone = next.zones[zoneId];
+  if (targetZone && targetZone.stackIds.length && isTapped) {
+    var newStackId = targetZone.stackIds[targetZone.stackIds.length - 1];
+    var newStacks  = Object.assign({}, next.stacks, {
+      [newStackId]: Object.assign({}, next.stacks[newStackId], { isTapped: true }),
+    });
+    next = Object.assign({}, next, { stacks: newStacks });
+  }
+
+  return Object.assign({}, next, { status: "Placed card from deck to " + zoneId + "." });
 }
 
 // ── Handler: SHUFFLE_DECK ─────────────────────────────────────────────────────

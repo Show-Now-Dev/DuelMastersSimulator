@@ -17,6 +17,12 @@
 //       isPickingTargetStack: boolean     — whether pick-target mode is active
 //       onCardClick:          function(info) — called on every card button click
 //         info: { cardId, stackId, zone, stack, isTopCard, isStacked, stackSize, isPickingTargetStack }
+//       onDragStart:          function(info) — called when drag begins on a card
+//         info: { cardId, stackId, zone, stack, isTopCard, isStacked, isStackedTopCard }
+//       onCardDragOver:       function(info) → boolean — called on dragover a card; return true to accept
+//         info: { cardId, stackId, zone, stack, isStacked }
+//       onCardDrop:           function(info) — called when a card is dropped onto another card
+//         info: { cardId, stackId, zone, stack, isStacked }
 //     }
 //
 //   ZoneRenderer.renderCardDetail(container, gameState, peekedCardIds)
@@ -75,6 +81,9 @@ var ZoneRenderer = (function () {
     var targetStackId        = config.targetStackId        || null;
     var isPickingTargetStack = config.isPickingTargetStack || false;
     var onCardClick          = config.onCardClick;
+    var onDragStart          = config.onDragStart;
+    var onCardDragOver       = config.onCardDragOver;
+    var onCardDrop           = config.onCardDrop;
     var isStacked            = stackedZoneIds.indexOf(zone.id) !== -1;
 
     // ── Header ──────────────────────────────────────────────────────────────────
@@ -133,8 +142,11 @@ var ZoneRenderer = (function () {
         var card = gameState.cards[cardId];
         if (!card) return;
 
-        var depth     = stackSize - 1 - cardIdx; // 0 = top card
+        var depth        = stackSize - 1 - cardIdx; // 0 = top card
         var isTopCard = (depth === 0);
+        // Top card of any stacked zone is draggable (deck, graveyard, ex, gr, …).
+        var isStackedTopCard = isStacked && stackIdx === 0 && isTopCard;
+        var canDrag          = !isStacked || isStackedTopCard;
 
         var cardEl  = document.createElement("button");
         cardEl.type = "button";
@@ -149,7 +161,13 @@ var ZoneRenderer = (function () {
         cardEl.style.left   = (stackLeft + depth) + "px";
         cardEl.style.top    = (depth * DEPTH_OFFSET) + "px";
 
-        CardRenderer.appendFace(cardEl, _applyPeek(card, peekedCardIds));
+        // Hand cards are always shown face-visible to the owner ("見える" state).
+        // isFaceDown in game data is preserved; only the rendering differs.
+        var displayCard = _applyPeek(card, peekedCardIds);
+        if (zone.id === ZONE_IDS.HAND && displayCard.isFaceDown) {
+          displayCard = Object.assign({}, displayCard, { isFaceDown: false, isPeeked: true });
+        }
+        CardRenderer.appendFace(cardEl, displayCard);
 
         cardEl.addEventListener("click", function (e) {
           e.stopPropagation();
@@ -166,6 +184,56 @@ var ZoneRenderer = (function () {
             });
           }
         });
+
+        // ── Drag and drop ─────────────────────────────────────────────────────
+        if (canDrag && onDragStart) {
+          cardEl.draggable = true;
+
+          cardEl.addEventListener("dragstart", function (e) {
+            e.stopPropagation();
+            onDragStart({
+              cardId:          cardId,
+              stackId:         stackId,
+              zone:            zone,
+              stack:           stack,
+              isTopCard:       isTopCard,
+              isStacked:       isStacked,
+              isStackedTopCard: isStackedTopCard,
+            });
+            // Defer class addition so the ghost image is captured before the
+            // element becomes transparent.
+            setTimeout(function () { cardEl.classList.add("is-dragging"); }, 0);
+          });
+
+          cardEl.addEventListener("dragend", function () {
+            cardEl.classList.remove("is-dragging");
+          });
+        }
+
+        if (!isStacked && onCardDragOver) {
+          cardEl.addEventListener("dragover", function (e) {
+            if (onCardDragOver({ cardId: cardId, stackId: stackId, zone: zone, stack: stack, isStacked: isStacked })) {
+              e.preventDefault();
+              e.stopPropagation();
+              cardEl.classList.add("drop-target-active");
+            }
+          });
+
+          cardEl.addEventListener("dragleave", function (e) {
+            if (!cardEl.contains(e.relatedTarget)) {
+              cardEl.classList.remove("drop-target-active");
+            }
+          });
+
+          cardEl.addEventListener("drop", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cardEl.classList.remove("drop-target-active");
+            if (onCardDrop) {
+              onCardDrop({ cardId: cardId, stackId: stackId, zone: zone, stack: stack, isStacked: isStacked });
+            }
+          });
+        }
 
         listEl.appendChild(cardEl);
       });
@@ -309,6 +377,8 @@ var ZoneRenderer = (function () {
       _renderCardSelectorModal(container, gameState, modal, uiSt.peekedCardIds, callbacks);
     } else if (modal.type === "CARD_DETAIL") {
       _renderCardDetailModal(container, modal, callbacks);
+    } else if (modal.type === "PENDING_DROP") {
+      _renderPendingDropModal(container, gameState, modal, callbacks);
     }
 
     container.classList.add("is-open");
@@ -516,6 +586,275 @@ var ZoneRenderer = (function () {
     footer.appendChild(clearBtn);
     footer.appendChild(confirmBtn);
     panel.appendChild(footer);
+
+    container.appendChild(panel);
+  }
+
+  // ── Pending drop modal ───────────────────────────────────────────────────────
+  // Shown when a drag-and-drop needs user confirmation.
+  // Which sections are displayed is driven entirely by modal.options —
+  // adding a new option requires only changing the options object and this renderer.
+  //
+  // callbacks used: onClose, onConfirmDrop(cardIds, target, position, faceChoice, tapChoice)
+
+  function _renderPendingDropModal(container, gameState, modal, cb) {
+    container.innerHTML = "";
+
+    var opts    = modal.options || {};
+    var cardIds = modal.cardIds || [];
+    var target  = modal.target  || {};
+
+    var panel = document.createElement("div");
+    panel.className = "modal-panel modal-panel--pending-drop";
+
+    // ── Header ────────────────────────────────────────────────────────────────
+    var header = document.createElement("div");
+    header.className = "modal-header";
+
+    var title = document.createElement("span");
+    title.className   = "modal-title";
+    title.textContent = "どのように置きますか？";
+
+    var closeBtn = document.createElement("button");
+    closeBtn.className   = "modal-close-btn";
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", function () { cb.onClose(); });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    // ── Body: dynamic sections controlled by opts ─────────────────────────────
+    var body = document.createElement("div");
+    body.className = "pdd-body";
+
+    // Local state for the user's current choices.
+    var positionChoice = "top";   // "top" | "bottom"
+    // Face default is driven by opts.defaultIsFaceDown (set from target zone's convention).
+    // "keep" is used only when showFace is false (face section hidden → no user choice).
+    var faceChoice = opts.showFace
+      ? (opts.defaultIsFaceDown ? "down" : "up")
+      : "keep";
+    var tapChoice  = false;  // boolean
+    var insertIdx  = 0;      // 0-based deck insert index
+
+    // ── Position section ──────────────────────────────────────────────────────
+    // When showInsertIndex is also true, position buttons confirm immediately
+    // (shortcuts for top/bottom); the dropdown is for precise placement.
+    if (opts.showPosition) {
+      var posSection = document.createElement("div");
+      posSection.className = "pdd-section";
+
+      var posLabel = document.createElement("div");
+      posLabel.className   = "pdd-section-label";
+      posLabel.textContent = "置く位置";
+      posSection.appendChild(posLabel);
+
+      var posRow = document.createElement("div");
+      posRow.className = "pdd-button-group";
+
+      var topBtn = document.createElement("button");
+      topBtn.type        = "button";
+      topBtn.className   = "pdd-choice-btn is-selected";
+      topBtn.textContent = "上に置く";
+
+      var bottomBtn = document.createElement("button");
+      bottomBtn.type        = "button";
+      bottomBtn.className   = "pdd-choice-btn";
+      bottomBtn.textContent = "下に置く";
+
+      if (opts.showInsertIndex) {
+        // Deck: top/bottom buttons are immediate shortcuts (skip confirm step).
+        topBtn.addEventListener("click", function () {
+          cb.onConfirmDrop(cardIds, target, "top", faceChoice, tapChoice);
+        });
+        bottomBtn.addEventListener("click", function () {
+          cb.onConfirmDrop(cardIds, target, "bottom", faceChoice, tapChoice);
+        });
+      } else {
+        // Other stacks/zones: buttons update selection, single confirm at bottom.
+        topBtn.addEventListener("click", function () {
+          positionChoice = "top";
+          topBtn.classList.add("is-selected");
+          bottomBtn.classList.remove("is-selected");
+        });
+        bottomBtn.addEventListener("click", function () {
+          positionChoice = "bottom";
+          bottomBtn.classList.add("is-selected");
+          topBtn.classList.remove("is-selected");
+        });
+      }
+
+      posRow.appendChild(topBtn);
+      posRow.appendChild(bottomBtn);
+      posSection.appendChild(posRow);
+      body.appendChild(posSection);
+    }
+
+    // ── Insert index section (deck precise placement) ─────────────────────────
+    if (opts.showInsertIndex) {
+      var deckZone = gameState.zones[ZONE_IDS.DECK] || { stackIds: [] };
+      var deckSize = deckZone.stackIds.length;
+
+      var idxSection = document.createElement("div");
+      idxSection.className = "pdd-section";
+
+      var idxLabel = document.createElement("div");
+      idxLabel.className   = "pdd-section-label";
+      idxLabel.textContent = "任意の枚数目に挿入";
+      idxSection.appendChild(idxLabel);
+
+      var idxRow = document.createElement("div");
+      idxRow.className = "pdd-insert-row";
+
+      var idxPre = document.createElement("span");
+      idxPre.textContent = "上から ";
+      idxRow.appendChild(idxPre);
+
+      var idxSelect = document.createElement("select");
+      idxSelect.className = "pdd-insert-select";
+      for (var n = 1; n <= deckSize + 1; n++) {
+        var opt = document.createElement("option");
+        opt.value = String(n - 1); // 0-based insert index
+        opt.textContent = n === 1            ? "1枚目（一番上）"
+                        : n === deckSize + 1 ? n + "枚目（一番下）"
+                        :                      n + "枚目";
+        idxSelect.appendChild(opt);
+      }
+      idxSelect.addEventListener("change", function () {
+        insertIdx = parseInt(idxSelect.value, 10);
+      });
+      idxRow.appendChild(idxSelect);
+
+      var idxConfirmBtn = document.createElement("button");
+      idxConfirmBtn.type        = "button";
+      idxConfirmBtn.className   = "pdd-confirm-btn";
+      idxConfirmBtn.textContent = "確定";
+      idxConfirmBtn.addEventListener("click", function () {
+        cb.onConfirmDrop(cardIds, target, insertIdx, faceChoice, tapChoice);
+      });
+      idxRow.appendChild(idxConfirmBtn);
+
+      idxSection.appendChild(idxRow);
+      body.appendChild(idxSection);
+    }
+
+    // ── Face section ──────────────────────────────────────────────────────────
+    if (opts.showFace) {
+      var faceSection = document.createElement("div");
+      faceSection.className = "pdd-section";
+
+      var faceSectionLabel = document.createElement("div");
+      faceSectionLabel.className   = "pdd-section-label";
+      faceSectionLabel.textContent = "表裏";
+      faceSection.appendChild(faceSectionLabel);
+
+      var faceRow = document.createElement("div");
+      faceRow.className = "pdd-button-group";
+
+      var faceOptions = [
+        { value: "up",   label: "表向き" },
+        { value: "down", label: "裏向き" },
+      ];
+
+      var faceBtnEls = faceOptions.map(function (fo) {
+        var btn = document.createElement("button");
+        btn.type        = "button";
+        var isDefault   = (fo.value === (opts.defaultIsFaceDown ? "down" : "up"));
+        btn.className   = "pdd-choice-btn" + (isDefault ? " is-selected" : "");
+        btn.textContent = fo.label;
+        btn.addEventListener("click", function () {
+          faceChoice = fo.value;
+          faceBtnEls.forEach(function (b) { b.classList.remove("is-selected"); });
+          btn.classList.add("is-selected");
+        });
+        faceRow.appendChild(btn);
+        return btn;
+      });
+
+      faceSection.appendChild(faceRow);
+      body.appendChild(faceSection);
+    }
+
+    // ── Tap section ───────────────────────────────────────────────────────────
+    if (opts.showTap) {
+      var tapSection = document.createElement("div");
+      tapSection.className = "pdd-section";
+
+      var tapSectionLabel = document.createElement("div");
+      tapSectionLabel.className   = "pdd-section-label";
+      tapSectionLabel.textContent = "タップ状態";
+      tapSection.appendChild(tapSectionLabel);
+
+      var tapRow = document.createElement("div");
+      tapRow.className = "pdd-button-group";
+
+      var untapBtn = document.createElement("button");
+      untapBtn.type        = "button";
+      untapBtn.className   = "pdd-choice-btn is-selected";
+      untapBtn.textContent = "アンタップ";
+
+      var tapBtn = document.createElement("button");
+      tapBtn.type        = "button";
+      tapBtn.className   = "pdd-choice-btn";
+      tapBtn.textContent = "タップ";
+
+      untapBtn.addEventListener("click", function () {
+        tapChoice = false;
+        untapBtn.classList.add("is-selected");
+        tapBtn.classList.remove("is-selected");
+      });
+      tapBtn.addEventListener("click", function () {
+        tapChoice = true;
+        tapBtn.classList.add("is-selected");
+        untapBtn.classList.remove("is-selected");
+      });
+
+      tapRow.appendChild(untapBtn);
+      tapRow.appendChild(tapBtn);
+      tapSection.appendChild(tapRow);
+      body.appendChild(tapSection);
+    }
+
+    panel.appendChild(body);
+
+    // ── Footer: confirm + cancel ──────────────────────────────────────────────
+    // Not shown when showInsertIndex is true (that section has its own confirm).
+    if (!opts.showInsertIndex) {
+      var footer = document.createElement("div");
+      footer.className = "pdd-footer";
+
+      var confirmBtn = document.createElement("button");
+      confirmBtn.type        = "button";
+      confirmBtn.className   = "pdd-confirm-btn";
+      confirmBtn.textContent = "確定";
+      confirmBtn.addEventListener("click", function () {
+        cb.onConfirmDrop(cardIds, target, positionChoice, faceChoice, tapChoice);
+      });
+
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type        = "button";
+      cancelBtn.className   = "pdd-cancel-btn";
+      cancelBtn.textContent = "キャンセル";
+      cancelBtn.addEventListener("click", function () { cb.onClose(); });
+
+      footer.appendChild(confirmBtn);
+      footer.appendChild(cancelBtn);
+      panel.appendChild(footer);
+    } else {
+      // Deck insert: only a cancel button in the footer.
+      var footerDeck = document.createElement("div");
+      footerDeck.className = "pdd-footer";
+
+      var cancelDeckBtn = document.createElement("button");
+      cancelDeckBtn.type        = "button";
+      cancelDeckBtn.className   = "pdd-cancel-btn";
+      cancelDeckBtn.textContent = "キャンセル";
+      cancelDeckBtn.addEventListener("click", function () { cb.onClose(); });
+
+      footerDeck.appendChild(cancelDeckBtn);
+      panel.appendChild(footerDeck);
+    }
 
     container.appendChild(panel);
   }

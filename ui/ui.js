@@ -117,6 +117,138 @@
       reset:            function () { targetStackId = null; exitPickMode(); },
     };
 
+    // ── Drag-and-drop state ───────────────────────────────────────────────────
+    // Ephemeral — not persisted in any store. Cleared when drag ends or drops.
+    let dragState = null;
+    // null | {
+    //   cardIds:       string[],   // cards being dragged ([] for deck drag)
+    //   sourceZoneId:  string|null,
+    //   sourceStackId: string|null,
+    //   isDeckDrag:    boolean,    // source is the deck top card
+    // }
+
+    // Controls which UI sections appear in the PENDING_DROP modal.
+    // Keys:  "zone:<zoneId>"  — dropping onto a zone background
+    //        "stack"          — dropping onto an existing stack card
+    //        "deck-drag:<zoneId>" — dragging from the deck
+    // Adding a new zone or behavior: change only this table.
+    // defaultIsFaceDown: pre-selects "裏向き" (true) or "表向き" (false) in the face section.
+    const DROP_TARGET_OPTIONS = {
+      "zone:hand":           { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:resolutionZone": { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:battlefield":    { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:mana":           { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:shield":         { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:graveyard":      { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
+      "zone:deck":           { showPosition: true,  showFace: false, showInsertIndex: true,  showTap: false },
+      "zone:ex":             { showPosition: true,  showFace: false, showInsertIndex: false, showTap: false },
+      "zone:gr":             { showPosition: true,  showFace: false, showInsertIndex: false, showTap: false },
+      "stack":               { showPosition: true,  showFace: true,  showInsertIndex: false, showTap: false },
+      "deck-drag:hand":      { showPosition: false, showFace: false, showInsertIndex: false, showTap: false, isDeckDrag: true },
+      "deck-drag:mana":      { showPosition: false, showFace: true,  showInsertIndex: false, showTap: true,  isDeckDrag: true, defaultIsFaceDown: false },
+      "deck-drag:shield":    { showPosition: false, showFace: true,  showInsertIndex: false, showTap: true,  isDeckDrag: true, defaultIsFaceDown: true  },
+      "deck-drag:graveyard": { showPosition: false, showFace: false, showInsertIndex: false, showTap: false, isDeckDrag: true },
+    };
+
+    // Default face state per zone (true = 裏向き, false = 表向き).
+    // Used to pre-select the face button when dropping a card onto a stack in that zone.
+    const ZONE_DEFAULT_FACE_DOWN = {
+      [ZONE_IDS.DECK]:   true,
+      [ZONE_IDS.SHIELD]: true,
+    };
+
+    function _dropOptionsKey(isDeckDrag, targetType, targetId) {
+      if (isDeckDrag)             return "deck-drag:" + targetId;
+      if (targetType === "stack") return "stack";
+      return "zone:" + targetId;
+    }
+
+    function _needsModal(options) {
+      return options && (
+        options.showPosition || options.showFace || options.showInsertIndex || options.showTap
+      );
+    }
+
+    // Returns the top card ID of the deck, or null if the deck is empty.
+    function _deckTopCardId() {
+      var gs       = gameStore.getState();
+      var deckZone = gs.zones[ZONE_IDS.DECK];
+      if (!deckZone || !deckZone.stackIds.length) return null;
+      var topStk   = gs.stacks[deckZone.stackIds[0]];
+      return topStk ? topStk.cardIds[topStk.cardIds.length - 1] : null;
+    }
+
+    // Immediately execute a drop without showing a confirmation modal.
+    function _executeImmediateDrop(cardIds, isDeckDrag, target) {
+      if (isDeckDrag) {
+        var zoneId = target.zoneId;
+        if (zoneId === ZONE_IDS.HAND) {
+          gameStore.dispatch(drawCard("player1"));
+          LogPanel.log("ドロー");
+        } else if (zoneId === ZONE_IDS.GRAVEYARD) {
+          var topId = _deckTopCardId();
+          if (!topId) return;
+          gameStore.dispatch(moveCards([topId], { type: "zone", zoneId: ZONE_IDS.GRAVEYARD }, "top"));
+          LogPanel.log("山札トップを墓地へ");
+        }
+        gameStore.dispatch(clearSelection());
+        return;
+      }
+      var position = (target.type === "zone" && target.zoneId === ZONE_IDS.GRAVEYARD)
+        ? "top" : "bottom";
+      gameStore.dispatch(moveCards(cardIds, target, position));
+      gameStore.dispatch(clearSelection());
+      LogPanel.log(cardIds.length + "枚を移動");
+    }
+
+    // Route a drop: immediate execution or open the PENDING_DROP modal.
+    // optsOverride (optional): extra fields merged into opts (e.g. defaultIsFaceDown).
+    function _handleDrop(cardIds, isDeckDrag, target, optsOverride) {
+      if (!target) return;
+      var targetId = target.type === "stack" ? target.stackId : target.zoneId;
+      var key      = _dropOptionsKey(isDeckDrag, target.type, targetId);
+      var baseOpts = DROP_TARGET_OPTIONS[key];
+      if (!baseOpts) return; // no matching rule → drop is not accepted
+      var opts = optsOverride ? Object.assign({}, baseOpts, optsOverride) : baseOpts;
+      if (!_needsModal(opts)) {
+        _executeImmediateDrop(cardIds, isDeckDrag, target);
+      } else {
+        uiStore.dispatch(openPendingDropModal(cardIds, target, opts));
+      }
+    }
+
+    // Confirm handler called by the PENDING_DROP modal's confirm button.
+    // position:   "top" | "bottom" | number (deck insert index)
+    // faceChoice: "keep" | "up" | "down"
+    // tapChoice:  boolean
+    function _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice) {
+      var opts = ((uiStore.getState().modal) || {}).options || {};
+
+      if (opts.isDeckDrag) {
+        // Deck → Mana / Shield: single atomic action preserving face and tap.
+        gameStore.dispatch(placeFromDeck(target.zoneId, faceChoice === "down", !!tapChoice));
+        LogPanel.log("山札から " + target.zoneId + " へ");
+      } else {
+        gameStore.dispatch(moveCards(cardIds, target, position));
+
+        // Apply explicit face override when faceChoice is not "keep".
+        if (faceChoice && faceChoice !== "keep") {
+          var gsAfter      = gameStore.getState();
+          var wantFaceDown = (faceChoice === "down");
+          var toToggle     = cardIds.filter(function (id) {
+            var c = gsAfter.cards[id];
+            return c && (c.isFaceDown !== wantFaceDown);
+          });
+          if (toToggle.length) gameStore.dispatch(toggleFaceCards(toToggle));
+        }
+
+        LogPanel.log(cardIds.length + "枚を移動");
+      }
+
+      gameStore.dispatch(clearSelection());
+      uiStore.dispatch(closeModal());
+    }
+
     // ── Module initialisation ─────────────────────────────────────────────────
 
     SelectionManager.init({
@@ -176,6 +308,51 @@
           selectedCardIds: state.selectedCardIds,
         });
       });
+    });
+
+    // ── Zone drag-and-drop event listeners ───────────────────────────────────
+    // Attached once per init(). Handles drops onto zone backgrounds.
+    // Card-on-card drops are handled inside renderZone (onCardDrop callback)
+    // and call e.stopPropagation(), so they never reach these zone handlers.
+
+    Object.keys(zoneEls).forEach(function (zoneId) {
+      var el = zoneEls[zoneId];
+      if (!el) return;
+
+      el.addEventListener("dragover", function (e) {
+        if (!dragState) return;
+        var key  = _dropOptionsKey(dragState.isDeckDrag, "zone", zoneId);
+        var opts = DROP_TARGET_OPTIONS[key];
+        if (!opts) return;
+        // Deck drags are only valid when the key has isDeckDrag: true.
+        if (dragState.isDeckDrag && !opts.isDeckDrag) return;
+        e.preventDefault();
+        el.classList.add("drop-target-active");
+      });
+
+      el.addEventListener("dragleave", function (e) {
+        if (!el.contains(e.relatedTarget)) {
+          el.classList.remove("drop-target-active");
+        }
+      });
+
+      el.addEventListener("drop", function (e) {
+        el.classList.remove("drop-target-active");
+        if (!dragState) return;
+        e.preventDefault();
+        _handleDrop(dragState.cardIds, dragState.isDeckDrag, { type: "zone", zoneId: zoneId });
+        dragState = null;
+      });
+    });
+
+    // Clear drag state if the drag ends without a successful drop (e.g. Escape,
+    // dropped outside any valid target). Also removes any leftover highlights.
+    document.addEventListener("dragend", function () {
+      dragState = null;
+      var highlighted = document.querySelectorAll(".drop-target-active");
+      for (var i = 0; i < highlighted.length; i++) {
+        highlighted[i].classList.remove("drop-target-active");
+      }
     });
 
     // ── Card detail panel click → open card detail modal ─────────────────────
@@ -251,6 +428,86 @@
               },
             }));
           },
+          onDragStart: function (info) {
+            // Ignore drag attempts while pick-mode is active.
+            if (isPickingTargetStack) return;
+
+            if (info.isStackedTopCard) {
+              if (info.zone.id === ZONE_IDS.DECK) {
+                // Deck drag: card ID resolved at drop time by the reducer.
+                dragState = {
+                  cardIds:       [],
+                  sourceZoneId:  ZONE_IDS.DECK,
+                  sourceStackId: info.stackId,
+                  isDeckDrag:    true,
+                };
+              } else {
+                // Top card of graveyard / ex / gr: regular drag with known card ID.
+                dragState = {
+                  cardIds:       [info.cardId],
+                  sourceZoneId:  info.zone.id,
+                  sourceStackId: info.stackId,
+                  isDeckDrag:    false,
+                };
+              }
+              return;
+            }
+
+            var selected = gameState.selectedCardIds || [];
+            var cardIds;
+
+            if (selected.indexOf(info.cardId) !== -1) {
+              // Drag the entire current selection (may span multiple zones).
+              cardIds = selected.slice();
+            } else if (info.stack.cardIds.length > 1) {
+              // Unselected card in a multi-card stack → drag the whole stack.
+              cardIds = info.stack.cardIds.slice();
+            } else {
+              // Single-card stack → drag just that card.
+              cardIds = [info.cardId];
+            }
+
+            // Sync game selection with what is being dragged.
+            if (selected.join(",") !== cardIds.join(",")) {
+              gameStore.dispatch(selectCards(cardIds));
+            }
+
+            dragState = {
+              cardIds:       cardIds,
+              sourceZoneId:  info.zone.id,
+              sourceStackId: info.stackId,
+              isDeckDrag:    false,
+            };
+          },
+          onCardDragOver: function (info) {
+            if (!dragState || dragState.isDeckDrag) return false;
+            // Don't drop a card onto itself.
+            if (dragState.cardIds.length === 1 && dragState.cardIds[0] === info.cardId) return false;
+            // Don't drop a stack onto its own source stack.
+            var srcStack = info.stackId === dragState.sourceStackId;
+            var allCards = dragState.cardIds.length === info.stack.cardIds.length;
+            if (srcStack && allCards) return false;
+            return true;
+          },
+          onCardDrop: function (info) {
+            if (!dragState || dragState.isDeckDrag) return;
+            // Card drops call e.stopPropagation(), so the zone's drop handler never fires.
+            // Explicitly clear any zone-level highlight that was set during dragover.
+            var highlights = document.querySelectorAll(".drop-target-active");
+            for (var i = 0; i < highlights.length; i++) {
+              highlights[i].classList.remove("drop-target-active");
+            }
+            // Pre-select the face button based on the target zone's convention.
+            var defaultFaceDown = ZONE_DEFAULT_FACE_DOWN[info.zone.id] !== undefined
+              ? ZONE_DEFAULT_FACE_DOWN[info.zone.id] : false;
+            _handleDrop(
+              dragState.cardIds,
+              false,
+              { type: "stack", stackId: info.stackId, zoneId: info.zone.id },
+              { defaultIsFaceDown: defaultFaceDown }
+            );
+            dragState = null;
+          },
         });
       });
 
@@ -295,6 +552,9 @@
         onSelectAll:      function (cardIds) { uiStore.dispatch(selectModalCards(cardIds.slice())); },
         onClearSelection: function ()         { uiStore.dispatch(selectModalCards([])); },
         parseMoveTarget:  ControlPanel.parseMoveTarget,
+        onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice) {
+          _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice);
+        },
       });
 
       // ── Card detail panel ──────────────────────────────────────────────────
@@ -316,7 +576,7 @@
     // the JS card-spacing calculation (_getCardWidth) also returns the correct
     // reference value.
 
-    var BOARD_MIN_VW = 728; // viewport width at which --card-w hits its clamp min (40px)
+    var BOARD_MIN_VW = 502; // viewport width at which --card-w hits its clamp min (40px)
 
     function applyBoardScale() {
       var vw = window.innerWidth;

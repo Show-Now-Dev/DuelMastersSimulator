@@ -43,15 +43,17 @@ target:
   zoneId?: string      // required when type is "zone"
   stackId?: string     // required when type is "stack"
 
-position: "top" | "bottom"
+position: "top" | "bottom" | number
   // Used when target.type is "zone"
   // Ignored when target.type is "stack" (cards always go on top of stack)
+  // number = 0-based insert index in zone.stackIds (deck insertion at arbitrary position)
 
 behavior by target type:
 
   target.type === "zone" && zoneId === "deck":
-    - position "top"    → insert card(s) at index 0 of deck.cardIds
-    - position "bottom" → append card(s) at end of deck.cardIds
+    - position "top"    → insert card(s) at index 0 of deck.stackIds
+    - position "bottom" → append card(s) at end of deck.stackIds
+    - position number N → insert card(s) at index N of deck.stackIds
     - Deck order is strictly preserved; no implicit shuffling
 
   target.type === "zone" && zoneId === "graveyard":
@@ -62,6 +64,7 @@ behavior by target type:
     - Each card becomes its own new single-card stack in the zone
     - position "top"    → insert at index 0
     - position "bottom" → append at end
+    - position number N → insert at index N
 
   target.type === "stack":
     - Card(s) are merged into the target stack
@@ -236,3 +239,23 @@ Clear all peeked cards.
 
 payload:
 none
+
+---
+
+## PLACE_FROM_DECK
+
+Move the top card of the deck to a zone with explicit face and tap state.
+Used for Deck → Mana / Shield drag-and-drop where the user chooses face/tap
+in the confirmation modal.
+
+payload:
+zoneId:     string    // target zone ("mana" | "shield")
+isFaceDown: boolean   // explicit face state (overrides zone default)
+isTapped:   boolean   // tap state applied to the newly created stack
+
+behavior:
+- Takes the top card of the deck (index 0 of deck.stackIds, top cardId of that stack)
+- Moves it to the target zone as a new single-card stack (position: "bottom")
+- Overrides the zone default isFaceDown with the explicit isFaceDown payload value
+- Sets isTapped on the newly created stack to the isTapped payload value
+- Returns early with a "Deck is empty" status if the deck has no cards

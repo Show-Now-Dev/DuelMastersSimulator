@@ -38,38 +38,49 @@
     -->
     <main id="layout" class="game-board" style="display:none">
 
-      <section id="card-detail-panel" class="card-detail-panel"></section>
+      <!--
+        Zone sections are inserted here by the bootstrap script below.
+        #card-detail-panel is the grid anchor — zones insert before it.
+      -->
+      <div id="board-grid">
+        <section id="card-detail-panel" class="card-detail-panel"></section>
+      </div>
 
-      <aside id="controls">
-        <button id="draw-button" class="ctrl-draw-btn">ドロー</button>
-
-        <div class="controls-group">
-          <div class="controls-inline">
-            <!--
-              Options are generated from ZONE_DEFINITIONS in the bootstrap script below.
-            -->
-            <select id="move-target"></select>
-            <button id="move-button">移動</button>
+      <div id="board-bottom">
+        <aside id="controls">
+          <div class="controls-group">
+            <div class="controls-inline">
+              <!--
+                Options are generated from ZONE_DEFINITIONS in the bootstrap script below.
+              -->
+              <select id="move-target"></select>
+              <button id="move-button">移動</button>
+            </div>
           </div>
-        </div>
 
-        <div class="controls-group">
-          <button id="toggle-tap-button">タップ / アンタップ</button>
-          <button id="toggle-face-button">表向き / 裏向き</button>
-          <button id="peek-button">見る</button>
-          <button id="clear-selection-button">全選択解除</button>
-        </div>
-
-        <div class="controls-group">
-          <button id="pick-stack-button">①重ねる対象を選ぶ</button>
-          <div class="controls-inline controls-inline--split">
-            <button id="stack-top-button" disabled>②上に重ねる</button>
-            <button id="stack-bottom-button" disabled>②下に重ねる</button>
+          <div class="controls-group">
+            <button id="toggle-tap-button">タップ / アンタップ</button>
+            <div class="controls-inline controls-inline--split">
+              <button id="toggle-face-button">表向き / 裏向き</button>
+              <button id="peek-button">見る</button>
+            </div>
+            <button id="clear-selection-button">全選択解除</button>
           </div>
-        </div>
-      </aside>
 
-      <section id="log-panel" class="zone"></section>
+          <div class="controls-group">
+            <button id="pick-stack-button">①重ねる対象を選ぶ</button>
+            <div class="controls-inline controls-inline--split">
+              <button id="stack-top-button" disabled>②上に重ねる</button>
+              <button id="stack-bottom-button" disabled>②下に重ねる</button>
+            </div>
+          </div>
+        </aside>
+
+        <div id="log-draw-column">
+          <section id="log-panel" class="zone"></section>
+          <button id="draw-button" class="ctrl-draw-btn">ドロー</button>
+        </div>
+      </div>
     </main>
 
     <!--
@@ -123,13 +134,13 @@
       // Generate zone <section> elements from ZONE_DEFINITIONS.
       // CSS Grid positions them by id-based grid-area — DOM order does not matter.
       (function () {
-        var layout = document.getElementById("layout");
-        var anchor = layout.firstElementChild; // insert before static children
+        var boardGrid = document.getElementById("board-grid");
+        var anchor = boardGrid.firstElementChild; // insert before #card-detail-panel
         ZONE_DEFINITIONS.forEach(function (def) {
           var el = document.createElement("section");
           el.id        = def.ui.domId;
           el.className = "zone " + def.ui.cssClass;
-          layout.insertBefore(el, anchor);
+          boardGrid.insertBefore(el, anchor);
         });
       }());
 

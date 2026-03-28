@@ -18,17 +18,18 @@
    *  --card-w scales with viewport so the board fills the viewport width
    *  without any media-query breakpoints.
    *
-   *  Derivation (gap = 15% of card-w, 10 cols + 10 gaps = 11.5 × card-w):
-   *    viewport = 11.5 × card-w + ctrl-w + board-pad × 2
-   *    → card-w = (100vw - ctrl-w - board-pad × 2) / 11.5
+   *  Controls moved to bottom row — no persistent right column.
+   *  Derivation (gap = 15% of card-w, 10 cols + 9 gaps = 11.35 × card-w):
+   *    viewport = 11.35 × card-w + board-pad × 2
+   *    → card-w = (100vw - board-pad × 2) / 11.35
    *
    *  Clamped between 40 px (min playable) and 80 px (design maximum).
-   *  At ≥ 1188 px viewport: card-w hits 80 px cap → board centres via justify-content.
-   *  At  ≥  728 px viewport: board fills width exactly.
-   *  Below 728 px: JS applies CSS zoom so the board scales to fit the viewport.
+   *  At ≥  956 px viewport: card-w hits 80 px cap → board centres via align-items.
+   *  At ≥  502 px viewport: board fills width exactly.
+   *  Below 502 px: JS applies CSS zoom so the board scales to fit the viewport.
    */
-  --card-w: clamp(40px, calc((100vw - var(--ctrl-w) - var(--board-pad) * 2) / 11.5), 80px);
-  /* Note: below 728px viewport, JS overrides --card-w to 40px and applies CSS zoom
+  --card-w: clamp(40px, calc((100vw - var(--board-pad) * 2) / 11.35), 80px);
+  /* Note: below 502px viewport, JS overrides --card-w to 40px and applies CSS zoom
      on #layout so the board scales uniformly without horizontal overflow. */
   --card-h: calc(var(--card-w) * 7 / 5); /* fixed 5:7 aspect ratio */
 
@@ -99,28 +100,43 @@ header h1 {
 main#layout.game-board {
   flex: 1;
   padding: 1rem var(--board-pad) 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* centres #board-grid and #board-bottom horizontally */
+  gap: var(--gap);
+}
+
+/* ── Board grid (rows 1–4: zones only) ───────────────────────────────────────
+ * Controls moved to #board-bottom (row 5) so all 10 card-unit columns are
+ * available for game zones — no persistent right chrome column.
+ *
+ *   Col: 1   2   3   4   5   6   7   8   9   10
+ *   Row1: [---battlefield (8)-------------------][stack(2)]
+ *   Row2: [--shield (6)----------][deck][grave][ex][gr]
+ *   Row3: [---mana (8)----------------------------][info(2)]
+ *   Row4: [---hand (8)----------------------------][info(2)]
+ */
+#board-grid {
   display: grid;
   gap: var(--gap);
-  justify-content: center;
-
-  /*
-   * Exactly 10 card-unit columns + 1 controls column = 11 columns total.
-   * Every row spans all 10 content columns → all rows share the same right edge.
-   * No auto/fr sizing — all columns are fixed card-unit widths.
-   *
-   *   Col:  1    2    3    4    5    6    7     8      9    10   11
-   *   Row1: [---battlefield (8)--------------------][stack(2) ][ctrl]
-   *   Row2: [--shield (6)----------][deck][grave][ex ][gr  ][ctrl]
-   *   Row3: [---mana (8)------------------------------][  .  ][ctrl]
-   *   Row4: [---hand (8)------------------------------][  .  ][ log]
-   */
-  grid-template-columns: repeat(10, var(--card-unit)) var(--ctrl-w);
+  grid-template-columns: repeat(10, var(--card-unit));
   grid-template-rows: repeat(4, var(--zone-row-h));
   grid-template-areas:
-    "battlefield battlefield battlefield battlefield battlefield battlefield battlefield battlefield stack       stack       controls"
-    "shield      shield      shield      shield      shield      shield      deck        graveyard   ex          gr          controls"
-    "mana        mana        mana        mana        mana        mana        mana        mana        card-detail card-detail controls"
-    "hand        hand        hand        hand        hand        hand        hand        hand        card-detail card-detail log";
+    "battlefield battlefield battlefield battlefield battlefield battlefield battlefield battlefield stack       stack"
+    "shield      shield      shield      shield      shield      shield      deck        graveyard   ex          gr"
+    "mana        mana        mana        mana        mana        mana        mana        mana        card-detail card-detail"
+    "hand        hand        hand        hand        hand        hand        hand        hand        card-detail card-detail";
+}
+
+/* ── Bottom row (row 5: controls + logs) ─────────────────────────────────────
+ * Same grid definition as #board-grid → columns align perfectly.
+ * aside#controls  : span 8  (same as HAND / MANA)
+ * #log-draw-column: span 2  (same as INFO / card-detail)                     */
+#board-bottom {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(10, var(--card-unit));
+  align-items: start;  /* each item sizes to own content, not forced by tallest sibling */
 }
 
 .zone {
@@ -340,7 +356,7 @@ button.is-active {
   cursor: pointer;
 }
 
-/* Grid placement */
+/* Grid placement (zone sections inside #board-grid) */
 #zone-battlefield { grid-area: battlefield; }
 #zone-stack { grid-area: stack; }
 #zone-shield { grid-area: shield; }
@@ -350,26 +366,34 @@ button.is-active {
 #zone-gr { grid-area: gr; }
 #zone-mana { grid-area: mana; }
 #zone-hand { grid-area: hand; }
-#log-panel { grid-area: log; }
 
-/* Controls area: right column, spans rows 1–3 */
+/* Controls area: span 8 cols (= HAND / MANA), buttons in 2-column internal grid */
 aside#controls {
-  grid-area: controls;
+  grid-column: span 8;
   background: var(--panel);
   border-radius: 0.5rem;
   border: 1px solid var(--border);
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-height: 0;
-  align-self: stretch;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  padding: 0.4rem 0.6rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  align-content: start;
+  overflow: hidden;
 }
 
-/* Log panel: flex column; scroll handled inside .log-body */
+/* Log + draw column: span 2 cols (= INFO / card-detail)
+   Top half: log panel   Bottom half: draw button (equal flex split) */
+#log-draw-column {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  height: calc(var(--zone-row-h) * 0.5);  /* fixed: half a zone row, never grows with log content */
+}
+
 #log-panel {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1507,10 +1531,12 @@ select {
   padding: 0;
 }
 
-/* Draw button: top of controls aside */
+/* Draw button: lower half of #log-draw-column (flex: 1 = same height as log panel) */
 .ctrl-draw-btn {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  padding: 0.4rem 0.75rem;
+  padding: 0.28rem 0.6rem;
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1587,5 +1613,142 @@ select {
   border-radius: 0.375rem;
   padding: 0.3rem 0.4rem;
   font-size: 0.85rem;
+}
+
+/* ── Drag and drop ────────────────────────────────────────────────────────────
+   .is-dragging     : applied to the card being dragged (semi-transparent ghost)
+   .drop-target-active : applied to zones / cards that accept the current drag  */
+
+.card.is-dragging {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.drop-target-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Zone backgrounds get a subtle fill in addition to the outline. */
+section.drop-target-active,
+.zone.drop-target-active {
+  background-color: rgba(251, 146, 60, 0.08);
+}
+
+/* ── Pending Drop Modal (.modal-panel--pending-drop) ─────────────────────────
+   A compact confirmation dialog shown when a drag requires user input.
+   Uses the shared .modal-panel base; only sizing and body layout are added.   */
+
+.modal-panel--pending-drop {
+  min-width: 260px;
+  max-width: 360px;
+}
+
+/* Vertical list of option sections */
+.pdd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* One option group: label + buttons */
+.pdd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pdd-section-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Row of toggle buttons (position / face / tap) */
+.pdd-button-group {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pdd-choice-btn {
+  flex: 1;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-2);
+  border-radius: 0.375rem;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pdd-choice-btn.is-selected {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Deck insert row: "上から [select] 確定" */
+.pdd-insert-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pdd-insert-row span {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.pdd-insert-select {
+  flex: 1;
+  min-width: 120px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+}
+
+/* Footer: confirm + cancel */
+.pdd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.pdd-confirm-btn {
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.pdd-confirm-btn:hover {
+  filter: brightness(1.15);
+}
+
+.pdd-cancel-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border-2);
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.pdd-cancel-btn:hover {
+  color: var(--text);
+  border-color: var(--text);
 }
 

@@ -8,29 +8,41 @@
 //   peekedCardIds: string[]              ← cards the viewer is peeking at (displayed face-up
 //                                           without changing game state isFaceDown).
 //                                           Future: key this by playerId for multi-player.
-//   modal: null | {                       ← active CARD_SELECTOR modal, or null when closed
-//     type:            "CARD_SELECTOR"
-//     source: {                           ← what the modal is browsing
-//       type: "stack" | "zone"
-//       id:   string                      (stackId or ZoneType)
-//     }
-//     selectionMode:   "single" | "multiple"
-//     visibility:      "all" | "top-n" | "hidden"
-//     topN:            number             (used when visibility is "top-n", default 3)
-//     selectedCardIds: string[]           (cards selected inside the modal)
+//   modal: null | {                       ← active modal, or null when closed
+//     type: "CARD_SELECTOR"               ← browse cards in a stack / zone
+//       source: { type: "stack"|"zone", id: string }
+//       selectionMode:   "single" | "multiple"
+//       visibility:      "all" | "top-n" | "hidden"
+//       topN:            number
+//       selectedCardIds: string[]
+//   } | {
+//     type: "CARD_DETAIL"                 ← full card info view
+//       definitionId: string
+//   } | {
+//     type: "PENDING_DROP"                ← drop confirmation (drag-and-drop)
+//       cardIds: string[]                 (cards being dropped)
+//       target:  { type: "zone"|"stack", zoneId?, stackId? }
+//       options: {                        (controls which UI sections are shown)
+//         showPosition:    boolean        top / bottom choice
+//         showFace:        boolean        face up / down / keep choice
+//         showInsertIndex: boolean        "insert at N" dropdown (deck only)
+//         showTap:         boolean        tap / untap choice (deck→mana/shield)
+//         isDeckDrag:      boolean        source is the deck
+//       }
 //   }
 
 // ── UI action type constants ──────────────────────────────────────────────────
 // SET_SELECTED_TARGET_ZONE is declared in actions.js.
 // The uiReducer handles it here so it never touches the game reducer.
 
-const OPEN_MODAL              = "OPEN_MODAL";
-const OPEN_CARD_DETAIL_MODAL  = "OPEN_CARD_DETAIL_MODAL";
-const CLOSE_MODAL             = "CLOSE_MODAL";
-const SELECT_MODAL_CARDS      = "SELECT_MODAL_CARDS";
-const PEEK_CARDS              = "PEEK_CARDS";
-const REMOVE_PEEKED_CARDS     = "REMOVE_PEEKED_CARDS";
-const CLEAR_PEEKED_CARDS      = "CLEAR_PEEKED_CARDS";
+const OPEN_MODAL                = "OPEN_MODAL";
+const OPEN_CARD_DETAIL_MODAL    = "OPEN_CARD_DETAIL_MODAL";
+const OPEN_PENDING_DROP_MODAL   = "OPEN_PENDING_DROP_MODAL";
+const CLOSE_MODAL               = "CLOSE_MODAL";
+const SELECT_MODAL_CARDS        = "SELECT_MODAL_CARDS";
+const PEEK_CARDS                = "PEEK_CARDS";
+const REMOVE_PEEKED_CARDS       = "REMOVE_PEEKED_CARDS";
+const CLEAR_PEEKED_CARDS        = "CLEAR_PEEKED_CARDS";
 
 // ── Action creators ───────────────────────────────────────────────────────────
 
@@ -57,6 +69,22 @@ function openCardDetailModal(definitionId) {
   return {
     type: OPEN_CARD_DETAIL_MODAL,
     payload: { definitionId: definitionId },
+  };
+}
+
+// Open a PENDING_DROP modal.
+// Shown when a drag-and-drop requires user confirmation (position, face, tap, insert index).
+//
+// cardIds:    cards being dropped
+// target:     { type: "zone"|"stack", zoneId?, stackId? }
+// options:    { showPosition, showFace, showInsertIndex, showTap, isDeckDrag }
+//             Controls which UI sections are shown in the modal.
+//             Adding a new option only requires adding it here and in the renderer —
+//             no other files need to change.
+function openPendingDropModal(cardIds, target, options) {
+  return {
+    type: OPEN_PENDING_DROP_MODAL,
+    payload: { cardIds: cardIds, target: target, options: options },
   };
 }
 
@@ -122,6 +150,16 @@ function uiReducer(state, action) {
         modal: {
           type:         "CARD_DETAIL",
           definitionId: action.payload.definitionId,
+        },
+      });
+
+    case OPEN_PENDING_DROP_MODAL:
+      return Object.assign({}, state, {
+        modal: {
+          type:    "PENDING_DROP",
+          cardIds: action.payload.cardIds,
+          target:  action.payload.target,
+          options: action.payload.options,
         },
       });
 

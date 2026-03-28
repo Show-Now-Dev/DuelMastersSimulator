@@ -97,6 +97,81 @@ Do NOT use JavaScript to detect orientation.
 
 ---
 
+---
+
+## Drag and Drop
+
+Cards can be dragged to move them between zones and stacks.
+
+### Drag Sources
+
+| Source | Behavior |
+|---|---|
+| Card in spread zone (not selected) and single-card stack | Drag that card alone |
+| Card in spread zone (not selected) and multi-card stack | Drag the entire stack |
+| Card in spread zone that is in the current selection | Drag all selected cards |
+| Deck top card | Deck drag (see Deck Drag section) |
+| Cards in Graveyard / Ex / GR | Not draggable from the board; use modal |
+
+### Drop Targets and Behavior
+
+| Drop Target | Behavior |
+|---|---|
+| Spread zone background (Hand / Mana / Shield / Battlefield / ResolutionZone) | Immediate MOVE_CARDS, position "bottom" |
+| Graveyard zone | Immediate MOVE_CARDS, position "top" (fixed) |
+| Existing stack card in a spread zone | Opens PENDING_DROP modal (position + face) |
+| Ex / GR zone | Opens PENDING_DROP modal (position only) |
+| Deck zone | Opens PENDING_DROP modal (position shortcuts + insert-at-N) |
+
+### Deck Drag
+
+Dragging the top card of the Deck allows placing it in specific zones:
+
+| Target | Behavior |
+|---|---|
+| Hand | Immediate DRAW_CARD |
+| Graveyard | Immediate MOVE_CARDS, position "top" |
+| Mana / Shield | Opens PENDING_DROP modal (face + tap) → dispatches PLACE_FROM_DECK |
+| Other zones | Drop not accepted |
+
+### PENDING_DROP Modal
+
+Shown when a drop requires user confirmation.
+Which sections appear is controlled by the `DROP_TARGET_OPTIONS` table in `ui.js` —
+no changes to the modal renderer or other files are needed to add a new option.
+
+```
+┌──────────────────────────────┐
+│ どのように置きますか？  [✕]  │
+├──────────────────────────────┤
+│ 置く位置 (showPosition)      │
+│   [上に置く*]  [下に置く]    │
+├──────────────────────────────┤
+│ 任意の枚数目に挿入            │  ← showInsertIndex (deck only)
+│   上から [N▼] [確定]         │
+├──────────────────────────────┤
+│ 表裏 (showFace)              │  ← stack drops only
+│   [そのまま*] [表向き] [裏向き]│
+├──────────────────────────────┤
+│ タップ状態 (showTap)         │  ← deck→mana/shield only
+│   [アンタップ*]  [タップ]    │
+├──────────────────────────────┤
+│              [確定] [キャンセル]│
+└──────────────────────────────┘
+```
+
+- Each section is shown only when its option flag is `true`
+- `showInsertIndex: true` makes the position buttons act as immediate shortcuts
+  (clicking "上に置く" / "下に置く" confirms immediately without the "確定" button)
+- `* ` = default selection
+
+### Visual Feedback
+
+- `.is-dragging`: applied to the card being dragged (semi-transparent)
+- `.drop-target-active`: applied to zones and cards that accept the current drag (dashed outline)
+
+---
+
 ## Core Principles (Highest Priority)
 
 - UI must fit entirely within the viewport
