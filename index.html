@@ -48,31 +48,28 @@
 
       <div id="board-bottom">
         <aside id="controls">
-          <div class="controls-group">
-            <div class="controls-inline">
-              <!--
-                Options are generated from ZONE_DEFINITIONS in the bootstrap script below.
-              -->
-              <select id="move-target"></select>
-              <button id="move-button">移動</button>
-            </div>
+          <!-- Row 1: zone move | tap toggle -->
+          <div class="controls-inline">
+            <!--
+              Options are generated from ZONE_DEFINITIONS in the bootstrap script below.
+            -->
+            <select id="move-target"></select>
+            <button id="move-button">移動</button>
           </div>
+          <button id="toggle-tap-button">タップ / アンタップ</button>
 
-          <div class="controls-group">
-            <button id="toggle-tap-button">タップ / アンタップ</button>
-            <div class="controls-inline controls-inline--split">
-              <button id="toggle-face-button">表向き / 裏向き</button>
-              <button id="peek-button">見る</button>
-            </div>
-            <button id="clear-selection-button">全選択解除</button>
+          <!-- Row 2: face / peek | clear selection -->
+          <div class="controls-inline controls-inline--split">
+            <button id="toggle-face-button">表向き / 裏向き</button>
+            <button id="peek-button">見る</button>
           </div>
+          <button id="clear-selection-button">全選択解除</button>
 
-          <div class="controls-group">
-            <button id="pick-stack-button">①重ねる対象を選ぶ</button>
-            <div class="controls-inline controls-inline--split">
-              <button id="stack-top-button" disabled>②上に重ねる</button>
-              <button id="stack-bottom-button" disabled>②下に重ねる</button>
-            </div>
+          <!-- Row 3: stack pick | stack place -->
+          <button id="pick-stack-button">①重ねる対象を選ぶ</button>
+          <div class="controls-inline controls-inline--split">
+            <button id="stack-top-button" disabled>②上に重ねる</button>
+            <button id="stack-bottom-button" disabled>②下に重ねる</button>
           </div>
         </aside>
 

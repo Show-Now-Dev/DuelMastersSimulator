@@ -564,44 +564,81 @@
     }
 
     // ── Board scale ───────────────────────────────────────────────────────────
-    // When the viewport is narrower than the board's natural minimum width,
-    // scale the entire board down so it fits without horizontal overflow.
+    // Scale the board to fill the viewport in both dimensions simultaneously.
     //
-    // Technique: CSS zoom (not transform: scale) — zoom affects layout flow,
-    // so the scaled board takes up exactly the right amount of space in the
-    // document without any overflow or margin tricks.
+    // --card-w is always set explicitly by JS (overrides the CSS clamp).
+    // All derived variables (--card-h, --gap, --zone-row-h, …) follow suit.
     //
-    // --card-w is overridden on :root so all derived variables (--card-h,
-    // --gap, --zone-row-h, …) resolve to the reference-layout values, and
-    // the JS card-spacing calculation (_getCardWidth) also returns the correct
-    // reference value.
+    // Width formula (from CSS): card-w = (vw - board-pad*2) / 11.35
+    //   → 40px at vw=502, 80px at vw=956, linear in between.
+    //
+    // Height formula: measured at card-w=40 and card-w=80 on first call,
+    //   then linearly interpolated.  Uses the same [40, 80] range.
+    //
+    // The more constraining dimension wins.  If the result drops below 40px,
+    // card-w is frozen at 40 and CSS zoom scales the whole board uniformly.
 
-    var BOARD_MIN_VW = 502; // viewport width at which --card-w hits its clamp min (40px)
-    var _boardMinVH  = 0;  // measured once: natural height of header + boardEl at min card size
+    var CARD_W_MIN = 40;
+    var CARD_W_MAX = 80;
+    var VW_AT_MIN  = 502;  // vw where CSS clamp → 40px
+    var VW_AT_MAX  = 956;  // vw where CSS clamp → 80px  (80*11.35 + 48)
+    var _vhAtMin   = 0;    // measured: total page height when card-w = 40px
+    var _vhAtMax   = 0;    // measured: total page height when card-w = 80px
 
     function applyBoardScale() {
       var vw = window.innerWidth;
       var vh = window.innerHeight;
+      var headerEl = document.querySelector('header');
+      var headerH  = headerEl ? headerEl.offsetHeight : 0;
 
-      // Measure natural (unscaled) board height at minimum card size on first call.
-      if (!_boardMinVH) {
-        document.documentElement.style.setProperty('--card-w', '40px');
+      // ── One-time measurement ────────────────────────────────────────────────
+      // Measure the board's natural CONTENT height at both card-w extremes.
+      //
+      // IMPORTANT: boardEl (#layout) has flex:1 so boardEl.offsetHeight always
+      // equals (vh - headerH), not the content height.  Instead, measure
+      // #board-grid and #board-bottom directly and sum them up.
+      if (!_vhAtMin) {
         boardEl.style.zoom = '';
-        var headerEl = document.querySelector('header');
-        _boardMinVH = (headerEl ? headerEl.offsetHeight : 0) + boardEl.offsetHeight;
+        var boardGridEl   = document.getElementById('board-grid');
+        var boardBottomEl = document.getElementById('board-bottom');
+
+        function _measureContentH(cardW) {
+          document.documentElement.style.setProperty('--card-w', cardW + 'px');
+          var flexGap = parseFloat(getComputedStyle(boardEl).gap)           || 0;
+          var padTB   = (parseFloat(getComputedStyle(boardEl).paddingTop)   || 0)
+                      + (parseFloat(getComputedStyle(boardEl).paddingBottom) || 0);
+          var gridH   = boardGridEl   ? boardGridEl.offsetHeight   : 0;
+          var bottomH = boardBottomEl ? boardBottomEl.offsetHeight : 0;
+          return headerH + padTB + gridH + flexGap + bottomH;
+        }
+
+        _vhAtMin = _measureContentH(CARD_W_MIN);
+        _vhAtMax = _measureContentH(CARD_W_MAX);
+        // Guard: board hidden or not yet laid out
+        if (!_vhAtMin) { _vhAtMin = 1; }
+        if (_vhAtMax <= _vhAtMin) { _vhAtMax = _vhAtMin + 1; }
       }
 
-      var scaleW = vw / BOARD_MIN_VW;
-      var scaleH = _boardMinVH > 0 ? vh / _boardMinVH : 1;
-      var scale  = Math.min(1, scaleW, scaleH);
+      // ── Card-w from width ───────────────────────────────────────────────────
+      var cardWW = vw <= VW_AT_MIN ? CARD_W_MIN * (vw / VW_AT_MIN)
+                 : vw >= VW_AT_MAX ? CARD_W_MAX
+                 : CARD_W_MIN + (vw - VW_AT_MIN) / (VW_AT_MAX - VW_AT_MIN) * (CARD_W_MAX - CARD_W_MIN);
 
-      if (scale >= 1) {
-        document.documentElement.style.removeProperty('--card-w');
+      // ── Card-w from height ──────────────────────────────────────────────────
+      var cardWH = vh <= _vhAtMin ? CARD_W_MIN * (vh / _vhAtMin)
+                 : vh >= _vhAtMax ? CARD_W_MAX
+                 : CARD_W_MIN + (vh - _vhAtMin) / (_vhAtMax - _vhAtMin) * (CARD_W_MAX - CARD_W_MIN);
+
+      // ── Apply ───────────────────────────────────────────────────────────────
+      var cardW = Math.min(cardWW, cardWH);
+
+      if (cardW >= CARD_W_MIN) {
+        document.documentElement.style.setProperty('--card-w', cardW.toFixed(2) + 'px');
         boardEl.style.zoom = '';
       } else {
-        // Freeze --card-w at minimum so the grid is at its natural reference size.
-        document.documentElement.style.setProperty('--card-w', '40px');
-        boardEl.style.zoom = scale.toFixed(5);
+        // Both dimensions are too small — freeze at min and zoom the whole board.
+        document.documentElement.style.setProperty('--card-w', CARD_W_MIN + 'px');
+        boardEl.style.zoom = (cardW / CARD_W_MIN).toFixed(5);
       }
     }
 

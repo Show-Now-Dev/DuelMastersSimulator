@@ -527,11 +527,6 @@ aside#controls {
   margin-top: 0.1rem;
 }
 
-.controls-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
 
 aside#controls button {
   font-size: 0.75rem;
