@@ -577,16 +577,31 @@
     // reference value.
 
     var BOARD_MIN_VW = 502; // viewport width at which --card-w hits its clamp min (40px)
+    var _boardMinVH  = 0;  // measured once: natural height of header + boardEl at min card size
 
     function applyBoardScale() {
       var vw = window.innerWidth;
-      if (vw >= BOARD_MIN_VW) {
+      var vh = window.innerHeight;
+
+      // Measure natural (unscaled) board height at minimum card size on first call.
+      if (!_boardMinVH) {
+        document.documentElement.style.setProperty('--card-w', '40px');
+        boardEl.style.zoom = '';
+        var headerEl = document.querySelector('header');
+        _boardMinVH = (headerEl ? headerEl.offsetHeight : 0) + boardEl.offsetHeight;
+      }
+
+      var scaleW = vw / BOARD_MIN_VW;
+      var scaleH = _boardMinVH > 0 ? vh / _boardMinVH : 1;
+      var scale  = Math.min(1, scaleW, scaleH);
+
+      if (scale >= 1) {
         document.documentElement.style.removeProperty('--card-w');
         boardEl.style.zoom = '';
       } else {
         // Freeze --card-w at minimum so the grid is at its natural reference size.
         document.documentElement.style.setProperty('--card-w', '40px');
-        boardEl.style.zoom = (vw / BOARD_MIN_VW).toFixed(5);
+        boardEl.style.zoom = scale.toFixed(5);
       }
     }
 
