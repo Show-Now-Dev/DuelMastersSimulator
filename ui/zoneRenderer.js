@@ -509,6 +509,15 @@ var ZoneRenderer = (function () {
       return;
     }
 
+    // Preserve scroll position across re-renders (selecting a card rebuilds the DOM).
+    var prevScrollLeft = 0;
+    var prevScrollTop  = 0;
+    var prevList = container.querySelector(".modal-card-list");
+    if (prevList) {
+      prevScrollLeft = prevList.scrollLeft;
+      prevScrollTop  = prevList.scrollTop;
+    }
+
     container.innerHTML = "";
 
     var panel = document.createElement("div");
@@ -640,6 +649,9 @@ var ZoneRenderer = (function () {
     panel.appendChild(footer);
 
     container.appendChild(panel);
+    // Restore scroll after panel is in the DOM so the browser can apply it.
+    cardListEl.scrollLeft = prevScrollLeft;
+    cardListEl.scrollTop  = prevScrollTop;
   }
 
   // ── Pending drop modal ───────────────────────────────────────────────────────

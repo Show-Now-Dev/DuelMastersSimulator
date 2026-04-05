@@ -129,6 +129,32 @@ A stacked zone:
 
 ---
 
+## Drop Target Indicators
+
+Each zone that accepts card drops displays one of two visual aids to make
+drag-and-drop easier when the zone is full of cards.
+
+### Drop Panel (右端ドロップ専用エリア)
+
+Zones: **Battlefield, Mana, Hand, Shield**
+
+- A 1-card-wide panel fixed to the right edge of the zone
+- Displayed as a dashed border rectangle with a centred "+" label
+- Acts as an independent drop target (separate from the zone background)
+- Cards in the zone never overlap into this area (`margin-right` on `.card-list`)
+- CSS class: `.zone-drop-panel` inside `.has-drop-panel`
+
+### Centre Plus (中央 "+" マーク)
+
+Zones: **ResolutionZone, Graveyard, ExZone, GRZone**
+
+- A single "+" character centred in the zone
+- Purely decorative — `pointer-events: none`, `z-index: 0` (always behind cards)
+- Drop is handled by the existing zone-level dragover/drop listeners
+- CSS class: `.zone-center-plus`
+
+---
+
 ## Layout Constraints
 
 - control:
@@ -157,7 +183,7 @@ Zone widths:
 - Hand: 8 card-units
 - Stack: 2 card-units
 - Deck / Graveyard / ExZone / GRZone:
-  1 zone-unit each
+  1 card-unit each
 
 ---
 
@@ -196,10 +222,7 @@ Row composition:
 ## Unit Types
 
 - card-unit:
-  Width of a standard card
-
-- zone-unit:
-  Minimum width for single-card zones
-  Must be larger than card-unit
+  Width of a standard card.
+  All grid columns use this unit, including single-card zones (Deck, Graveyard, ExZone, GRZone).
 
 ---
