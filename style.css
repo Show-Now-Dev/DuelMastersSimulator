@@ -1630,6 +1630,68 @@ section.drop-target-active,
   background-color: rgba(251, 146, 60, 0.08);
 }
 
+/* ── Zone drop panel ─────────────────────────────────────────────────────────
+   A 1-card-wide dedicated drop target fixed to the right edge of spread zones
+   (battlefield, mana, hand, shield).  Positioned absolute inside the .zone
+   so it never affects the card-list layout.  The card-list gets matching
+   margin-right so cards stop before the panel.                                */
+
+.zone-drop-panel {
+  position: absolute;
+  right:  var(--zone-pad);
+  top:    var(--zone-pad);
+  bottom: var(--zone-pad);
+  width:  var(--card-w);
+  border: 2px dashed var(--border-2);
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.zone-drop-panel__plus {
+  font-size: calc(var(--card-w) * 0.5);
+  line-height: 1;
+  color: var(--border-2);
+  pointer-events: none;
+  transition: color 0.15s;
+  user-select: none;
+}
+
+.zone-drop-panel.drop-target-active {
+  border-color: var(--accent);
+  background-color: rgba(249, 115, 22, 0.14);
+}
+
+.zone-drop-panel.drop-target-active .zone-drop-panel__plus {
+  color: var(--accent);
+}
+
+/* Reserve space so cards don't slide under the drop panel.
+   margin-right is outside the element so clientWidth shrinks correctly,
+   keeping the JS card-spacing calculation within the available area. */
+.has-drop-panel .card-list {
+  margin-right: calc(var(--card-w) + var(--gap));
+}
+
+/* Centred "+" hint for zones that use the zone-level drop target instead of
+   a dedicated panel (Resolution, Graveyard, EX, GR).
+   Sits behind all cards via z-index: 0, never intercepts pointer events. */
+.zone-center-plus {
+  position:       absolute;
+  top:            50%;
+  left:           50%;
+  transform:      translate(-50%, -50%);
+  font-size:      calc(var(--card-w) * 0.55);
+  line-height:    1;
+  color:          var(--border-2);
+  pointer-events: none;
+  user-select:    none;
+  z-index:        0;
+}
+
 /* ── Pending Drop Modal (.modal-panel--pending-drop) ─────────────────────────
    A compact confirmation dialog shown when a drag requires user input.
    Uses the shared .modal-panel base; only sizing and body layout are added.   */

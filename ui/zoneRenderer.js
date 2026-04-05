@@ -73,6 +73,10 @@ var ZoneRenderer = (function () {
 
   function renderZone(container, gameState, zone, peekedCardIds, config) {
     container.innerHTML = "";
+    // Apply has-drop-panel early so listEl.clientWidth already accounts for the
+    // margin-right when card spacing is computed (prevents cards overlapping the panel).
+    container.classList.remove("has-drop-panel");
+    if (config.hasDropPanel) container.classList.add("has-drop-panel");
 
     var stacks               = gameState.stacks || {};
     var stackIds             = zone.stackIds    || [];
@@ -112,6 +116,14 @@ var ZoneRenderer = (function () {
 
     container.appendChild(headerEl);
     container.appendChild(listEl);
+
+    // Centred "+" hint — visible behind cards, no pointer-events.
+    if (config.hasCenterPlus) {
+      var cpEl = document.createElement("div");
+      cpEl.className   = "zone-center-plus";
+      cpEl.textContent = "+";
+      container.appendChild(cpEl);
+    }
 
     // Compute horizontal spacing so stacks fit inside the container.
     var cardWidth      = _getCardWidth();
@@ -249,6 +261,46 @@ var ZoneRenderer = (function () {
         listEl.appendChild(badge);
       }
     });
+
+    // ── Drop panel ──────────────────────────────────────────────────────────────
+    // A dedicated 1-card-wide drop target at the right edge of spread zones.
+    // Stops drag event propagation so the zone's own dragover does not fire when
+    // the pointer is over the panel — only the panel itself highlights.
+    if (config.hasDropPanel) {
+      // has-drop-panel was already added at the top of renderZone.
+      var panelEl = document.createElement("div");
+      panelEl.className = "zone-drop-panel";
+      var plusEl  = document.createElement("span");
+      plusEl.className   = "zone-drop-panel__plus";
+      plusEl.textContent = "+";
+      panelEl.appendChild(plusEl);
+
+      panelEl.addEventListener("dragover", function (e) {
+        if (config.onDropPanelDragOver && !config.onDropPanelDragOver()) return;
+        e.preventDefault();
+        e.stopPropagation(); // prevent zone-level dragover from also firing
+        panelEl.classList.add("drop-target-active");
+      });
+
+      panelEl.addEventListener("dragleave", function (e) {
+        if (!panelEl.contains(e.relatedTarget)) {
+          panelEl.classList.remove("drop-target-active");
+        }
+      });
+
+      panelEl.addEventListener("drop", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Clear all highlights (zone may still be lit if dragover fired before panel took over).
+        var highlighted = document.querySelectorAll(".drop-target-active");
+        for (var i = 0; i < highlighted.length; i++) {
+          highlighted[i].classList.remove("drop-target-active");
+        }
+        if (config.onDropPanelDrop) config.onDropPanelDrop();
+      });
+
+      container.appendChild(panelEl);
+    }
   }
 
   // ── Card detail panel ────────────────────────────────────────────────────────

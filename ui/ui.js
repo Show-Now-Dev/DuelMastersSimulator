@@ -150,6 +150,23 @@
       "deck-drag:graveyard": { showPosition: false, showFace: false, showInsertIndex: false, showTap: false, isDeckDrag: true },
     };
 
+    // Zones that show a dedicated 1-card-wide drop panel on their right edge.
+    const DROP_PANEL_ZONE_IDS = [
+      ZONE_IDS.BATTLEFIELD,
+      ZONE_IDS.MANA,
+      ZONE_IDS.HAND,
+      ZONE_IDS.SHIELD,
+    ];
+
+    // Zones that show only a centred "+" hint (no separate drop panel).
+    // Drop still works via the zone-level dragover/drop handlers.
+    const CENTER_PLUS_ZONE_IDS = [
+      ZONE_IDS.RESOLUTION_ZONE,
+      ZONE_IDS.GRAVEYARD,
+      ZONE_IDS.EX,
+      ZONE_IDS.GR,
+    ];
+
     // Default face state per zone (true = 裏向き, false = 表向き).
     // Used to pre-select the face button when dropping a card onto a stack in that zone.
     const ZONE_DEFAULT_FACE_DOWN = {
@@ -507,6 +524,22 @@
               { defaultIsFaceDown: defaultFaceDown }
             );
             dragState = null;
+          },
+          hasCenterPlus: CENTER_PLUS_ZONE_IDS.indexOf(zoneId) !== -1,
+          // Drop panel: dedicated 1-card-wide drop target at right edge of spread zones.
+          hasDropPanel: DROP_PANEL_ZONE_IDS.indexOf(zoneId) !== -1,
+          onDropPanelDragOver: function () {
+            if (!dragState) return false;
+            // Reject deck drags unless the zone explicitly allows them.
+            if (dragState.isDeckDrag) {
+              var opts = DROP_TARGET_OPTIONS["deck-drag:" + zoneId] || {};
+              return !!opts.isDeckDrag;
+            }
+            return true;
+          },
+          onDropPanelDrop: function () {
+            if (!dragState) return;
+            _handleDrop(dragState.cardIds, dragState.isDeckDrag, { type: "zone", zoneId: zoneId });
           },
         });
       });
