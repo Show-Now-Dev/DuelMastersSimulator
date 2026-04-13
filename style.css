@@ -103,6 +103,7 @@ main#layout.game-board {
   display: flex;
   flex-direction: column;
   align-items: center;   /* centres #board-grid and #board-bottom horizontally */
+  overscroll-behavior: none; /* prevent pull-to-refresh while dragging on mobile */
   gap: var(--gap);
 }
 
@@ -194,6 +195,11 @@ main#layout.game-board {
   cursor: pointer;
   white-space: normal;
   overflow: hidden;
+  /* Touch: prevent text-selection and browser gestures while dragging a card */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.35),
     0 6px 18px rgba(0, 0, 0, 0.35);
@@ -671,6 +677,7 @@ select {
   justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
+  touch-action: pan-x; /* allow horizontal finger-scroll in the modal card list */
 }
 
 /* Individual card inside the modal — uses relative flow (not absolute).

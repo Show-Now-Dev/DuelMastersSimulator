@@ -86,6 +86,11 @@
     -->
     <div id="modal-layer" role="dialog" aria-modal="true"></div>
 
+    <!-- Touch polyfill: maps touch events to HTML5 drag events on mobile browsers.
+         Must load before any drag-and-drop code. Local copy in lib/ — no CDN dependency.
+         Source: https://github.com/Bernardo-Castilho/dragdroptouch  License: MIT v1.3.1 -->
+    <script src="./lib/DragDropTouch.min.js"></script>
+
     <!-- Model -->
     <script src="./model/CardDefinition.js"></script>
     <script src="./model/CardInstance.js"></script>
