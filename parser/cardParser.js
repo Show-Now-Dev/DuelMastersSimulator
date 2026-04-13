@@ -69,7 +69,9 @@
   // Returns { name, civilization, cost } or null on failure.
 
   function parseHeaderLine(line) {
-    var s = line.trim();
+    // Normalize full-width parentheses（）to half-width () so cost parsing works
+    // regardless of which bracket style the user pastes from the wiki.
+    var s = line.trim().replace(/（/g, '(').replace(/）/g, ')');
 
     // Step 1 — strip cost: "...(6)"
     var costRe = new RegExp('\\((\\d+)\\)' + WS + '*$');

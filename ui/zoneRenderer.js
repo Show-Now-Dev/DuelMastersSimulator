@@ -567,12 +567,22 @@ var ZoneRenderer = (function () {
     title.className   = "modal-title";
     title.textContent = _getModalTitle(gameState, modal);
 
+    header.appendChild(title);
+
+    // Shuffle button: only shown for zone-type modals (e.g. deck, graveyard).
+    if (modal.source.type === "zone" && cb.onShuffle) {
+      var shuffleBtn = document.createElement("button");
+      shuffleBtn.className   = "modal-shuffle-btn";
+      shuffleBtn.textContent = "シャッフル";
+      shuffleBtn.addEventListener("click", function () { cb.onShuffle(modal.source.id); });
+      header.appendChild(shuffleBtn);
+    }
+
     var closeBtn = document.createElement("button");
     closeBtn.className   = "modal-close-btn";
     closeBtn.textContent = "✕";
     closeBtn.addEventListener("click", function () { cb.onClose(); });
 
-    header.appendChild(title);
     header.appendChild(closeBtn);
     panel.appendChild(header);
 

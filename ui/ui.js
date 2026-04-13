@@ -605,6 +605,11 @@
         },
         onSelectAll:      function (cardIds) { uiStore.dispatch(selectModalCards(cardIds.slice())); },
         onClearSelection: function ()         { uiStore.dispatch(selectModalCards([])); },
+        onShuffle: function (zoneId) {
+          gameStore.dispatch(shuffleZone(zoneId));
+          uiStore.dispatch(clearPeekedCards());
+          LogPanel.log(zoneId + " をシャッフル");
+        },
         parseMoveTarget:  ControlPanel.parseMoveTarget,
         onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice) {
           _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice);

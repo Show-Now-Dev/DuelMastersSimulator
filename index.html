@@ -48,26 +48,26 @@
 
       <div id="board-bottom">
         <aside id="controls">
-          <!-- Row 1: zone move | tap toggle -->
-          <div class="controls-inline">
+          <!-- 4 main action buttons in one row -->
+          <div class="controls-inline controls-inline--wrap">
+            <button id="toggle-tap-button">タップ / アンタップ</button>
+            <button id="toggle-face-button">表向き / 裏向き</button>
+            <button id="peek-button">見る</button>
+            <button id="clear-selection-button">全選択解除</button>
+          </div>
+
+          <!-- Hidden: zone move (keep for future optional use) -->
+          <div class="controls-inline" style="display:none">
             <!--
               Options are generated from ZONE_DEFINITIONS in the bootstrap script below.
             -->
             <select id="move-target"></select>
             <button id="move-button">移動</button>
           </div>
-          <button id="toggle-tap-button">タップ / アンタップ</button>
 
-          <!-- Row 2: face / peek | clear selection -->
-          <div class="controls-inline controls-inline--split">
-            <button id="toggle-face-button">表向き / 裏向き</button>
-            <button id="peek-button">見る</button>
-          </div>
-          <button id="clear-selection-button">全選択解除</button>
-
-          <!-- Row 3: stack pick | stack place -->
-          <button id="pick-stack-button">①重ねる対象を選ぶ</button>
-          <div class="controls-inline controls-inline--split">
+          <!-- Hidden: stack buttons (keep for future optional use) -->
+          <button id="pick-stack-button" style="display:none">①重ねる対象を選ぶ</button>
+          <div class="controls-inline controls-inline--split" style="display:none">
             <button id="stack-top-button" disabled>②上に重ねる</button>
             <button id="stack-bottom-button" disabled>②下に重ねる</button>
           </div>

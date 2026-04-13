@@ -72,6 +72,7 @@ function rootReducer(state, action, context) {
     // ── Core game actions ────────────────────────────────────────────────────
     case DRAW_CARD:              return handleDrawCard(state, action.payload, context);
     case SHUFFLE_DECK:           return handleShuffleDeck(state, action.payload, context);
+    case SHUFFLE_ZONE:           return handleShuffleZone(state, action.payload, context);
     case RESET_GAME:             return applyGameSetup(createInitialGameState(), context);
     case MOVE_CARDS:             return handleMoveCards(state, action.payload, context);
     case MOVE_SELECTED_CARDS:    return handleMoveSelectedCards(state, action.payload, context);
@@ -426,6 +427,21 @@ function handleShuffleDeck(state, payload, context) {
       [ZONE_IDS.DECK]: Object.assign({}, deckZone, { stackIds: newStackIds }),
     }),
     status: "Shuffled deck.",
+  });
+}
+
+// ── Handler: SHUFFLE_ZONE ─────────────────────────────────────────────────────
+// Shuffles the stack order within any zone (not restricted to the deck).
+function handleShuffleZone(state, payload, context) {
+  var zone = state.zones[payload.zoneId];
+  if (!zone) return state;
+  var newStackIds = zone.stackIds.slice();
+  shuffleArray(newStackIds);
+  return Object.assign({}, state, {
+    zones: Object.assign({}, state.zones, {
+      [payload.zoneId]: Object.assign({}, zone, { stackIds: newStackIds }),
+    }),
+    status: "Shuffled " + payload.zoneId + ".",
   });
 }
 

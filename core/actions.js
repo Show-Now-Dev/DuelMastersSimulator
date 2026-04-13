@@ -12,6 +12,7 @@ const SELECT_CARDS           = "SELECT_CARDS";
 const CLEAR_SELECTION        = "CLEAR_SELECTION";
 const PLACE_FROM_DECK          = "PLACE_FROM_DECK";
 const PLACE_FROM_DECK_TO_STACK = "PLACE_FROM_DECK_TO_STACK";
+const SHUFFLE_ZONE             = "SHUFFLE_ZONE";
 
 // Convenience / UI actions
 const TOGGLE_TAP_SELECTED_CARDS  = "TOGGLE_TAP_SELECTED_CARDS";
@@ -27,6 +28,11 @@ function drawCard(playerId) {
 
 function shuffleDeck(playerId) {
   return { type: SHUFFLE_DECK, payload: { playerId } };
+}
+
+// Shuffle the stacks within a specific zone (not deck-wide).
+function shuffleZone(zoneId) {
+  return { type: SHUFFLE_ZONE, payload: { zoneId } };
 }
 
 function resetGame() {
