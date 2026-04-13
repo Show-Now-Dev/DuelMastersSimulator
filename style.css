@@ -55,6 +55,8 @@
 html,
 body {
   height: 100%;
+  /* Prevent pull-to-refresh and overscroll glow on mobile browsers. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -103,7 +105,8 @@ main#layout.game-board {
   display: flex;
   flex-direction: column;
   align-items: center;   /* centres #board-grid and #board-bottom horizontally */
-  overscroll-behavior: none; /* prevent pull-to-refresh while dragging on mobile */
+  overscroll-behavior: none;
+  touch-action: none; /* prevent browser scroll/refresh gestures on the game board */
   gap: var(--gap);
 }
 

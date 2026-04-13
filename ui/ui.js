@@ -365,12 +365,6 @@
     // Clear drag state if the drag ends without a successful drop (e.g. Escape,
     // dropped outside any valid target). Also removes any leftover highlights.
     document.addEventListener("dragend", function () {
-      // dragState is already null after a successful drop (cleared in the drop
-      // handler). If it is still set here, the drag was cancelled — undo any
-      // auto-selection that was applied during dragstart.
-      if (dragState && dragState.autoSelected) {
-        gameStore.dispatch(clearSelection());
-      }
       dragState = null;
       var highlighted = document.querySelectorAll(".drop-target-active");
       for (var i = 0; i < highlighted.length; i++) {
@@ -490,20 +484,17 @@
               cardIds = [info.cardId];
             }
 
-            var autoSelected = selected.join(",") !== cardIds.join(",");
-            if (autoSelected) {
-              // Defer so the zone does NOT re-render during dragstart.
-              // Re-rendering removes the card element from the DOM before the
-              // touch polyfill creates its ghost image, causing display issues.
-              setTimeout(function () { gameStore.dispatch(selectCards(cardIds)); }, 0);
-            }
-
+            // Do NOT dispatch selectCards during drag.
+            // Dispatching (even deferred via setTimeout) triggers a zone re-render
+            // that removes the card element from the DOM. The touch polyfill fires
+            // "dragend" on that now-detached element, which does not bubble to
+            // document — leaving ghost images and zone highlights on screen.
+            // dragState.cardIds is sufficient to identify what to move on drop.
             dragState = {
               cardIds:       cardIds,
               sourceZoneId:  info.zone.id,
               sourceStackId: info.stackId,
               isDeckDrag:    false,
-              autoSelected:  autoSelected,
             };
           },
           onCardDragOver: function (info) {
