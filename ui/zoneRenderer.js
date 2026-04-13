@@ -203,13 +203,39 @@ var ZoneRenderer = (function () {
 
           cardEl.addEventListener("dragstart", function (e) {
             e.stopPropagation();
+
+            // Build a 2× ghost image so the dragged card is visible above the finger.
+            // Using a custom element avoids DragDropTouch's _copyStyle, which
+            // produces a giant image when the source element is detached mid-render.
+            // The ghost must be in the DOM when setDragImage is called, so we
+            // append it now and remove it on the next tick.
+            var cw    = _getCardWidth();
+            var ch    = Math.round(cw * 7 / 5);
+            var ghost = document.createElement("div");
+            ghost.style.cssText =
+              "position:fixed;top:-9999px;left:-9999px;" +
+              "width:"  + (cw * 2) + "px;" +
+              "height:" + (ch * 2) + "px;" +
+              "border-radius:0.65rem;" +
+              "border:1px solid rgba(255,255,255,0.2);" +
+              "background:" + getComputedStyle(cardEl).background + ";" +
+              "overflow:hidden;pointer-events:none;" +
+              "box-shadow:0 4px 24px rgba(0,0,0,.55);";
+            ghost.innerHTML = cardEl.innerHTML;
+            document.body.appendChild(ghost);
+            // Hotspot at centre of the 2× card so it floats centred on the finger.
+            e.dataTransfer.setDragImage(ghost, cw, ch);
+            setTimeout(function () {
+              if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            }, 0);
+
             onDragStart({
-              cardId:          cardId,
-              stackId:         stackId,
-              zone:            zone,
-              stack:           stack,
-              isTopCard:       isTopCard,
-              isStacked:       isStacked,
+              cardId:           cardId,
+              stackId:          stackId,
+              zone:             zone,
+              stack:            stack,
+              isTopCard:        isTopCard,
+              isStacked:        isStacked,
               isStackedTopCard: isStackedTopCard,
             });
             // Defer class addition so the ghost image is captured before the
