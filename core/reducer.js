@@ -79,7 +79,8 @@ function rootReducer(state, action, context) {
     case TOGGLE_FACE_CARDS:      return handleToggleFaceCards(state, action.payload, context);
     case SELECT_CARDS:           return handleSelectCards(state, action.payload, context);
     case CLEAR_SELECTION:        return handleClearSelection(state, context);
-    case PLACE_FROM_DECK:        return handlePlaceFromDeck(state, action.payload, context);
+    case PLACE_FROM_DECK:          return handlePlaceFromDeck(state, action.payload, context);
+    case PLACE_FROM_DECK_TO_STACK: return handlePlaceFromDeckToStack(state, action.payload, context);
     // ── Convenience actions (derive from the primitives above) ───────────────
     case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state, context);
     case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state, context);
@@ -366,6 +367,52 @@ function handlePlaceFromDeck(state, payload, context) {
   }
 
   return Object.assign({}, next, { status: "Placed card from deck to " + zoneId + "." });
+}
+
+// ── Handler: PLACE_FROM_DECK_TO_STACK ────────────────────────────────────────
+// Takes the top card of the deck, places it onto an existing stack, then
+// applies explicit face and tap states.
+// Used for Deck → Battlefield / Shield card-stacking drag-and-drop.
+function handlePlaceFromDeckToStack(state, payload, context) {
+  var stackId    = payload.stackId;
+  var isFaceDown = payload.isFaceDown;
+  var isTapped   = payload.isTapped;
+
+  var deckZone = state.zones[ZONE_IDS.DECK];
+  if (!deckZone || !deckZone.stackIds.length) {
+    return Object.assign({}, state, { status: "Deck is empty." });
+  }
+  var topStack = state.stacks[deckZone.stackIds[0]];
+  if (!topStack || !topStack.cardIds.length) {
+    return Object.assign({}, state, { status: "Deck is empty." });
+  }
+  var topCardId = topStack.cardIds[topStack.cardIds.length - 1];
+
+  // Move top deck card onto the target stack (top of pile).
+  var next = applyMoveCards(
+    state,
+    [topCardId],
+    { type: "stack", stackId: stackId },
+    "top",
+    context
+  );
+
+  // Override face state.
+  var newCards = Object.assign({}, next.cards);
+  if (newCards[topCardId]) {
+    newCards[topCardId] = Object.assign({}, newCards[topCardId], { isFaceDown: isFaceDown });
+  }
+  next = Object.assign({}, next, { cards: newCards });
+
+  // Apply tap state to the target stack.
+  if (isTapped && next.stacks[stackId]) {
+    var newStacks = Object.assign({}, next.stacks, {
+      [stackId]: Object.assign({}, next.stacks[stackId], { isTapped: true }),
+    });
+    next = Object.assign({}, next, { stacks: newStacks });
+  }
+
+  return Object.assign({}, next, { status: "Placed card from deck onto stack." });
 }
 
 // ── Handler: SHUFFLE_DECK ─────────────────────────────────────────────────────

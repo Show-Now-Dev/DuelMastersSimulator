@@ -10,7 +10,8 @@ const TOGGLE_TAP_STACK       = "TOGGLE_TAP_STACK";
 const TOGGLE_FACE_CARDS      = "TOGGLE_FACE_CARDS";
 const SELECT_CARDS           = "SELECT_CARDS";
 const CLEAR_SELECTION        = "CLEAR_SELECTION";
-const PLACE_FROM_DECK        = "PLACE_FROM_DECK";
+const PLACE_FROM_DECK          = "PLACE_FROM_DECK";
+const PLACE_FROM_DECK_TO_STACK = "PLACE_FROM_DECK_TO_STACK";
 
 // Convenience / UI actions
 const TOGGLE_TAP_SELECTED_CARDS  = "TOGGLE_TAP_SELECTED_CARDS";
@@ -54,6 +55,17 @@ function moveCards(cardIds, target, position) {
 // isTapped:   tap state applied to the newly created stack
 function placeFromDeck(zoneId, isFaceDown, isTapped) {
   return { type: PLACE_FROM_DECK, payload: { zoneId, isFaceDown, isTapped } };
+}
+
+// Move the top card of the deck onto an existing stack with explicit face and tap state.
+// Used for Deck → Battlefield / Shield card-stacking drag-and-drop.
+//
+// stackId:    target stack to place the card on top of
+// zoneId:     zone that owns the target stack (for logging / state lookup)
+// isFaceDown: explicit face state
+// isTapped:   tap state applied to the target stack after placement
+function placeFromDeckToStack(stackId, zoneId, isFaceDown, isTapped) {
+  return { type: PLACE_FROM_DECK_TO_STACK, payload: { stackId, zoneId, isFaceDown, isTapped } };
 }
 
 // Stack currently selected cards onto an existing stack.

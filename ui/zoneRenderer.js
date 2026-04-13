@@ -254,12 +254,19 @@ var ZoneRenderer = (function () {
               e.preventDefault();
               e.stopPropagation();
               cardEl.classList.add("drop-target-active");
+              // Feature 4: Make polyfill ghost semi-transparent when over a stackable card.
+              document.body.classList.add("drag-over-stack");
+              var ddt = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+              if (ddt && ddt._img) ddt._img.style.opacity = "0.45";
             }
           });
 
           cardEl.addEventListener("dragleave", function (e) {
             if (!cardEl.contains(e.relatedTarget)) {
               cardEl.classList.remove("drop-target-active");
+              document.body.classList.remove("drag-over-stack");
+              var ddt = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+              if (ddt && ddt._img) ddt._img.style.opacity = "";
             }
           });
 
@@ -267,6 +274,9 @@ var ZoneRenderer = (function () {
             e.preventDefault();
             e.stopPropagation();
             cardEl.classList.remove("drop-target-active");
+            document.body.classList.remove("drag-over-stack");
+            var ddt = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+            if (ddt && ddt._img) ddt._img.style.opacity = "";
             if (onCardDrop) {
               onCardDrop({ cardId: cardId, stackId: stackId, zone: zone, stack: stack, isStacked: isStacked });
             }

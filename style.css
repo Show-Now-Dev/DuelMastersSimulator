@@ -1629,6 +1629,13 @@ section.drop-target-active,
   background-color: rgba(251, 146, 60, 0.08);
 }
 
+/* Feature 5: Card-on-card stacking target — blue glow instead of orange dash. */
+.card.drop-target-active {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+}
+
 /* ── Zone drop panel ─────────────────────────────────────────────────────────
    A 1-card-wide dedicated drop target fixed to the right edge of spread zones
    (battlefield, mana, hand, shield).  Positioned absolute inside the .zone
