@@ -101,6 +101,7 @@
       name:         name,
       civilization: parseCivilizationString(civStr),
       cost:         cost,
+      rarity:       rarityM[2],
     };
   }
 
@@ -197,6 +198,7 @@
       name:         header.name,
       civilization: header.civilization,
       cost:         header.cost,
+      rarity:       header.rarity,
       type:         typeInfo.type,
       races:        typeInfo.races,
       power:        typeInfo.power,

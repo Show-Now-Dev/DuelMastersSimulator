@@ -13,7 +13,6 @@ var DeckBuilderUI = (function () {
 
   var TARGET_COUNT = 40;
 
-  var CIVS = ['light', 'water', 'darkness', 'fire', 'nature'];
   var CIV_LABELS = {
     light:    '光',
     water:    '水',
@@ -81,7 +80,13 @@ var DeckBuilderUI = (function () {
     _container.appendChild(totalEl);
 
     // Search panel
-    _container.appendChild(_buildSearchPanel());
+    _container.appendChild(CardSearchUI.build({
+      filters:  _filters,
+      onChange: function (newFilters) {
+        _filters = newFilters;
+        _refreshCardList();
+      },
+    }));
 
     // Card list wrapper — re-rendered on filter changes
     var listWrap = _el('div', { className: 'deck-builder__list-wrap' });
@@ -122,68 +127,6 @@ var DeckBuilderUI = (function () {
 
     _container.appendChild(saveBtn);
     _updateTotal(totalEl);
-  }
-
-  // ── Search panel ──────────────────────────────────────────────────────────
-
-  function _buildSearchPanel() {
-    var panel = _el('div', { className: 'cm-search-panel' });
-
-    // Name filter
-    var nameRow = _el('div', { className: 'cm-search-row' });
-    nameRow.appendChild(_el('label', { textContent: 'カード名:', className: 'cm-search-label' }));
-    var nameInput = _el('input', {
-      type:        'text',
-      className:   'cm-search-input',
-      placeholder: '名前で絞り込み',
-      value:       _filters.name,
-    });
-    nameRow.appendChild(nameInput);
-    panel.appendChild(nameRow);
-
-    // Civilization filter
-    var civRow = _el('div', { className: 'cm-search-row' });
-    civRow.appendChild(_el('label', { textContent: '文明:', className: 'cm-search-label' }));
-    var civGroup = _el('div', { className: 'cm-civ-group' });
-    var civChecks = {};
-    CIVS.forEach(function (civ) {
-      var label = document.createElement('label');
-      label.className = 'cm-civ-label cm-civ--' + civ;
-      var cb = document.createElement('input');
-      cb.type    = 'checkbox';
-      cb.value   = civ;
-      cb.checked = _filters.civilization.indexOf(civ) !== -1;
-      civChecks[civ] = cb;
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(CIV_LABELS[civ]));
-      civGroup.appendChild(label);
-    });
-    civRow.appendChild(civGroup);
-    panel.appendChild(civRow);
-
-    // Buttons
-    var searchBtn = document.createElement('button');
-    searchBtn.textContent = '検索';
-    searchBtn.className   = 'btn';
-    searchBtn.addEventListener('click', function () {
-      _filters.name         = nameInput.value.trim();
-      _filters.civilization = CIVS.filter(function (c) { return civChecks[c].checked; });
-      _refreshCardList();
-    });
-    panel.appendChild(searchBtn);
-
-    var clearBtn = document.createElement('button');
-    clearBtn.textContent = 'クリア';
-    clearBtn.className   = 'btn';
-    clearBtn.addEventListener('click', function () {
-      _filters = { name: '', civilization: [] };
-      nameInput.value = '';
-      CIVS.forEach(function (c) { civChecks[c].checked = false; });
-      _refreshCardList();
-    });
-    panel.appendChild(clearBtn);
-
-    return panel;
   }
 
   // ── Card list ──────────────────────────────────────────────────────────────

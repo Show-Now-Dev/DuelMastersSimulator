@@ -13,8 +13,10 @@ var DeckEditorUI = (function () {
 
   var TARGET_COUNT = 40;
 
-  var _container  = null;
-  var _editingId  = null;  // id of the deck currently being edited, or null
+  var _container     = null;
+  var _editingId     = null;   // id of the deck currently being edited, or null
+  var _editCountsMap = null;   // live counts map for the deck currently being edited
+  var _editFilters   = { name: '', civilization: [] };
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -23,7 +25,9 @@ var DeckEditorUI = (function () {
   }
 
   function show() {
-    _editingId = null;
+    _editingId     = null;
+    _editCountsMap = null;
+    _editFilters   = { name: '', civilization: [] };
     _renderList();
   }
 
@@ -106,21 +110,38 @@ var DeckEditorUI = (function () {
     var totalEl = _el('div', { className: 'deck-builder__total' });
     _container.appendChild(totalEl);
 
-    // Search filter for the card list
-    _container.appendChild(_buildSearchPanel());
-
     // Build initial counts from deck entries
-    var countsMap = {};
+    _editFilters   = { name: '', civilization: [] };
+    _editCountsMap = {};
     (deck.cards || []).forEach(function (entry) {
-      countsMap[entry.cardId] = entry.count || 0;
+      _editCountsMap[entry.cardId] = entry.count || 0;
     });
+
+    // Search panel (uses shared module; civilization filter included)
+    _container.appendChild(CardSearchUI.build({
+      filters:  _editFilters,
+      onChange: function (newFilters) {
+        _editFilters = newFilters;
+        // Flush currently-visible counts before re-rendering
+        var flushed = _collectCurrentCounts();
+        Object.keys(flushed).forEach(function (id) { _editCountsMap[id] = flushed[id]; });
+
+        var q = {};
+        if (_editFilters.name)               q.name         = _editFilters.name;
+        if (_editFilters.civilization.length) q.civilization = _editFilters.civilization;
+        var cards = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
+
+        var wrap = _container.querySelector('.de-card-list-wrap');
+        if (wrap) _renderEditCardList(wrap, cards, _editCountsMap, totalEl);
+      },
+    }));
 
     // Card list area
     var cardListWrap = _el('div', { className: 'de-card-list-wrap' });
     _container.appendChild(cardListWrap);
 
     // Render card list (all registered cards, with current deck counts)
-    _renderEditCardList(cardListWrap, CardRepository.getAllCards(), countsMap, totalEl);
+    _renderEditCardList(cardListWrap, CardRepository.getAllCards(), _editCountsMap, totalEl);
 
     // Error / status message
     var msgEl = _el('p', { className: 'msg', textContent: '' });
@@ -132,9 +153,13 @@ var DeckEditorUI = (function () {
       var newName = nameInput.value.trim();
       if (!newName) { _showMsg(msgEl, 'msg--error', 'デッキ名を入力してください'); return; }
 
-      var entries = Object.keys(countsMap)
-        .filter(function (id) { return (countsMap[id] || 0) > 0; })
-        .map(function (id)    { return { cardId: id, count: countsMap[id] }; });
+      // Flush any counts still visible in the DOM before saving
+      var flushed = _collectCurrentCounts();
+      Object.keys(flushed).forEach(function (id) { _editCountsMap[id] = flushed[id]; });
+
+      var entries = Object.keys(_editCountsMap)
+        .filter(function (id) { return (_editCountsMap[id] || 0) > 0; })
+        .map(function (id)    { return { cardId: id, count: _editCountsMap[id] }; });
 
       if (!entries.length) { _showMsg(msgEl, 'msg--error', 'カードが選択されていません'); return; }
 
@@ -150,12 +175,11 @@ var DeckEditorUI = (function () {
       if (!result.ok) { _showMsg(msgEl, 'msg--error', '保存失敗: ' + result.error); return; }
 
       _showMsg(msgEl, 'msg--success', '保存しました！');
-      // Refresh the heading
       _container.querySelector('h2').textContent = newName + ' を編集';
     });
     _container.appendChild(saveBtn);
 
-    _updateTotal(totalEl, countsMap);
+    _updateTotal(totalEl, _editCountsMap);
   }
 
   // ── Edit card list ─────────────────────────────────────────────────────────
@@ -174,15 +198,18 @@ var DeckEditorUI = (function () {
       var civs = _getCardCivs(card);
 
       var row = document.createElement('div');
-      row.className       = 'deck-builder__row';
+      row.className       = 'deck-builder__row cm-card-row';
       row.dataset.cardId  = card.id;
 
-      var infoEl = _el('div', { className: 'deck-builder__card-info' });
-      infoEl.appendChild(_el('span', { className: 'deck-builder__card-name', textContent: card.name }));
-      infoEl.appendChild(_el('span', {
-        className:   'deck-builder__card-civ',
-        textContent: civs.map(function (c) { return _CIV_LABELS[c] || c; }).join('/') || '—',
-      }));
+      // Color swatch
+      var swatch = _el('div', { className: 'cm-card-swatch' });
+      swatch.style.background = _civBackground(civs);
+      row.appendChild(swatch);
+
+      // Info: name + meta
+      var infoEl = _el('div', { className: 'deck-builder__card-info cm-card-info' });
+      infoEl.appendChild(_el('span', { className: 'deck-builder__card-name cm-card-name', textContent: card.name }));
+      infoEl.appendChild(_el('span', { className: 'deck-builder__card-civ cm-card-meta', textContent: _cardMeta(card) }));
       row.appendChild(infoEl);
 
       var ctrl     = _el('div', { className: 'deck-builder__count-ctrl' });
@@ -214,40 +241,6 @@ var DeckEditorUI = (function () {
     wrap.appendChild(list);
   }
 
-  // ── Search panel (inline filter for edit view) ─────────────────────────────
-
-  function _buildSearchPanel() {
-    var panel = _el('div', { className: 'cm-search-panel' });
-
-    var nameRow = _el('div', { className: 'cm-search-row' });
-    nameRow.appendChild(_el('label', { className: 'cm-search-label', textContent: 'カード名:' }));
-    var nameInput = _el('input', {
-      type:        'text',
-      className:   'cm-search-input',
-      placeholder: '名前で絞り込み',
-    });
-    nameRow.appendChild(nameInput);
-    panel.appendChild(nameRow);
-
-    var searchBtn = _btn('絞り込み', 'btn', function () {
-      var name = nameInput.value.trim();
-      var cards = name
-        ? CardRepository.searchCards({ name: name })
-        : CardRepository.getAllCards();
-
-      // Flush currently-visible counts into the shared countsMap before re-rendering,
-      // so counts for cards scrolled off-screen are not lost.
-      var wrap    = _container.querySelector('.de-card-list-wrap');
-      var totalEl = _container.querySelector('.deck-builder__total');
-      var flushed = _collectCurrentCounts();
-      Object.keys(flushed).forEach(function (id) { countsMap[id] = flushed[id]; });
-      if (wrap) _renderEditCardList(wrap, cards, countsMap, totalEl);
-    });
-    panel.appendChild(searchBtn);
-
-    return panel;
-  }
-
   // Reads current counts from the rendered count controls.
   // Each row carries a data-card-id attribute, so this is filter-safe.
   function _collectCurrentCounts() {
@@ -269,6 +262,37 @@ var DeckEditorUI = (function () {
   var _CIV_LABELS = {
     light: '光', water: '水', darkness: '闇', fire: '火', nature: '自然',
   };
+
+  var _CIV_COLORS = {
+    light: '#eab308', water: '#2563eb', darkness: '#18181b', fire: '#dc2626', nature: '#16a34a',
+  };
+
+  var _CIV_ORDER = ['light', 'water', 'darkness', 'fire', 'nature'];
+
+  function _civBackground(civs) {
+    if (!civs || !civs.length) return '#ffffff';
+    var ordered = _CIV_ORDER.filter(function (c) { return civs.indexOf(c) !== -1; });
+    if (!ordered.length) return '#ffffff';
+    if (ordered.length === 1) return _CIV_COLORS[ordered[0]];
+    var stops = ordered.map(function (c, i) {
+      return _CIV_COLORS[c] + ' ' + Math.round(i / (ordered.length - 1) * 100) + '%';
+    });
+    return 'linear-gradient(135deg, ' + stops.join(', ') + ')';
+  }
+
+  function _cardMeta(card) {
+    var parts = [];
+    var civs  = _getCardCivs(card);
+    if (civs.length) parts.push(civs.map(function (c) { return _CIV_LABELS[c] || c; }).join('/'));
+    if (card.type === 'twin') {
+      var costs = (card.sides || []).map(function (s) { return s.cost; }).filter(function (c) { return c != null; });
+      if (costs.length) parts.push('コスト ' + costs.join('/'));
+    } else {
+      if (card.cost != null) parts.push('コスト ' + card.cost);
+    }
+    parts.push(card.type || '');
+    return parts.filter(Boolean).join(' ・ ');
+  }
 
   function _getCardCivs(card) {
     if (card.type === 'twin') {

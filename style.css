@@ -185,6 +185,7 @@ main#layout.game-board {
   padding: 0;
 }
 
+
 .card {
   position: absolute;
   width: var(--card-w);
@@ -237,14 +238,16 @@ main#layout.game-board {
    Absolute overlay on the top-right of the topmost card in a multi-card stack. */
 .stack-badge {
   position: absolute;
-  background: rgba(2, 6, 23, 0.88);
+  background: rgba(2, 6, 23, 0.92);
   border: 1px solid var(--border-2);
   border-radius: 0.3rem;
-  font-size: calc(var(--card-w) * 0.115);
+  font-size: calc(var(--card-w) * 0.22);
+  font-weight: 700;
   line-height: 1.4;
-  padding: 0 4px;
-  color: var(--muted);
+  padding: 0 5px;
+  color: var(--fg);
   pointer-events: none; /* never intercept card clicks */
+  white-space: nowrap;
 }
 
 /* ── Active button state (pick-target mode) ─────────────────────────────────*/
@@ -501,6 +504,16 @@ aside#controls {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+.cd-race-row {
+  font-size: 0.7rem;
+  color: var(--fg);
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cd-type-row {
@@ -848,39 +861,76 @@ select {
   min-width: 0;
 }
 
-/* Header: cardname + civilization + cost — always visible */
+/* Header: cost (left) + name-block (right) — always visible
+   Layout: [cost] [name-block]
+              [name-row: name + type・rarity]
+              [race row]
+              [civilization row]                */
 .cdi-header {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.55rem;
   flex-shrink: 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
+}
+
+/* Cost badge — left-most, vertically centred on first text line */
+.cdi-cost {
+  font-size: 1rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.12);
+  border-radius: 0.3rem;
+  padding: 0.05em 0.4em;
+  flex-shrink: 0;
+  line-height: 1.5;
+  margin-top: 1px;
+}
+
+/* Name block fills remaining width */
+.cdi-name-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+/* Name row: card name (grows) + type ・ rarity (shrinks to right) */
+.cdi-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .cdi-name {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
-  flex: 1;
   min-width: 0;
 }
 
-.cdi-civ {
-  font-size: 0.78rem;
+/* Type and rarity — muted, smaller, right of name */
+.cdi-meta {
+  font-size: 0.72rem;
   color: var(--muted);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.cdi-cost {
-  font-size: 0.95rem;
-  font-weight: 700;
-  background: rgba(255,255,255,0.12);
-  border-radius: 0.3rem;
-  padding: 0.05em 0.4em;
-  flex-shrink: 0;
-  line-height: 1.4;
+/* Race row — slightly accented, below name */
+.cdi-race {
+  font-size: 0.72rem;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* Civilization — below race */
+.cdi-civ {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 /* Body: ability text — scrollable */
@@ -1009,6 +1059,7 @@ select {
 
 .menu__nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 }

@@ -42,74 +42,20 @@ var CardManagerUI = (function () {
     var heading = _el('h2', { textContent: 'カード管理' });
     _container.appendChild(heading);
 
-    _container.appendChild(_buildSearchPanel());
+    _container.appendChild(CardSearchUI.build({
+      filters:  _filters,
+      onChange: function (newFilters) {
+        _filters = newFilters;
+        var q = {};
+        if (_filters.name)              q.name         = _filters.name;
+        if (_filters.civilization.length) q.civilization = _filters.civilization;
+        var results = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
+        var wrap = _container.querySelector('.cm-card-list-wrap');
+        if (wrap) { wrap.innerHTML = ''; _renderCardList(wrap, results); }
+      },
+    }));
+
     _renderCardList(_container, CardRepository.getAllCards());
-  }
-
-  // ── Search panel ───────────────────────────────────────────────────────────
-
-  function _buildSearchPanel() {
-    var panel = _el('div', { className: 'cm-search-panel' });
-
-    // Name filter
-    var nameRow = _el('div', { className: 'cm-search-row' });
-    nameRow.appendChild(_el('label', { textContent: 'カード名:', className: 'cm-search-label' }));
-    var nameInput = _el('input', { type: 'text', className: 'cm-search-input', placeholder: '名前で絞り込み' });
-    nameInput.value = _filters.name;
-    nameRow.appendChild(nameInput);
-    panel.appendChild(nameRow);
-
-    // Civilization filter
-    var civRow = _el('div', { className: 'cm-search-row' });
-    civRow.appendChild(_el('label', { textContent: '文明:', className: 'cm-search-label' }));
-    var civGroup = _el('div', { className: 'cm-civ-group' });
-    var civChecks = {};
-    CIVS.forEach(function (civ) {
-      var label = document.createElement('label');
-      label.className = 'cm-civ-label cm-civ--' + civ;
-      var cb = document.createElement('input');
-      cb.type    = 'checkbox';
-      cb.value   = civ;
-      cb.checked = _filters.civilization.indexOf(civ) !== -1;
-      civChecks[civ] = cb;
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(CIV_LABELS[civ]));
-      civGroup.appendChild(label);
-    });
-    civRow.appendChild(civGroup);
-    panel.appendChild(civRow);
-
-    // Search button
-    var searchBtn = _btn('検索', 'btn', function () {
-      _filters.name         = nameInput.value.trim();
-      _filters.civilization = CIVS.filter(function (c) { return civChecks[c].checked; });
-
-      var filters = {};
-      if (_filters.name) filters.name = _filters.name;
-      if (_filters.civilization.length) filters.civilization = _filters.civilization;
-
-      var results = CardRepository.searchCards(filters);
-      var listContainer = _container.querySelector('.cm-card-list-wrap');
-      if (listContainer) {
-        listContainer.innerHTML = '';
-        _renderCardList(listContainer, results);
-      }
-    });
-    panel.appendChild(searchBtn);
-
-    var clearBtn = _btn('クリア', 'btn', function () {
-      _filters = { name: '', civilization: [] };
-      nameInput.value = '';
-      CIVS.forEach(function (c) { civChecks[c].checked = false; });
-      var listContainer = _container.querySelector('.cm-card-list-wrap');
-      if (listContainer) {
-        listContainer.innerHTML = '';
-        _renderCardList(listContainer, CardRepository.getAllCards());
-      }
-    });
-    panel.appendChild(clearBtn);
-
-    return panel;
   }
 
   // ── Card list ──────────────────────────────────────────────────────────────
@@ -354,10 +300,10 @@ var CardManagerUI = (function () {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function _refreshList() {
-    var filters = {};
-    if (_filters.name) filters.name = _filters.name;
-    if (_filters.civilization.length) filters.civilization = _filters.civilization;
-    var results = CardRepository.searchCards(filters);
+    var q = {};
+    if (_filters.name)               q.name         = _filters.name;
+    if (_filters.civilization.length) q.civilization = _filters.civilization;
+    var results = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
     var listContainer = _container.querySelector('.cm-card-list-wrap');
     if (listContainer) {
       listContainer.innerHTML = '';

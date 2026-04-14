@@ -73,11 +73,13 @@ var ControlPanel = (function () {
     });
 
     // ── Shuffle ───────────────────────────────────────────────────────────────
-    els.shuffleButton.addEventListener("click", function () {
-      game.dispatch(shuffleDeck(PLAYER_ID));
-      ui.dispatch(clearPeekedCards());
-      log("山札をシャッフル");
-    });
+    if (els.shuffleButton) {
+      els.shuffleButton.addEventListener("click", function () {
+        game.dispatch(shuffleDeck(PLAYER_ID));
+        ui.dispatch(clearPeekedCards());
+        log("山札をシャッフル");
+      });
+    }
 
     // ── Reset ─────────────────────────────────────────────────────────────────
     els.resetButton.addEventListener("click", function () {

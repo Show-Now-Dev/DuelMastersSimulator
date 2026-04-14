@@ -15,7 +15,6 @@
       -->
       <div id="header-game-controls" style="display:none">
         <button id="return-to-menu-button" class="btn--return-to-menu">← メニューへ</button>
-        <button id="shuffle-button">シャッフル</button>
         <button id="reset-button">リセット</button>
       </div>
     </header>
@@ -113,6 +112,9 @@
     <script src="./logic/CardRepository.js"></script>
     <script src="./logic/DeckRepository.js"></script>
     <script src="./logic/dataPorter.js"></script>
+
+    <!-- UI: shared utility modules -->
+    <script src="./ui/shared/cardSearchUI.js"></script>
 
     <!-- UI: shared modules (load order matters — each depends on globals above it) -->
     <script src="./ui/uiState.js"></script>

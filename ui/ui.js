@@ -150,7 +150,7 @@
       "deck-drag:shield":    { showPosition: false, showFace: true,  showInsertIndex: false, showTap: true,  isDeckDrag: true, defaultIsFaceDown: true  },
       "deck-drag:graveyard": { showPosition: false, showFace: false, showInsertIndex: false, showTap: false, isDeckDrag: true },
       // Deck drag onto a card in these zones: stack the card, ask face/tap.
-      "deck-drag-stack:battlefield": { showPosition: false, showFace: true, showInsertIndex: false, showTap: false, isDeckDrag: true, defaultIsFaceDown: false },
+      "deck-drag-stack:battlefield": { showPosition: true,  showFace: true, showInsertIndex: false, showTap: false, isDeckDrag: true, defaultIsFaceDown: false },
       "deck-drag-stack:shield":      { showPosition: false, showFace: true, showInsertIndex: false, showTap: true,  isDeckDrag: true, defaultIsFaceDown: true  },
     };
 
@@ -286,7 +286,6 @@
     ControlPanel.init({
       els: {
         drawButton:           document.getElementById("draw-button"),
-        shuffleButton:        document.getElementById("shuffle-button"),
         resetButton:          document.getElementById("reset-button"),
         toggleTapButton:      document.getElementById("toggle-tap-button"),
         toggleFaceButton:     document.getElementById("toggle-face-button"),
