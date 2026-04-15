@@ -139,15 +139,8 @@ var ZoneRenderer = (function () {
       stackSpacing = 0;
     }
 
-    // DEPTH_OFFSET: vertical shift per card when stack is at standard depth (STACK_STD_DEPTH).
-    // STACK_STD_DEPTH: the reference stack size whose total depth defines MAX_STACK_PX.
-    // For any stack size, MAX_STACK_PX is distributed evenly across (stackSize-1) gaps:
-    //   - stackSize < STACK_STD_DEPTH → spacing EXPANDS so bottom card stays at MAX_STACK_PX (easy to tap)
-    //   - stackSize = STACK_STD_DEPTH → exactly DEPTH_OFFSET per gap
-    //   - stackSize > STACK_STD_DEPTH → compressed, total never exceeds MAX_STACK_PX
-    var DEPTH_OFFSET    = Math.max(15, Math.round(cardWidth * 0.2));
-    var STACK_STD_DEPTH = 3;
-    var MAX_STACK_PX    = DEPTH_OFFSET * (STACK_STD_DEPTH - 1); // px budget for the full stack
+    // DEPTH_OFFSET: vertical (and slight horizontal) shift per card in a multi-card stack.
+    var DEPTH_OFFSET = Math.max(1, Math.round(cardWidth * 0.02));
 
     stackIds.forEach(function (stackId, stackIdx) {
       var stack = stacks[stackId];
@@ -157,13 +150,6 @@ var ZoneRenderer = (function () {
       var stackSize  = stack.cardIds.length;
       var isTarget   = stackId === targetStackId;
       var stackBaseZ = (stackCount - stackIdx) * 100;
-
-      // Per-stack effective offset: always distributes MAX_STACK_PX across all gaps.
-      // Small stacks (< STACK_STD_DEPTH) expand spacing so the bottom card is easy to tap;
-      // large stacks compress so total depth never exceeds MAX_STACK_PX.
-      var effectiveOffset = stackSize <= 1
-        ? DEPTH_OFFSET
-        : Math.max(1, Math.round(MAX_STACK_PX / (stackSize - 1)));
 
       stack.cardIds.forEach(function (cardId, cardIdx) {
         var card = gameState.cards[cardId];
@@ -186,7 +172,7 @@ var ZoneRenderer = (function () {
 
         cardEl.style.zIndex = String(stackBaseZ + cardIdx);
         cardEl.style.left   = (stackLeft + depth) + "px";
-        cardEl.style.top    = (depth * effectiveOffset) + "px";
+        cardEl.style.top    = (depth * DEPTH_OFFSET) + "px";
 
         // Hand cards are always shown face-visible to the owner ("見える" state).
         // isFaceDown in game data is preserved; only the rendering differs.
@@ -302,17 +288,34 @@ var ZoneRenderer = (function () {
       });
 
       // Depth badge on multi-card stacks (not shown in stacked zones — count is in header).
-      // Centered over the top card of the stack so it is always visible without overlapping
-      // the neighbouring stack's cards.
+      // Positioned below the card area (below where power is shown), same width as the card.
+      // Tapping the badge opens the card-selector modal for this stack.
       if (stackSize > 1 && !isStacked) {
-        var badge       = document.createElement("div");
-        badge.className      = "stack-badge";
-        badge.textContent    = stackSize;
-        badge.style.left     = stackLeft + "px";
-        badge.style.top      = "2px";
-        badge.style.width    = cardWidth + "px";
-        badge.style.textAlign = "center";
-        badge.style.zIndex   = String(stackBaseZ + stackSize + 10);
+        var cardHeight   = Math.round(cardWidth * 7 / 5);
+        var badge        = document.createElement("button");
+        badge.type       = "button";
+        badge.className  = "stack-badge";
+        badge.textContent = stackSize;
+        badge.style.left  = stackLeft + "px";
+        badge.style.top   = (cardHeight - 6) + "px";
+        badge.style.width = cardWidth + "px";
+        badge.style.zIndex = String(stackBaseZ + stackSize + 10);
+        badge.addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (onCardClick) {
+            // Simulate a non-top-card click, which opens the stack selector modal.
+            onCardClick({
+              cardId:               stack.cardIds[0], // bottom card (index 0 = bottom)
+              stackId:              stackId,
+              zone:                 zone,
+              stack:                stack,
+              isTopCard:            false,
+              isStacked:            false,
+              stackSize:            stackSize,
+              isPickingTargetStack: isPickingTargetStack,
+            });
+          }
+        });
         listEl.appendChild(badge);
       }
     });

@@ -246,7 +246,8 @@ main#layout.game-board {
   line-height: 1.4;
   padding: 0 5px;
   color: var(--fg);
-  pointer-events: none; /* never intercept card clicks */
+  text-align: center;
+  cursor: pointer;
   white-space: nowrap;
 }
 
