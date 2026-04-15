@@ -447,30 +447,47 @@ function handleShuffleZone(state, payload, context) {
 
 // ── Convenience handlers (delegate to primitives) ────────────────────────────
 
-// Toggle tap on all stacks that contain a selected card.
+// Tap/untap all stacks that contain a selected card.
+// If any stack is untapped → tap all. If all are tapped → untap all.
 function handleToggleTapSelectedCards(state, context) {
   var selected = state.selectedCardIds || [];
   if (!selected.length) return state;
 
-  var stacksToToggle = {};
+  var stackIds = {};
   selected.forEach(function (cardId) {
     var stackId = findStackForCard(state.stacks, cardId);
-    if (stackId) stacksToToggle[stackId] = true;
+    if (stackId) stackIds[stackId] = true;
   });
 
+  var targetIds  = Object.keys(stackIds);
+  var allTapped  = targetIds.every(function (sid) { return state.stacks[sid].isTapped; });
+  var nextTapped = !allTapped; // tap all if any untapped; untap all if all tapped
+
   var newStacks = Object.assign({}, state.stacks);
-  Object.keys(stacksToToggle).forEach(function (stackId) {
-    newStacks[stackId] = Object.assign({}, newStacks[stackId], {
-      isTapped: !newStacks[stackId].isTapped,
-    });
+  targetIds.forEach(function (stackId) {
+    newStacks[stackId] = Object.assign({}, newStacks[stackId], { isTapped: nextTapped });
   });
   return Object.assign({}, state, { stacks: newStacks });
 }
 
-// Toggle face on all selected cards.
+// Flip face state of all selected cards.
+// If any card is face-down → make all face-up. If all are face-up → make all face-down.
 function handleToggleFaceSelectedCards(state, context) {
   var selected = state.selectedCardIds || [];
-  return handleToggleFaceCards(state, { cardIds: selected }, context);
+  if (!selected.length) return state;
+
+  var anyFaceDown = selected.some(function (cardId) {
+    var card = state.cards[cardId];
+    return card && card.isFaceDown;
+  });
+  var nextFaceDown = !anyFaceDown; // face-up all if any down; face-down all if all up
+
+  var newCards = Object.assign({}, state.cards);
+  selected.forEach(function (cardId) {
+    if (!newCards[cardId]) return;
+    newCards[cardId] = Object.assign({}, newCards[cardId], { isFaceDown: nextFaceDown });
+  });
+  return Object.assign({}, state, { cards: newCards });
 }
 
 // Toggle one card in/out of the selection.

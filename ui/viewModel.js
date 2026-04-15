@@ -79,6 +79,11 @@ function getDisplayInfo(def) {
   };
 }
 
+// Returns a CSS background with the dark readability overlay applied.
+function _withOverlay(civBg) {
+  return "linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), " + civBg;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 // Builds a UI-ready view model for a single card instance.
@@ -92,20 +97,42 @@ function getDisplayInfo(def) {
 //   civilizations,   — string[]
 //   backgroundStyle, — CSS background (solid color or gradient + dark overlay)
 //   isFaceDown,
+//   isTwin,          — true for twin cards
+//   sides,           — (twin only) [{ name, cost, power, backgroundStyle }, ...]
 // }
 function buildCardViewModel(card, gameState) {  // eslint-disable-line no-unused-vars
   if (!card) return null;
-  var def   = getCardDefinition(card.definitionId);
-  var info  = getDisplayInfo(def);
-  var civs  = getCivList(def);
-  var civBg = getCivBackground(civs);
-  return {
+  var def    = getCardDefinition(card.definitionId);
+  var info   = getDisplayInfo(def);
+  var civs   = getCivList(def);
+  var civBg  = getCivBackground(civs);
+  var isTwin = !!(def && def.type === "twin");
+
+  var vm = {
     id:              card.id,
     name:            info.name,
     cost:            info.cost,
     power:           info.power,
     civilizations:   civs,
-    backgroundStyle: "linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), " + civBg,
+    backgroundStyle: _withOverlay(civBg),
     isFaceDown:      card.isFaceDown,
+    isTwin:          isTwin,
+    sides:           null,
   };
+
+  if (isTwin) {
+    vm.sides = (def.sides || []).map(function (side) {
+      var sideCivs = Array.isArray(side.civilization)
+        ? side.civilization
+        : (side.civilization ? [side.civilization] : []);
+      return {
+        name:            side.name  || "?",
+        cost:            side.cost  != null ? side.cost  : null,
+        power:           side.power != null ? side.power : null,
+        backgroundStyle: _withOverlay(getCivBackground(sideCivs)),
+      };
+    });
+  }
+
+  return vm;
 }

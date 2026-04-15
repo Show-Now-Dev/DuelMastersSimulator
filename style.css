@@ -282,6 +282,34 @@ button.is-active {
   backdrop-filter: blur(2px);
 }
 
+/* ── Twin card: horizontal split layout ──────────────────────────────────────
+   .card__front--twin overrides padding/bg from .card__front so each half
+   owns its own background and spacing.                                        */
+.card__front--twin {
+  padding: 0;
+  background: none !important;
+  justify-content: stretch;
+}
+
+.card__half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.25rem 0.35rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card__half--top {
+  border-bottom: 1.5px solid rgba(255,255,255,0.45);
+}
+
+/* Tighter name clip in the narrower half-height space */
+.card__half .card__name {
+  -webkit-line-clamp: 1;
+}
+
 /* Top row: cost badge followed by card name */
 .card__top-row {
   display: flex;
