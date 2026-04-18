@@ -29,7 +29,7 @@ var DeckBuilderUI = (function () {
   var _onSave      = null;  // callback(deckDef) — called after a deck is saved
   var _allCards    = [];    // CardDefinition[] currently loaded from storage
   var _counts      = {};    // cardId → count (the deck being built)
-  var _filters     = { name: '', civilization: [] };
+  var _filters     = CardSearchUI.defaultFilters();
 
   // Mount the builder into a container element.
   function init(container, onSave) {
@@ -42,7 +42,7 @@ var DeckBuilderUI = (function () {
   function show() {
     _allCards = CardRepository.getAllCards();
     _counts   = {};
-    _filters  = { name: '', civilization: [] };
+    _filters  = CardSearchUI.defaultFilters();
     _render();
   }
 
@@ -207,17 +207,7 @@ var DeckBuilderUI = (function () {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   function _filteredCards() {
-    return _allCards.filter(function (card) {
-      if (_filters.name) {
-        if (card.name.toLowerCase().indexOf(_filters.name.toLowerCase()) === -1) return false;
-      }
-      if (_filters.civilization.length) {
-        var civs = _getCardCivs(card);
-        var match = _filters.civilization.some(function (fc) { return civs.indexOf(fc) !== -1; });
-        if (!match) return false;
-      }
-      return true;
-    });
+    return CardRepository.searchCards(_filters);
   }
 
   function _totalCount() {

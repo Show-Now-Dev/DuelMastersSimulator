@@ -12,7 +12,7 @@
 var CardManagerUI = (function () {
 
   var _container = null;
-  var _filters   = { name: '', civilization: [] };
+  var _filters   = CardSearchUI.defaultFilters();
 
   var CIVS = ['light', 'water', 'darkness', 'fire', 'nature'];
   var CIV_LABELS = {
@@ -30,7 +30,7 @@ var CardManagerUI = (function () {
   }
 
   function show() {
-    _filters = { name: '', civilization: [] };
+    _filters = CardSearchUI.defaultFilters();
     _render();
   }
 
@@ -46,10 +46,7 @@ var CardManagerUI = (function () {
       filters:  _filters,
       onChange: function (newFilters) {
         _filters = newFilters;
-        var q = {};
-        if (_filters.name)              q.name         = _filters.name;
-        if (_filters.civilization.length) q.civilization = _filters.civilization;
-        var results = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
+        var results = CardRepository.searchCards(_filters);
         var wrap = _container.querySelector('.cm-card-list-wrap');
         if (wrap) { wrap.innerHTML = ''; _renderCardList(wrap, results); }
       },

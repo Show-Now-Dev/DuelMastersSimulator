@@ -16,7 +16,7 @@ var DeckEditorUI = (function () {
   var _container     = null;
   var _editingId     = null;   // id of the deck currently being edited, or null
   var _editCountsMap = null;   // live counts map for the deck currently being edited
-  var _editFilters   = { name: '', civilization: [] };
+  var _editFilters   = CardSearchUI.defaultFilters();
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ var DeckEditorUI = (function () {
     _container.appendChild(totalEl);
 
     // Build initial counts from deck entries
-    _editFilters   = { name: '', civilization: [] };
+    _editFilters   = CardSearchUI.defaultFilters();
     _editCountsMap = {};
     (deck.cards || []).forEach(function (entry) {
       _editCountsMap[entry.cardId] = entry.count || 0;
@@ -126,11 +126,7 @@ var DeckEditorUI = (function () {
         var flushed = _collectCurrentCounts();
         Object.keys(flushed).forEach(function (id) { _editCountsMap[id] = flushed[id]; });
 
-        var q = {};
-        if (_editFilters.name)               q.name         = _editFilters.name;
-        if (_editFilters.civilization.length) q.civilization = _editFilters.civilization;
-        var cards = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
-
+        var cards = CardRepository.searchCards(_editFilters);
         var wrap = _container.querySelector('.de-card-list-wrap');
         if (wrap) _renderEditCardList(wrap, cards, _editCountsMap, totalEl);
       },

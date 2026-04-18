@@ -138,24 +138,24 @@
   // searchCards(filters) → CardDefinition[]
   //
   // filters: {
-  //   name?:         string    — case-insensitive substring match against card name
-  //   civilization?: string[] — AND match: card must include ALL specified civs
-  //   costMin?:      number   — card.cost >= costMin
-  //   costMax?:      number   — card.cost <= costMax
-  //   powerMin?:     number   — effective power >= powerMin  (twin: top side)
-  //   powerMax?:     number   — effective power <= powerMax  (twin: top side)
-  //   text?:         string   — case-insensitive substring in abilities or legacy text field
+  //   freeword?:            string    — space-separated words; OR/AND matched against name, abilities, races
+  //   freewordMode?:        'or'|'and' — default 'or'
+  //   colorMode?:           { mono: bool, multi: bool } — default both true (no filter)
+  //   civilization?:        string[]  — OR: card must contain AT LEAST ONE; 'none' = colorless
+  //   excludeCivilization?: string[]  — card must NOT contain any of these
+  //   costMin?:             number    — card.cost >= costMin
+  //   costMax?:             number    — card.cost <= costMax
+  //   includeTwin?:         boolean   — default true; false = exclude twin-pact cards
+  //   powerMin?:            number    — effective power >= powerMin  (twin: top side)
+  //   powerMax?:            number    — effective power <= powerMax  (twin: top side)
+  //
+  //   // Legacy (still accepted):
+  //   name?:  string — case-insensitive substring match against card name
+  //   text?:  string — case-insensitive substring in abilities or legacy text field
   // }
   //
   // Omitting a filter field means "no constraint" for that field.
   // Passing an empty filters object (or null) returns all cards.
-  //
-  // Example:
-  //   CardRepository.searchCards({ civilization: ["fire"], costMax: 5 })
-  //   → all fire cards costing 5 or less
-  //
-  //   CardRepository.searchCards({ name: "ボルシャック", text: "スピード" })
-  //   → cards whose name contains "ボルシャック" AND have "スピード" in ability text
 
   function searchCards(filters) {
     var cards = CardStorage.loadCards();
@@ -169,36 +169,100 @@
   // ── Search helpers ────────────────────────────────────────────────────────
 
   function _matchesAll(card, f) {
-    // name: case-insensitive substring
+    // 1. Twin pact filter
+    if (f.includeTwin === false && card.type === 'twin') return false;
+
+    // 2. Free-word filter (name + abilities/text + races; OR or AND across words)
+    if (f.freeword != null && f.freeword.trim() !== '') {
+      var words = f.freeword.trim().split(/\s+/).filter(Boolean);
+      if (words.length) {
+        if (f.freewordMode === 'and') {
+          for (var wi = 0; wi < words.length; wi++) {
+            if (!_cardMatchesFreeword(card, words[wi])) return false;
+          }
+        } else {
+          var anyMatch = false;
+          for (var wi2 = 0; wi2 < words.length; wi2++) {
+            if (_cardMatchesFreeword(card, words[wi2])) { anyMatch = true; break; }
+          }
+          if (!anyMatch) return false;
+        }
+      }
+    }
+
+    // Legacy: name filter
     if (f.name != null && f.name !== '') {
       if ((card.name || '').toLowerCase().indexOf(f.name.toLowerCase()) === -1) return false;
     }
 
-    // civilization: card must contain ALL specified civs (AND semantics)
-    if (f.civilization && f.civilization.length) {
-      var cardCivs = _getCardCivs(card);
-      for (var i = 0; i < f.civilization.length; i++) {
-        if (cardCivs.indexOf(f.civilization[i]) === -1) return false;
+    // Legacy: text filter
+    if (f.text != null && f.text !== '') {
+      if (!_cardContainsText(card, f.text)) return false;
+    }
+
+    var cardCivs = _getCardCivs(card);
+
+    // 3. Color mode filter (colorless cards fail when either mode is exclusively selected)
+    if (f.colorMode) {
+      var wantMono  = f.colorMode.mono  !== false;
+      var wantMulti = f.colorMode.multi !== false;
+      if (!wantMono || !wantMulti) {
+        var civCount = cardCivs.length;
+        if (civCount === 0) return false;            // colorless: neither mono nor multi
+        if (civCount === 1 && !wantMono)  return false;
+        if (civCount >= 2 && !wantMulti) return false;
       }
     }
 
-    // cost range
+    // 4. Civilization filter (OR: card must contain at least one; 'none' = colorless)
+    if (f.civilization && f.civilization.length) {
+      var wantNone   = f.civilization.indexOf('none') !== -1;
+      var wantedCivs = f.civilization.filter(function (c) { return c !== 'none'; });
+      var isColorless = cardCivs.length === 0;
+      var civMatch = false;
+      if (wantNone && isColorless) civMatch = true;
+      if (!civMatch && wantedCivs.length) {
+        civMatch = wantedCivs.some(function (c) { return cardCivs.indexOf(c) !== -1; });
+      }
+      if (!civMatch) return false;
+    }
+
+    // 5. Exclude civilization (card must NOT contain any excluded civ)
+    if (f.excludeCivilization && f.excludeCivilization.length) {
+      for (var ei = 0; ei < f.excludeCivilization.length; ei++) {
+        if (cardCivs.indexOf(f.excludeCivilization[ei]) !== -1) return false;
+      }
+    }
+
+    // 6. Cost range
     if (f.costMin != null && (card.cost == null || card.cost < f.costMin)) return false;
     if (f.costMax != null && (card.cost == null || card.cost > f.costMax)) return false;
 
-    // power range — effective power: twin uses top side, others use card.power
+    // 7. Power range — effective power: twin uses first side with power, others use card.power
     if (f.powerMin != null || f.powerMax != null) {
       var power = _getEffectivePower(card);
       if (f.powerMin != null && (power == null || power < f.powerMin)) return false;
       if (f.powerMax != null && (power == null || power > f.powerMax)) return false;
     }
 
-    // text: substring match across all ability lines (and legacy text field)
-    if (f.text != null && f.text !== '') {
-      if (!_cardContainsText(card, f.text)) return false;
-    }
-
     return true;
+  }
+
+  // Returns true if the card contains the given word in its name, abilities, text, or races.
+  // Recurses into twin card sides (top-level name checked first, then each side).
+  function _cardMatchesFreeword(card, word) {
+    var q = word.toLowerCase();
+    if (card.type === 'twin') {
+      if ((card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+      return (card.sides || []).some(function (side) { return _cardMatchesFreeword(side, word); });
+    }
+    if ((card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+    var abilities = Array.isArray(card.abilities) ? card.abilities : [];
+    if (abilities.some(function (a) { return a.toLowerCase().indexOf(q) !== -1; })) return true;
+    if (card.text && card.text.toLowerCase().indexOf(q) !== -1) return true;
+    var races = Array.isArray(card.races) ? card.races : [];
+    if (races.some(function (r) { return r.toLowerCase().indexOf(q) !== -1; })) return true;
+    return false;
   }
 
   // Returns a flat, deduplicated civilization array for any card type.
