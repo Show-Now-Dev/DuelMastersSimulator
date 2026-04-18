@@ -193,35 +193,12 @@ const ZONE_DEFS_MAP = (function () {
   return map;
 }());
 
-// ── Zone factory and helpers ──────────────────────────────────────────────────
+// ── Zone factory ─────────────────────────────────────────────────────────────
 
 function createZone(id, name) {
   return {
     id:       id,
     name:     name,
     stackIds: [],
-  };
-}
-
-function removeStackId(zone, stackId) {
-  return {
-    ...zone,
-    stackIds: zone.stackIds.filter(function (id) { return id !== stackId; }),
-  };
-}
-
-// addStackIdFirst / Last correspond to "top" / "bottom" of a zone's order.
-// "top" = front of the list (e.g. top of deck, drawn first).
-function addStackIdFirst(zone, stackId) {
-  return {
-    ...zone,
-    stackIds: [stackId].concat(zone.stackIds),
-  };
-}
-
-function addStackIdLast(zone, stackId) {
-  return {
-    ...zone,
-    stackIds: zone.stackIds.concat([stackId]),
   };
 }

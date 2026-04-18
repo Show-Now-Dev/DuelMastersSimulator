@@ -88,15 +88,17 @@ ui/                   ← calls Repositories only; never CardStorage directly
 
 ```
 User pastes text
-  → parseCardText()         parser/cardParser.js
+  → parseCardText()           parser/cardParser.js
   → CardDefinition
-  → CardStorage.saveCards() storage/cardStorage.js
+  → CardRepository.addCard()  logic/CardRepository.js
+  → CardStorage.saveCards()   storage/cardStorage.js
   → localStorage
 
 User builds deck
-  → DeckBuilderUI           ui/deckBuilder/deckBuilderUI.js
+  → DeckBuilderUI              ui/deckBuilder/deckBuilderUI.js
   → DeckDefinition
-  → CardStorage.saveDecks()
+  → DeckRepository.addDeck()   logic/DeckRepository.js
+  → CardStorage.saveDecks()    storage/cardStorage.js
   → localStorage
 
 User selects deck → Start

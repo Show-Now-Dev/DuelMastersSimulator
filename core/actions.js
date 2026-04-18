@@ -70,8 +70,9 @@ function placeFromDeck(zoneId, isFaceDown, isTapped) {
 // zoneId:     zone that owns the target stack (for logging / state lookup)
 // isFaceDown: explicit face state
 // isTapped:   tap state applied to the target stack after placement
-function placeFromDeckToStack(stackId, zoneId, isFaceDown, isTapped) {
-  return { type: PLACE_FROM_DECK_TO_STACK, payload: { stackId, zoneId, isFaceDown, isTapped } };
+// position:   "top" | "bottom" — where in the stack to insert the card (default "top")
+function placeFromDeckToStack(stackId, zoneId, isFaceDown, isTapped, position) {
+  return { type: PLACE_FROM_DECK_TO_STACK, payload: { stackId, zoneId, isFaceDown, isTapped, position: position || "top" } };
 }
 
 // Stack currently selected cards onto an existing stack.

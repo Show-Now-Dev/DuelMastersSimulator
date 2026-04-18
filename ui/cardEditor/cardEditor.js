@@ -53,7 +53,8 @@ var CardEditor = (function () {
       'ダイナモ',
     ].join('\n');
 
-    var parseBtn = _el('button', { className: 'btn', textContent: '解析する' });
+    var parseBtn  = _el('button', { className: 'btn', textContent: '解析する' });
+    var clearBtn  = _el('button', { className: 'btn', textContent: 'クリア' });
 
     var preview = _el('div', { className: 'card-editor__preview' });
 
@@ -64,6 +65,13 @@ var CardEditor = (function () {
     saveBtn.disabled = true;
 
     var currentParsed = null;
+
+    clearBtn.addEventListener('click', function () {
+      textarea.value    = '';
+      preview.innerHTML = '';
+      saveBtn.disabled  = true;
+      currentParsed     = null;
+    });
 
     parseBtn.addEventListener('click', function () {
       // parseCardText now returns { card, errors } per CARD_FORMAT.md spec.
@@ -94,17 +102,22 @@ var CardEditor = (function () {
         return;
       }
 
+      var savedCard = currentParsed;
+
       var msg = _el('p', { className: 'msg msg--success', textContent: '保存しました！' });
       preview.appendChild(msg);
-      saveBtn.disabled = true;
+      saveBtn.disabled  = true;
+      textarea.value    = '';
+      currentParsed     = null;
 
-      if (_onSave) _onSave(currentParsed);
+      if (_onSave) _onSave(savedCard);
     });
 
     _container.appendChild(heading);
     _container.appendChild(desc);
     _container.appendChild(textarea);
     _container.appendChild(parseBtn);
+    _container.appendChild(clearBtn);
     _container.appendChild(preview);
     _container.appendChild(saveBtn);
   }

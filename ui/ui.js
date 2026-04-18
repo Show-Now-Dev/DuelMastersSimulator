@@ -248,7 +248,7 @@
       if (opts.isDeckDrag) {
         if (target.type === "stack") {
           // Deck → existing stack (battlefield / shield stacking)
-          gameStore.dispatch(placeFromDeckToStack(target.stackId, target.zoneId, faceChoice === "down", !!tapChoice));
+          gameStore.dispatch(placeFromDeckToStack(target.stackId, target.zoneId, faceChoice === "down", !!tapChoice, position));
           LogPanel.log("山札から " + target.zoneId + " のスタックへ");
         } else {
           // Deck → Mana / Shield: single atomic action preserving face and tap.

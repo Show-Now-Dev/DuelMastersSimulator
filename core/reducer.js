@@ -378,6 +378,7 @@ function handlePlaceFromDeckToStack(state, payload, context) {
   var stackId    = payload.stackId;
   var isFaceDown = payload.isFaceDown;
   var isTapped   = payload.isTapped;
+  var position   = payload.position || "top";
 
   var deckZone = state.zones[ZONE_IDS.DECK];
   if (!deckZone || !deckZone.stackIds.length) {
@@ -389,12 +390,12 @@ function handlePlaceFromDeckToStack(state, payload, context) {
   }
   var topCardId = topStack.cardIds[topStack.cardIds.length - 1];
 
-  // Move top deck card onto the target stack (top of pile).
+  // Move top deck card onto the target stack at the specified position.
   var next = applyMoveCards(
     state,
     [topCardId],
     { type: "stack", stackId: stackId },
-    "top",
+    position,
     context
   );
 

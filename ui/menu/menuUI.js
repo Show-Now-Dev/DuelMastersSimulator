@@ -130,6 +130,9 @@ var MenuUI = (function () {
         var item = document.createElement('div');
         item.className = 'menu__deck-item';
 
+        var headerRow = document.createElement('div');
+        headerRow.className = 'menu__deck-header';
+
         var nameEl = document.createElement('span');
         nameEl.className   = 'menu__deck-name';
         nameEl.textContent = deck.name;
@@ -137,6 +140,12 @@ var MenuUI = (function () {
         var countEl = document.createElement('span');
         countEl.className   = 'menu__deck-count';
         countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
+
+        headerRow.appendChild(nameEl);
+        headerRow.appendChild(countEl);
+
+        var actionsRow = document.createElement('div');
+        actionsRow.className = 'menu__deck-actions';
 
         var deleteBtn = _btn('削除', 'btn btn--danger', function () {
           if (!confirm(deck.name + ' を削除しますか？')) return;
@@ -148,10 +157,11 @@ var MenuUI = (function () {
           _startGame(deck, cards);
         });
 
-        item.appendChild(nameEl);
-        item.appendChild(countEl);
-        item.appendChild(deleteBtn);
-        item.appendChild(startBtn);
+        actionsRow.appendChild(deleteBtn);
+        actionsRow.appendChild(startBtn);
+
+        item.appendChild(headerRow);
+        item.appendChild(actionsRow);
         listEl.appendChild(item);
       });
 
@@ -289,6 +299,9 @@ var MenuUI = (function () {
         var item = document.createElement('div');
         item.className = 'menu__deck-item';
 
+        var headerRow = document.createElement('div');
+        headerRow.className = 'menu__deck-header';
+
         var nameEl = document.createElement('span');
         nameEl.className   = 'menu__deck-name';
         nameEl.textContent = deck.name;
@@ -297,13 +310,20 @@ var MenuUI = (function () {
         countEl.className   = 'menu__deck-count';
         countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
 
+        headerRow.appendChild(nameEl);
+        headerRow.appendChild(countEl);
+
+        var actionsRow = document.createElement('div');
+        actionsRow.className = 'menu__deck-actions';
+
         var startBtn = _btn('開始', 'btn btn--primary', function () {
           _startGame(deck, cardDefs);
         });
 
-        item.appendChild(nameEl);
-        item.appendChild(countEl);
-        item.appendChild(startBtn);
+        actionsRow.appendChild(startBtn);
+
+        item.appendChild(headerRow);
+        item.appendChild(actionsRow);
         listEl.appendChild(item);
       });
 
