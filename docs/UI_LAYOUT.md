@@ -36,7 +36,7 @@ The modal panel is divided into two fixed regions:
 ## Board Structure
 
 ① Battlefield
-② Stack
+② Resolution
 ③ Shield
 ④ Deck
 ⑤ Graveyard
@@ -46,7 +46,7 @@ The modal panel is divided into two fixed regions:
 ⑨ Hand
 ⑩ Info
 ⑪ Control
-⑫ logs
+⑫ draw button
 
 Row 1:
 [------------①------------][--②--]
@@ -69,21 +69,20 @@ Row 5:
 - control:
   UI control area.
   Contains buttons such as:
-  - Draw
-  - Shuffle
-  - Move
   - Toggle tap/face
+  - Toggle face up/face down
+  - Toggle visible/invisible
+  buttons must be set compact. don't make extra space.
 
-- logs:
-  Log display area.
-  Shows game actions and history.
+- draw button:
+  set the draw button.
 
 - space:
   Flexible empty area.
   Expands to fill remaining horizontal space.
   Must not contain cards or interactive elements.
 
-- Stack:
+- Resolution:
   Temporary zone for resolving effects.
   Cards do not remain here.
   Displays cards stacked in a single pile.
@@ -181,7 +180,7 @@ Zone widths:
 - Shield: 6 card-units
 - Mana: 8 card-units
 - Hand: 8 card-units
-- Stack: 2 card-units
+- Resolution: 2 card-units
 - Deck / Graveyard / ExZone / GRZone:
   1 card-unit each
 
@@ -194,7 +193,7 @@ Zone widths:
 Row composition:
 
 - Row 1:
-  Battlefield (8) + Stack (2) = 10
+  Battlefield (8) + Resolution (2) = 10
 
 - Row 2:
   Shield (6) + Deck (1) + Graveyard (1) + ExZone (1) + GRZone (1) = 10

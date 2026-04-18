@@ -137,15 +137,14 @@ var MenuUI = (function () {
         nameEl.className   = 'menu__deck-name';
         nameEl.textContent = deck.name;
 
-        var countEl = document.createElement('span');
-        countEl.className   = 'menu__deck-count';
-        countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
-
         headerRow.appendChild(nameEl);
-        headerRow.appendChild(countEl);
 
         var actionsRow = document.createElement('div');
         actionsRow.className = 'menu__deck-actions';
+
+        var countEl = document.createElement('span');
+        countEl.className   = 'menu__deck-count';
+        countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
 
         var deleteBtn = _btn('削除', 'btn btn--danger', function () {
           if (!confirm(deck.name + ' を削除しますか？')) return;
@@ -157,6 +156,7 @@ var MenuUI = (function () {
           _startGame(deck, cards);
         });
 
+        actionsRow.appendChild(countEl);
         actionsRow.appendChild(deleteBtn);
         actionsRow.appendChild(startBtn);
 
@@ -306,20 +306,20 @@ var MenuUI = (function () {
         nameEl.className   = 'menu__deck-name';
         nameEl.textContent = deck.name;
 
-        var countEl = document.createElement('span');
-        countEl.className   = 'menu__deck-count';
-        countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
-
         headerRow.appendChild(nameEl);
-        headerRow.appendChild(countEl);
 
         var actionsRow = document.createElement('div');
         actionsRow.className = 'menu__deck-actions';
+
+        var countEl = document.createElement('span');
+        countEl.className   = 'menu__deck-count';
+        countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
 
         var startBtn = _btn('開始', 'btn btn--primary', function () {
           _startGame(deck, cardDefs);
         });
 
+        actionsRow.appendChild(countEl);
         actionsRow.appendChild(startBtn);
 
         item.appendChild(headerRow);
