@@ -138,24 +138,27 @@
   // searchCards(filters) → CardDefinition[]
   //
   // filters: {
-  //   freeword?:            string    — space-separated words; OR/AND matched against name, abilities, races
-  //   freewordMode?:        'or'|'and' — default 'or'
+  //   freeword?:            string    — space-separated words
+  //   freewordMode?:        'or'|'and'
+  //   freewordTargets?:     { name: bool, text: bool, race: bool }  — default all true
   //   colorMode?:           { mono: bool, multi: bool } — default both true (no filter)
   //   civilization?:        string[]  — OR: card must contain AT LEAST ONE; 'none' = colorless
-  //   excludeCivilization?: string[]  — card must NOT contain any of these
-  //   costMin?:             number    — card.cost >= costMin
-  //   costMax?:             number    — card.cost <= costMax
+  //   excludeCivilization?: string[]  — card-level: if union of all sides contains any → exclude
+  //   costMin?:             number
+  //   costMax?:             number
   //   includeTwin?:         boolean   — default true; false = exclude twin-pact cards
-  //   powerMin?:            number    — effective power >= powerMin  (twin: top side)
-  //   powerMax?:            number    — effective power <= powerMax  (twin: top side)
+  //   powerMin?:            number
+  //   powerMax?:            number
   //
   //   // Legacy (still accepted):
-  //   name?:  string — case-insensitive substring match against card name
-  //   text?:  string — case-insensitive substring in abilities or legacy text field
+  //   name?:  string — case-insensitive substring against card name
+  //   text?:  string — substring in abilities or legacy text
   // }
   //
-  // Omitting a filter field means "no constraint" for that field.
-  // Passing an empty filters object (or null) returns all cards.
+  // Twin cards: freeword is checked across all sides (top-level name + per-side).
+  //             colorMode / civilization / cost / power are per-side:
+  //             the card matches if ANY side satisfies all of those criteria simultaneously.
+  //             excludeCivilization uses the union of all side civs (card-level).
 
   function searchCards(filters) {
     var cards = CardStorage.loadCards();
@@ -172,27 +175,28 @@
     // 1. Twin pact filter
     if (f.includeTwin === false && card.type === 'twin') return false;
 
-    // 2. Free-word filter (name + abilities/text + races; OR or AND across words)
+    // 2. Freeword filter — checked across all sides for twin cards
     if (f.freeword != null && f.freeword.trim() !== '') {
-      var words = f.freeword.trim().split(/\s+/).filter(Boolean);
+      var words   = f.freeword.trim().split(/\s+/).filter(Boolean);
+      var targets = f.freewordTargets || { name: true, text: true, race: true };
       if (words.length) {
         if (f.freewordMode === 'and') {
           for (var wi = 0; wi < words.length; wi++) {
-            if (!_cardMatchesFreeword(card, words[wi])) return false;
+            if (!_cardMatchesFreeword(card, words[wi], targets)) return false;
           }
         } else {
-          var anyMatch = false;
+          var fwHit = false;
           for (var wi2 = 0; wi2 < words.length; wi2++) {
-            if (_cardMatchesFreeword(card, words[wi2])) { anyMatch = true; break; }
+            if (_cardMatchesFreeword(card, words[wi2], targets)) { fwHit = true; break; }
           }
-          if (!anyMatch) return false;
+          if (!fwHit) return false;
         }
       }
     }
 
     // Legacy: name filter
     if (f.name != null && f.name !== '') {
-      if ((card.name || '').toLowerCase().indexOf(f.name.toLowerCase()) === -1) return false;
+      if (!_cardMatchesFreeword(card, f.name, { name: true, text: false, race: false })) return false;
     }
 
     // Legacy: text filter
@@ -200,47 +204,58 @@
       if (!_cardContainsText(card, f.text)) return false;
     }
 
-    var cardCivs = _getCardCivs(card);
+    // 3. excludeCivilization — card-level: uses union of ALL side civs
+    if (f.excludeCivilization && f.excludeCivilization.length) {
+      var allCivs = _getCardCivs(card);
+      for (var ei = 0; ei < f.excludeCivilization.length; ei++) {
+        if (allCivs.indexOf(f.excludeCivilization[ei]) !== -1) return false;
+      }
+    }
 
-    // 3. Color mode filter (colorless cards fail when either mode is exclusively selected)
+    // 4. colorMode / civilization / cost / power — per-side for twin cards
+    //    Twin passes if ANY side satisfies all of these simultaneously.
+    if (card.type === 'twin') {
+      return (card.sides || []).some(function (side) {
+        return _matchesSideFilters(side, f);
+      });
+    }
+    return _matchesSideFilters(card, f);
+  }
+
+  // Evaluates colorMode, civilization include, cost, and power filters against a single card
+  // (or a single side of a twin card). Returns true if the card/side passes all active filters.
+  function _matchesSideFilters(card, f) {
+    var civs = _getCardCivs(card);  // works for non-twin cards and individual sides
+
+    // colorMode
     if (f.colorMode) {
       var wantMono  = f.colorMode.mono  !== false;
       var wantMulti = f.colorMode.multi !== false;
       if (!wantMono || !wantMulti) {
-        var civCount = cardCivs.length;
-        if (civCount === 0) return false;            // colorless: neither mono nor multi
-        if (civCount === 1 && !wantMono)  return false;
-        if (civCount >= 2 && !wantMulti) return false;
+        var cnt = civs.length;
+        if (cnt === 0) return false;              // colorless: neither mono nor multi
+        if (cnt === 1 && !wantMono)  return false;
+        if (cnt >= 2 && !wantMulti) return false;
       }
     }
 
-    // 4. Civilization filter (OR: card must contain at least one; 'none' = colorless)
+    // civilization include (OR; 'none' = colorless)
     if (f.civilization && f.civilization.length) {
       var wantNone   = f.civilization.indexOf('none') !== -1;
       var wantedCivs = f.civilization.filter(function (c) { return c !== 'none'; });
-      var isColorless = cardCivs.length === 0;
-      var civMatch = false;
-      if (wantNone && isColorless) civMatch = true;
-      if (!civMatch && wantedCivs.length) {
-        civMatch = wantedCivs.some(function (c) { return cardCivs.indexOf(c) !== -1; });
-      }
+      var isColorless = civs.length === 0;
+      var civMatch = (wantNone && isColorless)
+        || (wantedCivs.length > 0 && wantedCivs.some(function (c) { return civs.indexOf(c) !== -1; }));
       if (!civMatch) return false;
     }
 
-    // 5. Exclude civilization (card must NOT contain any excluded civ)
-    if (f.excludeCivilization && f.excludeCivilization.length) {
-      for (var ei = 0; ei < f.excludeCivilization.length; ei++) {
-        if (cardCivs.indexOf(f.excludeCivilization[ei]) !== -1) return false;
-      }
-    }
-
-    // 6. Cost range
+    // cost range
     if (f.costMin != null && (card.cost == null || card.cost < f.costMin)) return false;
     if (f.costMax != null && (card.cost == null || card.cost > f.costMax)) return false;
 
-    // 7. Power range — effective power: twin uses first side with power, others use card.power
+    // power range
     if (f.powerMin != null || f.powerMax != null) {
-      var power = _getEffectivePower(card);
+      var power = card.power != null ? card.power : null;
       if (f.powerMin != null && (power == null || power < f.powerMin)) return false;
       if (f.powerMax != null && (power == null || power > f.powerMax)) return false;
     }
@@ -248,20 +263,33 @@
     return true;
   }
 
-  // Returns true if the card contains the given word in its name, abilities, text, or races.
-  // Recurses into twin card sides (top-level name checked first, then each side).
-  function _cardMatchesFreeword(card, word) {
+  // Returns true if the card contains the given word according to the specified targets.
+  // targets: { name: bool, text: bool, race: bool } — which fields to search.
+  // Recurses into twin card sides (checks combined name first, then each side).
+  function _cardMatchesFreeword(card, word, targets) {
+    var t = targets || { name: true, text: true, race: true };
     var q = word.toLowerCase();
+
     if (card.type === 'twin') {
-      if ((card.name || '').toLowerCase().indexOf(q) !== -1) return true;
-      return (card.sides || []).some(function (side) { return _cardMatchesFreeword(side, word); });
+      if (t.name && (card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+      return (card.sides || []).some(function (side) {
+        return _cardMatchesFreeword(side, word, t);
+      });
     }
-    if ((card.name || '').toLowerCase().indexOf(q) !== -1) return true;
-    var abilities = Array.isArray(card.abilities) ? card.abilities : [];
-    if (abilities.some(function (a) { return a.toLowerCase().indexOf(q) !== -1; })) return true;
-    if (card.text && card.text.toLowerCase().indexOf(q) !== -1) return true;
-    var races = Array.isArray(card.races) ? card.races : [];
-    if (races.some(function (r) { return r.toLowerCase().indexOf(q) !== -1; })) return true;
+
+    if (t.name && (card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+
+    if (t.text) {
+      var abilities = Array.isArray(card.abilities) ? card.abilities : [];
+      if (abilities.some(function (a) { return a.toLowerCase().indexOf(q) !== -1; })) return true;
+      if (card.text && card.text.toLowerCase().indexOf(q) !== -1) return true;
+    }
+
+    if (t.race) {
+      var races = Array.isArray(card.races) ? card.races : [];
+      if (races.some(function (r) { return r.toLowerCase().indexOf(q) !== -1; })) return true;
+    }
+
     return false;
   }
 
@@ -283,15 +311,6 @@
 
   // Returns the numeric power to use for range filtering.
   // Twin: first side with a non-null power (usually the creature side).
-  function _getEffectivePower(card) {
-    if (card.type === 'twin') {
-      for (var i = 0; i < (card.sides || []).length; i++) {
-        if (card.sides[i].power != null) return card.sides[i].power;
-      }
-      return null;
-    }
-    return card.power != null ? card.power : null;
-  }
 
   // Returns true if any ability line (or legacy text) contains the query string.
   // Recurses into twin card sides.

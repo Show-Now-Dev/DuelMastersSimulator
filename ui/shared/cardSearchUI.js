@@ -11,8 +11,9 @@
 //   container.appendChild(panel);
 //
 // Filter shape:
-//   freeword:            string    — space-separated words; matched in name / abilities / races
+//   freeword:            string    — space-separated words
 //   freewordMode:        'or'|'and'
+//   freewordTargets:     { name: bool, text: bool, race: bool }  — which fields to search
 //   colorMode:           { mono: bool, multi: bool }  — both true = no filter
 //   civilization:        string[]  — OR match; 'none' = colorless; empty = no constraint
 //   excludeCivilization: string[]  — civs whose presence disqualifies a card
@@ -35,6 +36,7 @@ var CardSearchUI = (function () {
     return {
       freeword:            '',
       freewordMode:        'or',
+      freewordTargets:     { name: true, text: true, race: true },
       colorMode:           { mono: true, multi: true },
       civilization:        [],
       excludeCivilization: [],
@@ -54,6 +56,7 @@ var CardSearchUI = (function () {
     // Back-fill any missing keys so the panel always has a complete state
     if (filters.freeword             == null) filters.freeword            = '';
     if (filters.freewordMode         == null) filters.freewordMode        = 'or';
+    if (!filters.freewordTargets)             filters.freewordTargets     = { name: true, text: true, race: true };
     if (!filters.colorMode)                   filters.colorMode           = { mono: true, multi: true };
     if (!filters.civilization)                filters.civilization        = [];
     if (!filters.excludeCivilization)         filters.excludeCivilization = [];
@@ -68,7 +71,7 @@ var CardSearchUI = (function () {
     var wordInput = _el('input', {
       type:        'text',
       className:   'cm-search-input cm-search-input--wide',
-      placeholder: 'カード名・テキスト・種族（スペース区切り）',
+      placeholder: 'OR・ANDはスペース区切り',
       value:       filters.freeword || '',
     });
     freewordRow.appendChild(wordInput);
@@ -96,6 +99,41 @@ var CardSearchUI = (function () {
     freewordRow.appendChild(orBtn);
     freewordRow.appendChild(andBtn);
     panel.appendChild(freewordRow);
+
+    // ── Row 1b: Freeword target checkboxes ───────────────────────────────────
+    var targetRow  = _el('div', { className: 'cm-search-row cm-search-row--sub' });
+    var tgtGroup   = _el('div', { className: 'cm-civ-group' });
+    var tgt        = filters.freewordTargets;
+
+    var nameLbl = document.createElement('label');
+    nameLbl.className = 'cm-civ-label cm-target-label';
+    var nameCbT = document.createElement('input');
+    nameCbT.type    = 'checkbox';
+    nameCbT.checked = tgt.name !== false;
+    nameLbl.appendChild(nameCbT);
+    nameLbl.appendChild(document.createTextNode('カード名'));
+    tgtGroup.appendChild(nameLbl);
+
+    var textLbl = document.createElement('label');
+    textLbl.className = 'cm-civ-label cm-target-label';
+    var textCbT = document.createElement('input');
+    textCbT.type    = 'checkbox';
+    textCbT.checked = tgt.text !== false;
+    textLbl.appendChild(textCbT);
+    textLbl.appendChild(document.createTextNode('テキスト'));
+    tgtGroup.appendChild(textLbl);
+
+    var raceLbl = document.createElement('label');
+    raceLbl.className = 'cm-civ-label cm-target-label';
+    var raceCbT = document.createElement('input');
+    raceCbT.type    = 'checkbox';
+    raceCbT.checked = tgt.race !== false;
+    raceLbl.appendChild(raceCbT);
+    raceLbl.appendChild(document.createTextNode('種族'));
+    tgtGroup.appendChild(raceLbl);
+
+    targetRow.appendChild(tgtGroup);
+    panel.appendChild(targetRow);
 
     // ── Row 2: Color mode ────────────────────────────────────────────────────
     var colorModeRow = _el('div', { className: 'cm-search-row' });
@@ -289,7 +327,10 @@ var CardSearchUI = (function () {
 
     // Read all DOM inputs into the filters object
     function _commit() {
-      filters.freeword        = wordInput.value.trim();
+      filters.freeword                 = wordInput.value.trim();
+      filters.freewordTargets.name     = nameCbT.checked;
+      filters.freewordTargets.text     = textCbT.checked;
+      filters.freewordTargets.race     = raceCbT.checked;
       filters.colorMode.mono  = monoCb.checked;
       filters.colorMode.multi = multiCb.checked;
       filters.civilization    = Object.keys(civChecks).filter(function (c) { return civChecks[c].checked; });
@@ -313,6 +354,11 @@ var CardSearchUI = (function () {
       filters.freewordMode = 'or';
       orBtn.classList.add('is-active');
       andBtn.classList.remove('is-active');
+
+      nameCbT.checked = true;
+      textCbT.checked = true;
+      raceCbT.checked = true;
+      filters.freewordTargets = { name: true, text: true, race: true };
 
       monoCb.checked  = true;
       multiCb.checked = true;
@@ -345,6 +391,7 @@ var CardSearchUI = (function () {
       return {
         freeword:            filters.freeword,
         freewordMode:        filters.freewordMode,
+        freewordTargets:     { name: filters.freewordTargets.name, text: filters.freewordTargets.text, race: filters.freewordTargets.race },
         colorMode:           { mono: filters.colorMode.mono, multi: filters.colorMode.multi },
         civilization:        filters.civilization.slice(),
         excludeCivilization: filters.excludeCivilization.slice(),

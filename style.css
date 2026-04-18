@@ -1482,6 +1482,23 @@ select {
   border-color: var(--border-2);
 }
 
+/* Freeword target checkboxes (カード名 / テキスト / 種族) */
+.cm-target-label {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border-2);
+  font-size: 0.78rem;
+}
+.cm-target-label:has(input:checked) {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+/* Sub-row indent (target checkboxes sit under the freeword input) */
+.cm-search-row--sub {
+  padding-left: 5rem;   /* align with the input (label width ≈ 5rem) */
+}
+
 .cm-card-list {
   display: flex;
   flex-direction: column;
