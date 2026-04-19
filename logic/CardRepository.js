@@ -61,6 +61,15 @@
     return null;
   }
 
+  // Returns the CardDefinition with the given name (exact match), or null.
+  function getCardByName(name) {
+    var cards = CardStorage.loadCards();
+    for (var i = 0; i < cards.length; i++) {
+      if (cards[i].name === name) return cards[i];
+    }
+    return null;
+  }
+
   // Persists a parsed card.
   // Generates a stable id. If a card with the same name already exists,
   // the existing entry is replaced (keeping the original id).
@@ -350,9 +359,10 @@
   // ── Export ────────────────────────────────────────────────────────────────
 
   window.CardRepository = {
-    getAllCards:  getAllCards,
-    getCardById: getCardById,
-    addCard:     addCard,
+    getAllCards:    getAllCards,
+    getCardById:   getCardById,
+    getCardByName: getCardByName,
+    addCard:       addCard,
     updateCard:  updateCard,
     deleteCard:  deleteCard,
     searchCards: searchCards,

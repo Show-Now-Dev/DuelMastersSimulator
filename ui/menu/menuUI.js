@@ -73,46 +73,6 @@ var MenuUI = (function () {
     nav.appendChild(toDeckEditorBtn);
     container.appendChild(nav);
 
-    // Export / Import row
-    var ioRow = document.createElement('div');
-    ioRow.className = 'menu__io-row';
-
-    var exportBtn = _btn('エクスポート', 'btn btn--small', function () {
-      var result = DataPorter.exportData();
-      if (!result.ok) alert('エクスポート失敗: ' + result.error);
-    });
-
-    // Hidden file input for import
-    var fileInput = document.createElement('input');
-    fileInput.type   = 'file';
-    fileInput.accept = '.json,application/json';
-    fileInput.style.display = 'none';
-    fileInput.addEventListener('change', function () {
-      var file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function (e) {
-        if (!confirm('インポートしますか？\n同名カードは上書きされます。デッキは新規追加されます。')) return;
-        var result = DataPorter.importData(e.target.result);
-        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
-        var msg = 'インポート完了: カード ' + result.stats.cards + ' 件、デッキ ' + result.stats.decks + ' 件';
-        if (result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
-        alert(msg);
-        _renderMenu();
-      };
-      reader.readAsText(file);
-      fileInput.value = '';
-    });
-
-    var importBtn = _btn('インポート', 'btn btn--small', function () {
-      fileInput.click();
-    });
-
-    ioRow.appendChild(exportBtn);
-    ioRow.appendChild(importBtn);
-    ioRow.appendChild(fileInput);
-    container.appendChild(ioRow);
-
     // Deck list heading
     var heading = document.createElement('h2');
     heading.textContent = 'デッキを選択';

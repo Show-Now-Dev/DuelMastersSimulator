@@ -37,6 +37,18 @@ var DeckEditorUI = (function () {
     _container.innerHTML = '';
     _container.appendChild(_el('h2', { textContent: 'デッキ管理' }));
 
+    // Import button
+    var ioRow = _el('div', { className: 'de-io-row' });
+    ioRow.appendChild(_btn('デッキインポート', 'btn btn--small', function () {
+      ImportHelper.trigger(function (result) {
+        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+        var msg = _importResultMsg(result);
+        alert(msg);
+        _renderList();
+      });
+    }));
+    _container.appendChild(ioRow);
+
     var decks = DeckRepository.getAllDecks();
     if (!decks.length) {
       _container.appendChild(_el('p', {
@@ -68,6 +80,11 @@ var DeckEditorUI = (function () {
     actions.appendChild(_btn('編集', 'btn btn--small', function () {
       _editingId = deck.id;
       _renderEdit(deck);
+    }));
+    actions.appendChild(_btn('エクスポート', 'btn btn--small', function () {
+      var result = DataPorter.exportDeck(deck.id);
+      if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
+      if (result.warnings) alert('警告: ' + result.warnings.join('\n'));
     }));
     actions.appendChild(_btn('削除', 'btn btn--small btn--danger', function () {
       if (!confirm('"' + deck.name + '" を削除しますか？')) return;
@@ -324,6 +341,14 @@ var DeckEditorUI = (function () {
     el.className   = 'deck-builder__total'
       + (total === TARGET_COUNT ? ' is-valid' : '')
       + (total  >  TARGET_COUNT ? ' is-over'  : '');
+  }
+
+  function _importResultMsg(result) {
+    var s = result.stats;
+    var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+    if (result.deckName) msg += '\nデッキ追加: ' + result.deckName;
+    if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+    return msg;
   }
 
   function _showMsg(el, cls, text) {

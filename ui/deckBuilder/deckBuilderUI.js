@@ -54,6 +54,23 @@ var DeckBuilderUI = (function () {
     var heading = _el('h2', { textContent: 'デッキビルダー' });
     _container.appendChild(heading);
 
+    // Import button (always visible so users can import decks even with no cards yet)
+    var ioRow = _el('div', { className: 'deck-builder__io-row' });
+    var importBtn = _el('button', { className: 'btn btn--small', textContent: 'デッキインポート' });
+    importBtn.addEventListener('click', function () {
+      ImportHelper.trigger(function (result) {
+        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+        var s = result.stats;
+        var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+        if (result.deckName) msg += '\nデッキ追加: ' + result.deckName;
+        if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+        alert(msg);
+        show();  // reload card pool (new cards may have been added)
+      });
+    });
+    ioRow.appendChild(importBtn);
+    _container.appendChild(ioRow);
+
     if (!_allCards.length) {
       var notice = _el('p', {
         className:   'screen-desc',

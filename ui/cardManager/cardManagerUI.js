@@ -42,6 +42,29 @@ var CardManagerUI = (function () {
     var heading = _el('h2', { textContent: 'カード管理' });
     _container.appendChild(heading);
 
+    // Import / Export buttons
+    var ioRow = _el('div', { className: 'cm-io-row' });
+
+    var importBtn = _btn('カード情報インポート', 'btn btn--small', function () {
+      ImportHelper.trigger(function (result) {
+        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+        var s = result.stats;
+        var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+        if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+        alert(msg);
+        _render();
+      });
+    });
+
+    var exportBtn = _btn('カード情報エクスポート', 'btn btn--small', function () {
+      var result = DataPorter.exportCards();
+      if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
+    });
+
+    ioRow.appendChild(importBtn);
+    ioRow.appendChild(exportBtn);
+    _container.appendChild(ioRow);
+
     _container.appendChild(CardSearchUI.build({
       filters:  _filters,
       onChange: function (newFilters) {

@@ -838,6 +838,90 @@ select {
   background: rgba(249, 115, 22, 0.20);
 }
 
+/* ── Import conflict modal ───────────────────────────────────────────────────── */
+
+.import-conflict-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.import-conflict-summary {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.import-conflict-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.import-conflict-list li {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.import-conflict-list details > summary {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: var(--surface);
+  user-select: none;
+}
+
+.import-conflict-list details[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.import-conflict-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.import-conflict-diff-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 1fr;
+  gap: 0.4rem;
+  align-items: start;
+}
+
+.import-conflict-diff-field {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.import-conflict-diff-old {
+  color: #ef4444;
+  word-break: break-all;
+}
+
+.import-conflict-diff-new {
+  color: #22c55e;
+  word-break: break-all;
+}
+
+/* ── IO row buttons (shared across screens) ──────────────────────────────────── */
+
+.de-io-row,
+.deck-builder__io-row,
+.card-editor__io-row,
+.cm-io-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
 /* ── Modal orientation layout ────────────────────────────────────────────────
    Portrait : cards in a single vertical column, list scrolls vertically.
    Landscape: cards in a single horizontal row,  list scrolls horizontally.
