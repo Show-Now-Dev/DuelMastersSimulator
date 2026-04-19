@@ -110,11 +110,18 @@ var DeckEditorUI = (function () {
     var totalEl = _el('div', { className: 'deck-builder__total' });
     _container.appendChild(totalEl);
 
-    // Build initial counts from deck entries
+    // Build initial counts from deck entries.
+    // Skip entries whose card definition no longer exists — track how many
+    // cards were silently dropped so the user can be informed.
     _editFilters   = CardSearchUI.defaultFilters();
     _editCountsMap = {};
+    var _removedCount = 0;
     (deck.cards || []).forEach(function (entry) {
-      _editCountsMap[entry.cardId] = entry.count || 0;
+      if (CardRepository.getCardById(entry.cardId)) {
+        _editCountsMap[entry.cardId] = entry.count || 0;
+      } else {
+        _removedCount += entry.count || 0;
+      }
     });
 
     // Search panel (uses shared module; civilization filter included)
@@ -143,6 +150,13 @@ var DeckEditorUI = (function () {
     var msgEl = _el('p', { className: 'msg', textContent: '' });
     msgEl.style.display = 'none';
     _container.appendChild(msgEl);
+
+    // Warn if cards were dropped because their definitions no longer exist.
+    if (_removedCount > 0) {
+      _showMsg(msgEl, 'msg--error',
+        '登録情報が削除されたカードが ' + _removedCount + ' 枚ありました。該当カードをデッキから除外しました。新しいカードを追加してデッキを再構成してください。'
+      );
+    }
 
     // Save button
     var saveBtn = _btn('デッキを保存', 'btn btn--primary de-save-btn', function () {
