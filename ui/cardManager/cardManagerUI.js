@@ -45,7 +45,7 @@ var CardManagerUI = (function () {
     // Import / Export buttons
     var ioRow = _el('div', { className: 'cm-io-row' });
 
-    var importBtn = _btn('カード情報インポート', 'btn btn--small', function () {
+    var importBtn = _btn('カード読込（ファイル）', 'btn btn--small', function () {
       ImportHelper.trigger(function (result) {
         if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
         var s = result.stats;
@@ -56,13 +56,32 @@ var CardManagerUI = (function () {
       });
     });
 
-    var exportBtn = _btn('カード情報エクスポート', 'btn btn--small', function () {
+    var importTextBtn = _btn('カード読込（テキスト）', 'btn btn--small', function () {
+      ImportHelper.triggerText(function (result) {
+        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+        var s = result.stats;
+        var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+        if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+        alert(msg);
+        _render();
+      });
+    });
+
+    var exportBtn = _btn('カード書出（ファイル）', 'btn btn--small', function () {
       var result = DataPorter.exportCards();
       if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
     });
 
+    var exportTextBtn = _btn('カード書出（テキスト）', 'btn btn--small', function () {
+      var result = DataPorter.getCardsJSON();
+      if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
+      ImportHelper.showTextExport('カード情報 テキスト書出', result.json);
+    });
+
     ioRow.appendChild(importBtn);
+    ioRow.appendChild(importTextBtn);
     ioRow.appendChild(exportBtn);
+    ioRow.appendChild(exportTextBtn);
     _container.appendChild(ioRow);
 
     _container.appendChild(CardSearchUI.build({

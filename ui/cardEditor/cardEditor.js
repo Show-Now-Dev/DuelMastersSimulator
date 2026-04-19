@@ -33,19 +33,25 @@ var CardEditor = (function () {
       textContent: 'Wikiからコピーしたカードテキストを貼り付けてパースします。ツインパクトは上面と下面の間1行だけ空けてね',
     });
 
-    // Card import button
+    // Card import buttons
     var importRow = _el('div', { className: 'card-editor__io-row' });
-    var importBtn = _el('button', { className: 'btn btn--small', textContent: 'カード情報インポート' });
-    importBtn.addEventListener('click', function () {
-      ImportHelper.trigger(function (result) {
-        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
-        var s = result.stats;
-        var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
-        if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
-        alert(msg);
-      });
-    });
+
+    function _onCardImport(result) {
+      if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+      var s = result.stats;
+      var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+      if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+      alert(msg);
+    }
+
+    var importBtn = _el('button', { className: 'btn btn--small', textContent: 'カード読込（ファイル）' });
+    importBtn.addEventListener('click', function () { ImportHelper.trigger(_onCardImport); });
+
+    var importTextBtn = _el('button', { className: 'btn btn--small', textContent: 'カード読込（テキスト）' });
+    importTextBtn.addEventListener('click', function () { ImportHelper.triggerText(_onCardImport); });
+
     importRow.appendChild(importBtn);
+    importRow.appendChild(importTextBtn);
 
     var textarea = document.createElement('textarea');
     textarea.className   = 'card-editor__input';

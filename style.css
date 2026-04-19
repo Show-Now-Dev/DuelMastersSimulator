@@ -910,6 +910,43 @@ select {
   word-break: break-all;
 }
 
+/* ── Import/export text modal ────────────────────────────────────────────────── */
+
+.import-text-body {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.import-text-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-text-area {
+  width: 100%;
+  height: 12rem;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+/* Truncation note inside conflict list */
+.import-conflict-truncation {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ── IO row buttons (shared across screens) ──────────────────────────────────── */
 
 .de-io-row,

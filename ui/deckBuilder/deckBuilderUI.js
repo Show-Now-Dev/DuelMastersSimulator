@@ -54,21 +54,31 @@ var DeckBuilderUI = (function () {
     var heading = _el('h2', { textContent: 'デッキビルダー' });
     _container.appendChild(heading);
 
-    // Import button (always visible so users can import decks even with no cards yet)
+    // Import buttons (always visible so users can import decks even with no cards yet)
     var ioRow = _el('div', { className: 'deck-builder__io-row' });
-    var importBtn = _el('button', { className: 'btn btn--small', textContent: 'デッキインポート' });
+
+    function _onDeckImport(result) {
+      if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+      var s = result.stats;
+      var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+      if (result.deckName) msg += '\nデッキ追加: ' + result.deckName;
+      if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+      alert(msg);
+      show();  // reload card pool (new cards may have been added)
+    }
+
+    var importBtn = _el('button', { className: 'btn btn--small', textContent: 'デッキ読込（ファイル）' });
     importBtn.addEventListener('click', function () {
-      ImportHelper.trigger(function (result) {
-        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
-        var s = result.stats;
-        var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
-        if (result.deckName) msg += '\nデッキ追加: ' + result.deckName;
-        if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
-        alert(msg);
-        show();  // reload card pool (new cards may have been added)
-      });
+      ImportHelper.trigger(_onDeckImport);
     });
+
+    var importTextBtn = _el('button', { className: 'btn btn--small', textContent: 'デッキ読込（テキスト）' });
+    importTextBtn.addEventListener('click', function () {
+      ImportHelper.triggerText(_onDeckImport);
+    });
+
     ioRow.appendChild(importBtn);
+    ioRow.appendChild(importTextBtn);
     _container.appendChild(ioRow);
 
     if (!_allCards.length) {

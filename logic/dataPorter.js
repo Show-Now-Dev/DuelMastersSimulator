@@ -95,9 +95,10 @@
     }
   }
 
-  // ── Export: single deck (deck-share format) ───────────────────────────────
+  // ── Payload builders (pure — no download side effects) ────────────────────
 
-  function exportDeck(deckId) {
+  // Returns { ok, json, safeName, warnings? } or { ok:false, error }
+  function _buildDeckPayload(deckId) {
     var deck = DeckRepository.getDeckById(deckId);
     if (!deck) return { ok: false, error: 'デッキが見つかりません: ' + deckId };
 
@@ -114,37 +115,67 @@
       cardDefs.push(def);
     });
 
-    var payload = JSON.stringify({
+    var json = JSON.stringify({
       format:  'deck-share',
       version: 1,
       deck:    { name: deck.name, cards: portableEntries },
       cards:   cardDefs,
     }, null, 2);
 
-    var safeName = deck.name.replace(/[\\/:*?"<>|]/g, '_');
-    _download(payload, 'deck-' + safeName + '-' + _dateStamp() + '.json');
-
-    var result = { ok: true };
+    var result = {
+      ok:       true,
+      json:     json,
+      safeName: deck.name.replace(/[\\/:*?"<>|]/g, '_'),
+    };
     if (missingCount) result.warnings = ['カード定義が見つからず ' + missingCount + ' 枚をスキップしました'];
     return result;
+  }
+
+  // Returns { ok, json, count } or { ok:false, error }
+  function _buildCardsPayload() {
+    var cards = CardRepository.getAllCards().map(function (card) {
+      var def = Object.assign({}, card);
+      delete def.id;
+      return def;
+    });
+    var json = JSON.stringify({
+      format:  'cards',
+      version: 1,
+      cards:   cards,
+    }, null, 2);
+    return { ok: true, json: json, count: cards.length };
+  }
+
+  // ── Export: single deck (deck-share format) ───────────────────────────────
+
+  function exportDeck(deckId) {
+    var r = _buildDeckPayload(deckId);
+    if (!r.ok) return r;
+    _download(r.json, 'deck-' + r.safeName + '-' + _dateStamp() + '.json');
+    return { ok: true, warnings: r.warnings };
+  }
+
+  // Returns deck-share JSON string without downloading — for text export.
+  function getDeckJSON(deckId) {
+    return _buildDeckPayload(deckId);  // { ok, json, warnings? } or { ok:false, error }
   }
 
   // ── Export: cards only ────────────────────────────────────────────────────
 
   function exportCards() {
     try {
-      var cards = CardRepository.getAllCards().map(function (card) {
-        var def = Object.assign({}, card);
-        delete def.id;
-        return def;
-      });
-      var payload = JSON.stringify({
-        format:  'cards',
-        version: 1,
-        cards:   cards,
-      }, null, 2);
-      _download(payload, 'cards-' + _dateStamp() + '.json');
-      return { ok: true, count: cards.length };
+      var r = _buildCardsPayload();
+      _download(r.json, 'cards-' + _dateStamp() + '.json');
+      return { ok: true, count: r.count };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // Returns cards JSON string without downloading — for text export.
+  function getCardsJSON() {
+    try {
+      return _buildCardsPayload();  // { ok, json, count }
     } catch (e) {
       return { ok: false, error: e.message };
     }
@@ -231,6 +262,21 @@
     return result;
   }
 
+  // ── Schema migration ──────────────────────────────────────────────────────
+  //
+  // Each _migrateVN function takes a parsed payload at version N and returns
+  // the same payload normalised to the next version.  Add new functions here
+  // as the format evolves; _migrate() applies them in order automatically.
+  //
+  // Current format: version 1 (no transformation needed yet).
+
+  function _migrate(parsed) {
+    // Future: var v = parsed.version || 0;
+    // if (v < 2) parsed = _migrateV1toV2(parsed);
+    // if (v < 3) parsed = _migrateV2toV3(parsed);
+    return parsed;
+  }
+
   // ── Confirm import (actually writes to storage) ───────────────────────────
   //
   // overwriteConflicts: true  → conflicting cards are overwritten
@@ -247,6 +293,7 @@
       return { ok: false, error: 'JSONの解析に失敗しました: ' + e.message };
     }
 
+    parsed = _migrate(parsed);
     var incomingCards = parsed.cards || [];
     var errors = [];
     var added = 0, updated = 0, skipped = 0;
@@ -302,7 +349,9 @@
     exportData:     exportData,
     importData:     importData,
     exportDeck:     exportDeck,
+    getDeckJSON:    getDeckJSON,
     exportCards:    exportCards,
+    getCardsJSON:   getCardsJSON,
     checkConflicts: checkConflicts,
     confirmImport:  confirmImport,
   };

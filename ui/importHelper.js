@@ -1,18 +1,24 @@
 // ui/importHelper.js
 //
-// Shared helper for file-based import with conflict resolution.
+// Shared helper for import/export flows with conflict resolution.
 // Used by CardEditor, CardManagerUI, DeckBuilderUI, and DeckEditorUI.
 //
 // Rules:
 //   - DOM access only via #modal-layer (shared overlay)
 //   - Never accesses storage directly — delegates to DataPorter
-//   - Single public function: ImportHelper.trigger(onComplete)
-//     Opens a file picker, checks for conflicts, shows a modal if needed,
-//     then calls onComplete({ ok, stats, deckName, errors }) when done.
+//
+// Public API:
+//   ImportHelper.trigger(onComplete)            — file picker → import
+//   ImportHelper.triggerText(onComplete)        — text modal → import
+//   ImportHelper.showTextExport(title, jsonText) — text modal → copy/close
 
 var ImportHelper = (function () {
 
-  // ── Field labels for diff display ─────────────────────────────────────────
+  // ── Constants ─────────────────────────────────────────────────────────────
+
+  // Maximum number of conflict <details> elements to render in the DOM.
+  // Above this threshold, only names are listed (no expandable diffs).
+  var _MAX_CONFLICTS_DOM = 50;
 
   var _FIELD_LABELS = {
     civilization: '文明',
@@ -45,12 +51,125 @@ var ImportHelper = (function () {
     input.click();
   }
 
-  // ── Conflict modal ────────────────────────────────────────────────────────
+  // ── Modal helpers ─────────────────────────────────────────────────────────
 
   function _closeModal() {
     var layer = document.getElementById('modal-layer');
     if (layer) { layer.classList.remove('is-open'); layer.innerHTML = ''; }
   }
+
+  function _openModal(panel) {
+    var layer = document.getElementById('modal-layer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    layer.classList.add('is-open');
+    layer.appendChild(panel);
+  }
+
+  function _buildPanel(title) {
+    var panel  = _el('div', 'modal-panel');
+    var header = _el('div', 'modal-header');
+    header.appendChild(_elText('span', 'modal-title', title));
+    header.appendChild(_btn('✕', 'modal-close-btn', _closeModal));
+    panel.appendChild(header);
+    return panel;
+  }
+
+  // ── Text export modal ─────────────────────────────────────────────────────
+
+  // Shows a modal with a readonly textarea of jsonText and a copy button.
+  // title: string shown in the modal header.
+  function showTextExport(title, jsonText) {
+    var panel = _buildPanel(title);
+
+    var body = _el('div', 'import-text-body');
+    var ta   = document.createElement('textarea');
+    ta.className = 'import-text-area';
+    ta.readOnly  = true;
+    ta.value     = jsonText;
+    body.appendChild(ta);
+    panel.appendChild(body);
+
+    var footer  = _el('div', 'modal-footer');
+    var copyBtn = _btn('コピー', 'btn btn--primary', function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(jsonText)
+          .then(function ()  { _flashBtn(copyBtn, 'コピーしました！', 'コピー'); })
+          .catch(function () { _execCopy(ta, copyBtn); });
+      } else {
+        _execCopy(ta, copyBtn);
+      }
+    });
+    footer.appendChild(copyBtn);
+    footer.appendChild(_btn('閉じる', 'btn', _closeModal));
+    panel.appendChild(footer);
+
+    _openModal(panel);
+  }
+
+  function _execCopy(ta, btn) {
+    ta.select();
+    try {
+      document.execCommand('copy');
+      _flashBtn(btn, 'コピーしました！', 'コピー');
+    } catch (e) {
+      alert('コピーに失敗しました。テキストエリアを長押しして全選択→コピーしてください。');
+    }
+  }
+
+  function _flashBtn(btn, tempText, originalText) {
+    btn.textContent = tempText;
+    setTimeout(function () { btn.textContent = originalText; }, 1500);
+  }
+
+  // ── Text import modal ─────────────────────────────────────────────────────
+
+  // Shows a modal with a writable textarea plus paste / import / cancel buttons.
+  // onComplete(result) is called after a successful import.
+  function triggerText(onComplete) {
+    var panel = _buildPanel('テキストからインポート');
+
+    var body = _el('div', 'import-text-body');
+    var desc = _elText('p', 'import-text-desc',
+      'エクスポートしたJSONテキストを貼り付けてください。');
+    body.appendChild(desc);
+
+    var ta = document.createElement('textarea');
+    ta.className   = 'import-text-area';
+    ta.placeholder = '{ "format": "deck-share", "version": 1, ... }';
+    body.appendChild(ta);
+    panel.appendChild(body);
+
+    var footer    = _el('div', 'modal-footer');
+    var pasteBtn  = _btn('貼り付け', 'btn', function () {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText()
+          .then(function (text) { ta.value = text; })
+          .catch(function ()    {
+            ta.focus();
+            alert('貼り付けの許可が必要です。テキストエリアに直接貼り付けてください。');
+          });
+      } else {
+        ta.focus();
+        alert('このブラウザでは貼り付けボタンを使用できません。テキストエリアに直接貼り付けてください。');
+      }
+    });
+    var importBtn = _btn('インポート', 'btn btn--primary', function () {
+      var text = ta.value.trim();
+      if (!text) { alert('テキストを入力してください。'); return; }
+      _closeModal();
+      _runImport(text, onComplete);
+    });
+
+    footer.appendChild(pasteBtn);
+    footer.appendChild(importBtn);
+    footer.appendChild(_btn('キャンセル', 'btn', _closeModal));
+    panel.appendChild(footer);
+
+    _openModal(panel);
+  }
+
+  // ── Conflict modal ────────────────────────────────────────────────────────
 
   function _showConflictModal(analysis, jsonText, onDone) {
     var layer = document.getElementById('modal-layer');
@@ -59,35 +178,27 @@ var ImportHelper = (function () {
       return;
     }
 
-    layer.innerHTML = '';
-    layer.classList.add('is-open');
-
-    var panel = _el('div', 'modal-panel');
-
-    // Header
-    var header = _el('div', 'modal-header');
-    header.appendChild(_elText('span', 'modal-title', 'カード情報の競合'));
-    header.appendChild(_btn('✕', 'modal-close-btn', _closeModal));
-    panel.appendChild(header);
+    var panel = _buildPanel('カード情報の競合');
 
     // Body
-    var body = _el('div', 'import-conflict-body');
+    var body     = _el('div', 'import-conflict-body');
+    var totalConflicts = analysis.conflictCards.length;
 
-    var summary = '';
-    summary += analysis.conflictCards.length + ' 枚のカード情報が登録済みのものと異なります。';
-    if (analysis.newCards.length) summary += '新規追加: ' + analysis.newCards.length + ' 枚。';
-    body.appendChild(_elText('p', 'import-conflict-summary', summary));
+    var summaryText = totalConflicts + ' 枚のカード情報が登録済みのものと異なります。';
+    if (analysis.newCards.length) summaryText += '新規追加: ' + analysis.newCards.length + ' 枚。';
+    body.appendChild(_elText('p', 'import-conflict-summary', summaryText));
 
-    var listEl = _el('ul', 'import-conflict-list');
+    var listEl  = _el('ul', 'import-conflict-list');
+    var display = analysis.conflictCards.slice(0, _MAX_CONFLICTS_DOM);
+    var truncated = totalConflicts - display.length;
 
-    analysis.conflictCards.forEach(function (item) {
-      var li = document.createElement('li');
+    display.forEach(function (item) {
+      var li      = document.createElement('li');
       var details = document.createElement('details');
-      var summaryEl = document.createElement('summary');
-      summaryEl.textContent = item.incoming.name;
-      details.appendChild(summaryEl);
+      var summEl  = document.createElement('summary');
+      summEl.textContent = item.incoming.name;
+      details.appendChild(summEl);
 
-      // Per-field diff
       var diffEl = _el('div', 'import-conflict-diff');
       _buildDiff(item.local, item.incoming).forEach(function (df) {
         var row = _el('div', 'import-conflict-diff-row');
@@ -97,10 +208,15 @@ var ImportHelper = (function () {
         diffEl.appendChild(row);
       });
       details.appendChild(diffEl);
-
       li.appendChild(details);
       listEl.appendChild(li);
     });
+
+    if (truncated > 0) {
+      var note = _elText('li', 'import-conflict-truncation',
+        '… 他 ' + truncated + ' 枚（差分表示は省略）');
+      listEl.appendChild(note);
+    }
 
     body.appendChild(listEl);
     panel.appendChild(body);
@@ -118,7 +234,7 @@ var ImportHelper = (function () {
     footer.appendChild(_btn('キャンセル', 'btn', _closeModal));
     panel.appendChild(footer);
 
-    layer.appendChild(panel);
+    _openModal(panel);
   }
 
   // ── Diff builder ──────────────────────────────────────────────────────────
@@ -139,7 +255,7 @@ var ImportHelper = (function () {
     return diffs;
   }
 
-  // ── Core flow ─────────────────────────────────────────────────────────────
+  // ── Core import flow ──────────────────────────────────────────────────────
 
   function _runImport(jsonText, onDone) {
     var analysis = DataPorter.checkConflicts(jsonText);
@@ -154,9 +270,7 @@ var ImportHelper = (function () {
 
   // ── Public ────────────────────────────────────────────────────────────────
 
-  // Opens a file picker and runs the import flow.
-  // Handles deck-share, cards, and legacy formats transparently.
-  // onComplete(result) — result shape: { ok, stats?, deckName?, errors?, error? }
+  // File picker → import flow.
   function trigger(onComplete) {
     _pickFile(function (jsonText) {
       _runImport(jsonText, onComplete);
@@ -185,6 +299,10 @@ var ImportHelper = (function () {
     return b;
   }
 
-  return { trigger: trigger };
+  return {
+    trigger:        trigger,
+    triggerText:    triggerText,
+    showTextExport: showTextExport,
+  };
 
 })();

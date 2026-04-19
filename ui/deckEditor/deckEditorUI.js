@@ -37,15 +37,20 @@ var DeckEditorUI = (function () {
     _container.innerHTML = '';
     _container.appendChild(_el('h2', { textContent: 'デッキ管理' }));
 
-    // Import button
+    // Import buttons
     var ioRow = _el('div', { className: 'de-io-row' });
-    ioRow.appendChild(_btn('デッキインポート', 'btn btn--small', function () {
-      ImportHelper.trigger(function (result) {
-        if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
-        var msg = _importResultMsg(result);
-        alert(msg);
-        _renderList();
-      });
+
+    function _onDeckImport(result) {
+      if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+      alert(_importResultMsg(result));
+      _renderList();
+    }
+
+    ioRow.appendChild(_btn('デッキ読込（ファイル）', 'btn btn--small', function () {
+      ImportHelper.trigger(_onDeckImport);
+    }));
+    ioRow.appendChild(_btn('デッキ読込（テキスト）', 'btn btn--small', function () {
+      ImportHelper.triggerText(_onDeckImport);
     }));
     _container.appendChild(ioRow);
 
@@ -81,10 +86,16 @@ var DeckEditorUI = (function () {
       _editingId = deck.id;
       _renderEdit(deck);
     }));
-    actions.appendChild(_btn('エクスポート', 'btn btn--small', function () {
+    actions.appendChild(_btn('書出（ファイル）', 'btn btn--small', function () {
       var result = DataPorter.exportDeck(deck.id);
       if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
       if (result.warnings) alert('警告: ' + result.warnings.join('\n'));
+    }));
+    actions.appendChild(_btn('書出（テキスト）', 'btn btn--small', function () {
+      var result = DataPorter.getDeckJSON(deck.id);
+      if (!result.ok) { alert('エクスポート失敗: ' + result.error); return; }
+      if (result.warnings) alert('警告: ' + result.warnings.join('\n'));
+      ImportHelper.showTextExport(deck.name + ' テキスト書出', result.json);
     }));
     actions.appendChild(_btn('削除', 'btn btn--small btn--danger', function () {
       if (!confirm('"' + deck.name + '" を削除しますか？')) return;
