@@ -21,17 +21,6 @@
     '自然': 'nature',
   };
 
-  // ── Non-creature card type mapping ────────────────────────────────────────
-
-  var TYPE_MAP = {
-    '呪文':         'spell',
-    'タマシード':   'tamaseed',
-    'クロスギア':   'crossgear',
-    'フォートレス': 'fortress',
-    'D2フィールド': 'd2field',
-    'オーラ':       'aura',
-  };
-
   // ── Whitespace: matches full-width (U+3000) and half-width space/tab ──────
 
   var WS  = '[\\s\\u3000]';     // one whitespace char
@@ -80,12 +69,16 @@
     var cost = costM[1] === '∞' ? '∞' : parseInt(costM[1], 10);
     s = s.slice(0, costM.index).replace(new RegExp(WSP + '$'), '');
 
-    // Step 2 — strip civilization: last token ending in 文明 or equal to 無色
-    // Allows / and Japanese chars inside the token.
-    var civRe = new RegExp('(' + WSP + ')([^\\s\\u3000]+文明|無色)$');
+    // Step 2 — strip civilization: last token ending in 文明 or equal to 無色,
+    // optionally followed by a bracket annotation such as [ジョーカーズ].
+    // Captures: group2 = civ string, group3 = bracket tag (may be undefined).
+    var civRe = new RegExp('(' + WSP + ')([^\\s\\u3000]+文明|無色)(\\[[^\\]]*\\])?$');
     var civM  = s.match(civRe);
     if (!civM) return null;
-    var civStr = civM[2];
+    var civStr  = civM[2];                   // "無色" / "水/闇文明" etc. — no bracket
+    var civTag  = civM[3]                    // "[ジョーカーズ]" or undefined
+                  ? civM[3].slice(1, -1)     // strip the surrounding [ ]
+                  : null;
     s = s.slice(0, s.length - civM[0].length);
 
     // Step 3 — strip rarity: last non-whitespace token
@@ -102,6 +95,7 @@
       civilization: parseCivilizationString(civStr),
       cost:         cost,
       rarity:       rarityM[2],
+      jokers:       civTag === 'ジョーカーズ',
     };
   }
 
@@ -131,14 +125,16 @@
     if (s.indexOf('クリーチャー') !== -1) {
       var colonIdx = s.indexOf('：');
       if (colonIdx === -1) {
-        // No colon: bare "クリーチャー" with no races/power info
-        return { type: 'creature', races: [], power: null };
+        // No colon: bare "クリーチャー" — use the whole line as the type label.
+        return { type: s.trim(), races: [], power: null };
       }
 
+      // Use the text before '：' as the type label (e.g. "進化クリーチャー").
+      var typeLabel  = s.slice(0, colonIdx).trim();
       var afterColon = s.slice(colonIdx + 1).trim();
 
-      // Power: last whitespace-separated token of form \d+\+? or ∞
-      var powerRe = new RegExp('(' + WSP + ')(\\d+\\+?|∞)$');
+      // Power: last whitespace-separated token — integer (possibly negative), \d+\+?, or ∞.
+      var powerRe = new RegExp('(' + WSP + ')(-\\d+|\\d+\\+?|∞)$');
       var powerM  = afterColon.match(powerRe);
       var power   = null;
       var racePart = afterColon;
@@ -152,13 +148,13 @@
         ? racePart.split('/').map(function (r) { return r.trim(); }).filter(Boolean)
         : [];
 
-      return { type: 'creature', races: races, power: power };
+      return { type: typeLabel, races: races, power: power };
     }
 
     // ── Non-creature branch ───────────────────────────────────────────────
+    // Store the Japanese type string as-is (no English mapping).
     var colonIdx2 = s.indexOf('：');
     var typeName  = colonIdx2 !== -1 ? s.slice(0, colonIdx2).trim() : s;
-    var canonical = TYPE_MAP[typeName] || typeName;
 
     // Races: only extracted for タマシード
     var races2 = [];
@@ -167,7 +163,7 @@
         .split('/').map(function (r) { return r.trim(); }).filter(Boolean);
     }
 
-    return { type: canonical, races: races2, power: null };
+    return { type: typeName, races: races2, power: null };
   }
 
   // ── Single block → single CardDefinition ─────────────────────────────────
@@ -204,6 +200,7 @@
       power:        typeInfo.power,
       abilities:    abilities,
       mana:         1,
+      jokers:       header.jokers || false,
     };
 
     return { card: card, errors: errors };

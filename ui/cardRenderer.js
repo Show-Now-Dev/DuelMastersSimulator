@@ -85,6 +85,14 @@ var CardRenderer = (function () {
       }
     }
 
+    // Jokers badge — displayed in the bottom-right corner when vm.jokers is true.
+    if (vm.jokers) {
+      var badge = document.createElement('span');
+      badge.className   = 'card__jokers-badge';
+      badge.textContent = 'J';
+      front.appendChild(badge);
+    }
+
     cardEl.appendChild(front);
   }
 

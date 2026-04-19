@@ -20,6 +20,50 @@
   var DECKS_KEY = 'cardgame_decks';
   var VERSION   = 1;
 
+  // ── Card type migration (English → Japanese) ──────────────────────────────
+  //
+  // Older saves stored card types as English keys (creature, spell, etc.).
+  // This map converts them to the Japanese strings now used as the canonical form.
+  // 'twin' is intentionally absent — it stays as 'twin'.
+
+  var _TYPE_MIGRATION = {
+    'creature':  'クリーチャー',
+    'spell':     '呪文',
+    'tamaseed':  'タマシード',
+    'crossgear': 'クロスギア',
+    'fortress':  'フォートレス',
+    'd2field':   'D2フィールド',
+    'aura':      'オーラ',
+  };
+
+  function _needsTypeMigration(cards) {
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if (_TYPE_MIGRATION[c.type]) return true;
+      if (c.type === 'twin' && Array.isArray(c.sides)) {
+        for (var j = 0; j < c.sides.length; j++) {
+          if (_TYPE_MIGRATION[c.sides[j].type]) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function _migrateCardTypes(cards) {
+    return cards.map(function (card) {
+      var m = Object.assign({}, card);
+      if (_TYPE_MIGRATION[m.type]) m.type = _TYPE_MIGRATION[m.type];
+      if (m.type === 'twin' && Array.isArray(m.sides)) {
+        m.sides = m.sides.map(function (side) {
+          var s = Object.assign({}, side);
+          if (_TYPE_MIGRATION[s.type]) s.type = _TYPE_MIGRATION[s.type];
+          return s;
+        });
+      }
+      return m;
+    });
+  }
+
   // ── ID generation ─────────────────────────────────────────────────────────
   //
   // Uses crypto.randomUUID() when available; falls back to a timestamp+random
@@ -78,21 +122,31 @@
 
   // Always returns a CardDefinition[]. Handles missing or corrupted data
   // gracefully (returns [] rather than throwing).
+  // Runs a one-time migration of English type strings to Japanese on first load
+  // after the update; subsequent loads skip it (no English types remain).
   function loadCards() {
     var stored = readRaw(CARDS_KEY);
     if (!stored) return [];
 
+    var cards;
+
     // Versioned format: { version, cards }
     if (stored && typeof stored === 'object' && Array.isArray(stored.cards)) {
-      return stored.cards;
+      cards = stored.cards;
+    } else if (Array.isArray(stored)) {
+      // Legacy format: plain array
+      cards = stored;
+    } else {
+      return [];
     }
 
-    // Legacy format: plain array (auto-migrate on next save)
-    if (Array.isArray(stored)) {
-      return stored;
+    // One-time migration: convert English type keys to Japanese.
+    if (_needsTypeMigration(cards)) {
+      cards = _migrateCardTypes(cards);
+      saveCards(cards);
     }
 
-    return [];
+    return cards;
   }
 
   // Saves the full card list.

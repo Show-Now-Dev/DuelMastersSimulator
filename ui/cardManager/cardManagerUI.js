@@ -158,17 +158,9 @@ var CardManagerUI = (function () {
 
     // Type
     body.appendChild(_formRow('種類', function () {
-      var sel = document.createElement('select');
-      sel.className  = 'cm-edit-input';
-      sel.dataset.field = 'type';
-      ['creature', 'spell', 'tamaseed', 'd2field', 'other'].forEach(function (t) {
-        var opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        if (t === card.type) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      return sel;
+      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: card.type || '' });
+      inp.dataset.field = 'type';
+      return inp;
     }));
 
     // Civilization (checkboxes)
@@ -194,8 +186,8 @@ var CardManagerUI = (function () {
       return _buildInfInput('cost', card.cost);
     }));
 
-    // Power (creature only)
-    if (card.type === 'creature') {
+    // Power (creature only — matches any subtype containing "クリーチャー")
+    if (card.type && card.type.indexOf('クリーチャー') !== -1) {
       body.appendChild(_formRow('パワー', function () {
         return _buildInfInput('power', card.power);
       }));
@@ -314,11 +306,12 @@ var CardManagerUI = (function () {
 
   // Builds a number input + ∞ checkbox pair for cost / power fields.
   // fieldName: e.g. 'cost' or 'power'.  currentValue: the stored value (number, '∞', or null).
+  // Power can be negative, so no min restriction is applied.
   function _buildInfInput(fieldName, currentValue) {
     var isInf = currentValue === '∞';
     var wrap  = _el('div', { className: 'cm-edit-inf-wrap' });
 
-    var inp = _el('input', { type: 'number', className: 'cm-edit-input cm-edit-input--short', min: 0 });
+    var inp = _el('input', { type: 'number', className: 'cm-edit-input cm-edit-input--short' });
     inp.dataset.field = fieldName;
     inp.value         = isInf || currentValue == null ? '' : currentValue;
     inp.disabled      = isInf;

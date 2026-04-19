@@ -355,6 +355,25 @@ button.is-active {
   color: #fff;
 }
 
+/* Jokers badge — bottom-right corner of the card front */
+.card__jokers-badge {
+  position: absolute;
+  bottom: 0.2em;
+  right: 0.25em;
+  font-size: calc(var(--card-w) * 0.13);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  background: #7c3aed;
+  border-radius: 50%;
+  width: 1.4em;
+  height: 1.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* ── Compact zones (Deck, Graveyard, Ex, GR, Stack) ─────────────────────────
    Width = 1 card (grid column = var(--card-w)).
    Height = zone-row-h (grid row, same as all other rows).
@@ -771,9 +790,10 @@ select {
 }
 
 /* Scale card text to the modal card size. */
-.modal-card .card__cost  { font-size: calc(var(--modal-card-w) * 0.14); }
-.modal-card .card__name  { font-size: calc(var(--modal-card-w) * 0.11); }
-.modal-card .card__power { font-size: calc(var(--modal-card-w) * 0.115); }
+.modal-card .card__cost         { font-size: calc(var(--modal-card-w) * 0.14); }
+.modal-card .card__name         { font-size: calc(var(--modal-card-w) * 0.11); }
+.modal-card .card__power        { font-size: calc(var(--modal-card-w) * 0.115); }
+.modal-card .card__jokers-badge { font-size: calc(var(--modal-card-w) * 0.13); }
 
 /* "Top" label shown on the top card of the stack in the modal. */
 .modal-card-position {

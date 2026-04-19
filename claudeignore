@@ -1,0 +1,122 @@
+# ===========================
+# 依存関係・パッケージ
+# ===========================
+node_modules/
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+pip-log.txt
+*.egg-info/
+.eggs/
+
+# ===========================
+# ビルド・出力物
+# ===========================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+coverage/
+*.min.js
+*.min.css
+*.bundle.js
+
+# ===========================
+# 環境・機密情報
+# ===========================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# ===========================
+# バージョン管理
+# ===========================
+.git/
+.svn/
+.hg/
+
+# ===========================
+# ログ・キャッシュ
+# ===========================
+*.log
+logs/
+.cache/
+.parcel-cache/
+tmp/
+temp/
+.temp/
+.tmp/
+
+# ===========================
+# エディタ・OS系
+# ===========================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===========================
+# テスト・カバレッジ
+# ===========================
+__snapshots__/
+*.snap
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# ===========================
+# ドキュメント・静的アセット
+# ===========================
+docs/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.pdf
+*.mp4
+*.mov
+*.zip
+*.tar.gz
+
+# ===========================
+# データベース・データファイル
+# ===========================
+*.sqlite
+*.sqlite3
+*.db
+*.csv
+*.xlsx
+data/
+
+# ===========================
+# インフラ・デプロイ設定
+# ===========================
+.terraform/
+*.tfstate
+*.tfstate.backup
+.serverless/

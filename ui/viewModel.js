@@ -108,6 +108,9 @@ function buildCardViewModel(card, gameState) {  // eslint-disable-line no-unused
   var civBg  = getCivBackground(civs);
   var isTwin = !!(def && def.type === "twin");
 
+  // jokers: true if any side (or the card itself) carries the jokers flag.
+  var isJokers = !!(def && (def.jokers || (isTwin && (def.sides || []).some(function (s) { return s.jokers; }))));
+
   var vm = {
     id:              card.id,
     name:            info.name,
@@ -117,6 +120,7 @@ function buildCardViewModel(card, gameState) {  // eslint-disable-line no-unused
     backgroundStyle: _withOverlay(civBg),
     isFaceDown:      card.isFaceDown,
     isTwin:          isTwin,
+    jokers:          isJokers,
     sides:           null,
   };
 
