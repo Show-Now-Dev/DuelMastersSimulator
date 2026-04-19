@@ -249,15 +249,29 @@
       if (!civMatch) return false;
     }
 
-    // cost range
-    if (f.costMin != null && (card.cost == null || card.cost < f.costMin)) return false;
-    if (f.costMax != null && (card.cost == null || card.cost > f.costMax)) return false;
+    // cost range  ('∞' passes any costMin; fails any costMax that has an upper bound)
+    if (f.costMin != null) {
+      if (card.cost == null) return false;
+      if (card.cost !== '∞' && card.cost < f.costMin) return false;
+    }
+    if (f.costMax != null) {
+      if (card.cost == null) return false;
+      if (card.cost === '∞') return false;
+      if (card.cost > f.costMax) return false;
+    }
 
-    // power range
+    // power range  (same ∞ logic as cost)
     if (f.powerMin != null || f.powerMax != null) {
       var power = card.power != null ? card.power : null;
-      if (f.powerMin != null && (power == null || power < f.powerMin)) return false;
-      if (f.powerMax != null && (power == null || power > f.powerMax)) return false;
+      if (f.powerMin != null) {
+        if (power == null) return false;
+        if (power !== '∞' && power < f.powerMin) return false;
+      }
+      if (f.powerMax != null) {
+        if (power == null) return false;
+        if (power === '∞') return false;
+        if (power > f.powerMax) return false;
+      }
     }
 
     return true;

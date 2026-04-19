@@ -191,19 +191,13 @@ var CardManagerUI = (function () {
 
     // Cost
     body.appendChild(_formRow('コスト', function () {
-      var inp = _el('input', { type: 'number', className: 'cm-edit-input cm-edit-input--short', min: 0 });
-      inp.dataset.field = 'cost';
-      inp.value = card.cost != null ? card.cost : '';
-      return inp;
+      return _buildInfInput('cost', card.cost);
     }));
 
     // Power (creature only)
     if (card.type === 'creature') {
       body.appendChild(_formRow('パワー', function () {
-        var inp = _el('input', { type: 'number', className: 'cm-edit-input cm-edit-input--short', min: 0 });
-        inp.dataset.field = 'power';
-        inp.value = card.power != null ? card.power : '';
-        return inp;
+        return _buildInfInput('power', card.power);
       }));
     }
 
@@ -267,11 +261,21 @@ var CardManagerUI = (function () {
         .map(function (cb) { return cb.value; });
     }
 
-    var costEl = panel.querySelector('[data-field="cost"]');
-    if (costEl && costEl.value !== '') patch.cost = parseInt(costEl.value, 10);
+    var costInfEl = panel.querySelector('[data-field="cost-inf"]');
+    var costEl    = panel.querySelector('[data-field="cost"]');
+    if (costInfEl && costInfEl.checked) {
+      patch.cost = '∞';
+    } else if (costEl && costEl.value !== '') {
+      patch.cost = parseInt(costEl.value, 10);
+    }
 
-    var powerEl = panel.querySelector('[data-field="power"]');
-    if (powerEl && powerEl.value !== '') patch.power = parseInt(powerEl.value, 10);
+    var powerInfEl = panel.querySelector('[data-field="power-inf"]');
+    var powerEl    = panel.querySelector('[data-field="power"]');
+    if (powerInfEl && powerInfEl.checked) {
+      patch.power = '∞';
+    } else if (powerEl && powerEl.value !== '') {
+      patch.power = parseInt(powerEl.value, 10);
+    }
 
     var racesEl = panel.querySelector('[data-field="races"]');
     if (racesEl) {
@@ -306,6 +310,35 @@ var CardManagerUI = (function () {
       listContainer.innerHTML = '';
       _renderCardList(listContainer, results);
     }
+  }
+
+  // Builds a number input + ∞ checkbox pair for cost / power fields.
+  // fieldName: e.g. 'cost' or 'power'.  currentValue: the stored value (number, '∞', or null).
+  function _buildInfInput(fieldName, currentValue) {
+    var isInf = currentValue === '∞';
+    var wrap  = _el('div', { className: 'cm-edit-inf-wrap' });
+
+    var inp = _el('input', { type: 'number', className: 'cm-edit-input cm-edit-input--short', min: 0 });
+    inp.dataset.field = fieldName;
+    inp.value         = isInf || currentValue == null ? '' : currentValue;
+    inp.disabled      = isInf;
+
+    var infLabel = document.createElement('label');
+    infLabel.className = 'cm-edit-inf-label';
+    var infCb = document.createElement('input');
+    infCb.type            = 'checkbox';
+    infCb.dataset.field   = fieldName + '-inf';
+    infCb.checked         = isInf;
+    infCb.addEventListener('change', function () {
+      inp.disabled = infCb.checked;
+      if (infCb.checked) inp.value = '';
+    });
+    infLabel.appendChild(infCb);
+    infLabel.appendChild(document.createTextNode(' ∞'));
+
+    wrap.appendChild(inp);
+    wrap.appendChild(infLabel);
+    return wrap;
   }
 
   function _formRow(labelText, buildInput) {

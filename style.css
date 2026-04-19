@@ -1607,6 +1607,27 @@ select {
   line-height: 1.5;
 }
 
+.cm-edit-inf-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cm-edit-inf-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cm-edit-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── Deck editor screen ──────────────────────────────────────────────────── */
 
 .de-deck-list {

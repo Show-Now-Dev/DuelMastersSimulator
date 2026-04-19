@@ -73,11 +73,11 @@
     // regardless of which bracket style the user pastes from the wiki.
     var s = line.trim().replace(/（/g, '(').replace(/）/g, ')');
 
-    // Step 1 — strip cost: "...(6)"
-    var costRe = new RegExp('\\((\\d+)\\)' + WS + '*$');
+    // Step 1 — strip cost: "...(6)" or "...(∞)"
+    var costRe = new RegExp('\\(([\\d∞]+)\\)' + WS + '*$');
     var costM  = s.match(costRe);
     if (!costM) return null;
-    var cost = parseInt(costM[1], 10);
+    var cost = costM[1] === '∞' ? '∞' : parseInt(costM[1], 10);
     s = s.slice(0, costM.index).replace(new RegExp(WSP + '$'), '');
 
     // Step 2 — strip civilization: last token ending in 文明 or equal to 無色
@@ -137,14 +137,14 @@
 
       var afterColon = s.slice(colonIdx + 1).trim();
 
-      // Power: last whitespace-separated token of form \d+\+?
-      var powerRe = new RegExp('(' + WSP + ')(\\d+\\+?)$');
+      // Power: last whitespace-separated token of form \d+\+? or ∞
+      var powerRe = new RegExp('(' + WSP + ')(\\d+\\+?|∞)$');
       var powerM  = afterColon.match(powerRe);
       var power   = null;
       var racePart = afterColon;
 
       if (powerM) {
-        power    = parseInt(powerM[2], 10);
+        power    = powerM[2] === '∞' ? '∞' : parseInt(powerM[2], 10);
         racePart = afterColon.slice(0, afterColon.length - powerM[0].length).trim();
       }
 
