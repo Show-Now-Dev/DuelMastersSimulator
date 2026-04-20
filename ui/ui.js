@@ -145,7 +145,7 @@
       "zone:graveyard":      { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
       "zone:deck":           { showPosition: true,  showFace: false, showInsertIndex: true,  showTap: false },
       "zone:ex":             { showPosition: true,  showFace: false, showInsertIndex: false, showTap: false },
-      "zone:gr":             { showPosition: true,  showFace: false, showInsertIndex: false, showTap: false },
+      "zone:gr":             { showPosition: false, showFace: false, showInsertIndex: false, showTap: false },
       "stack":               { showPosition: true,  showFace: true,  showInsertIndex: false, showTap: false },
       "deck-drag:hand":      { showPosition: false, showFace: false, showInsertIndex: false, showTap: false, isDeckDrag: true },
       "deck-drag:mana":      { showPosition: false, showFace: true,  showInsertIndex: false, showTap: true,  isDeckDrag: true, defaultIsFaceDown: false },
@@ -218,6 +218,19 @@
         gameStore.dispatch(clearSelection());
         return;
       }
+      // GR zone: always face-down at bottom, no confirmation.
+      if (target.type === "zone" && target.zoneId === ZONE_IDS.GR) {
+        gameStore.dispatch(moveCards(cardIds, target, "bottom"));
+        var gsGR    = gameStore.getState();
+        var toFlip  = cardIds.filter(function (id) {
+          var c = gsGR.cards[id]; return c && !c.isFaceDown;
+        });
+        if (toFlip.length) gameStore.dispatch(toggleFaceCards(toFlip));
+        gameStore.dispatch(clearSelection());
+        LogPanel.log(cardIds.length + "枚を超GRゾーンへ（裏向き）");
+        return;
+      }
+
       var position = (target.type === "zone" && target.zoneId === ZONE_IDS.GRAVEYARD)
         ? "top" : "bottom";
       gameStore.dispatch(moveCards(cardIds, target, position));
@@ -394,7 +407,7 @@
           if (!c) continue;
           var isFaceDown = (peeked.indexOf(c.id) !== -1) ? false : c.isFaceDown;
           if (!isFaceDown) {
-            uiStore.dispatch(openCardDetailModal(c.definitionId));
+            uiStore.dispatch(openCardDetailModal(c.definitionId, c.currentFormIndex || 0));
             return;
           }
         }

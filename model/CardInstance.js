@@ -7,6 +7,7 @@ function createCardInstance(raw) {
     definitionId:     raw.definitionId,
     isFaceDown:       raw.isFaceDown        != null ? raw.isFaceDown        : false,
     currentFormIndex: raw.currentFormIndex  != null ? raw.currentFormIndex  : 0,
+    isGRCard:         raw.isGRCard          != null ? raw.isGRCard          : false,
   };
 }
 

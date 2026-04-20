@@ -435,6 +435,16 @@ var ZoneRenderer = (function () {
       return;
     }
 
+    // Multi-form card: show the currently displayed form's data.
+    if (def.forms && Array.isArray(def.forms) && def.forms.length > 0) {
+      var mfIdx = Math.min(
+        (targetCard.currentFormIndex != null) ? targetCard.currentFormIndex : 0,
+        def.forms.length - 1
+      );
+      container.appendChild(_buildDetailHalf(Object.assign({}, def, def.forms[mfIdx])));
+      return;
+    }
+
     if (def.type === "twin") {
       var twinEl = document.createElement("div");
       twinEl.className = "cd-twin";
@@ -1153,6 +1163,17 @@ var ZoneRenderer = (function () {
       err.className   = "cd-placeholder";
       err.textContent = "カード情報が見つかりません";
       panel.appendChild(err);
+      container.appendChild(panel);
+      return;
+    }
+
+    // Multi-form card: show the form that was active when the modal was opened.
+    if (def.forms && Array.isArray(def.forms) && def.forms.length > 0) {
+      var mfModalIdx = Math.min(
+        (modal.formIndex != null) ? modal.formIndex : 0,
+        def.forms.length - 1
+      );
+      panel.appendChild(_buildCardInfoSection(Object.assign({}, def, def.forms[mfModalIdx])));
       container.appendChild(panel);
       return;
     }

@@ -65,10 +65,11 @@ function openModal(source, selectionMode, visibility, topN) {
 }
 
 // Open a CARD_DETAIL modal for the given card definition id.
-function openCardDetailModal(definitionId) {
+// formIndex: current displayed form index (for multi-form cards; default 0).
+function openCardDetailModal(definitionId, formIndex) {
   return {
     type: OPEN_CARD_DETAIL_MODAL,
-    payload: { definitionId: definitionId },
+    payload: { definitionId: definitionId, formIndex: formIndex != null ? formIndex : 0 },
   };
 }
 
@@ -150,6 +151,7 @@ function uiReducer(state, action) {
         modal: {
           type:         "CARD_DETAIL",
           definitionId: action.payload.definitionId,
+          formIndex:    action.payload.formIndex || 0,
         },
       });
 

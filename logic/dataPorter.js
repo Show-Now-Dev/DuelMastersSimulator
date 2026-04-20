@@ -102,23 +102,36 @@
     var deck = DeckRepository.getDeckById(deckId);
     if (!deck) return { ok: false, error: 'デッキが見つかりません: ' + deckId };
 
-    var portableEntries = [];
-    var cardDefs        = [];
-    var missingCount    = 0;
+    var cardDefs     = [];
+    var missingCount = 0;
 
-    (deck.cards || []).forEach(function (entry) {
-      var card = CardRepository.getCardById(entry.cardId);
-      if (!card) { missingCount++; return; }
-      portableEntries.push({ cardName: card.name, count: entry.count });
-      var def = Object.assign({}, card);
-      delete def.id;
-      cardDefs.push(def);
-    });
+    // Convert a { cardId, count }[] entry list into portable { cardName, count }[] list,
+    // accumulating card definitions into cardDefs.
+    function _portableList(entries) {
+      var list = [];
+      (entries || []).forEach(function (entry) {
+        var card = CardRepository.getCardById(entry.cardId);
+        if (!card) { missingCount++; return; }
+        list.push({ cardName: card.name, count: entry.count });
+        var def = Object.assign({}, card);
+        delete def.id;
+        cardDefs.push(def);
+      });
+      return list;
+    }
+
+    var portableMain = _portableList(deck.cards);
+    var portableHS   = _portableList(deck.hyperspatialCards);
+    var portableGR   = _portableList(deck.superGRCards);
+
+    var deckPayload = { name: deck.name, cards: portableMain };
+    if (portableHS.length) deckPayload.hyperspatialCards = portableHS;
+    if (portableGR.length) deckPayload.superGRCards      = portableGR;
 
     var json = JSON.stringify({
       format:  'deck-share',
       version: 1,
-      deck:    { name: deck.name, cards: portableEntries },
+      deck:    deckPayload,
       cards:   cardDefs,
     }, null, 2);
 
@@ -314,24 +327,35 @@
     var deckName = null;
 
     if (parsed.format === 'deck-share' && parsed.deck) {
-      var entries      = [];
       var missingNames = [];
 
-      (parsed.deck.cards || []).forEach(function (entry) {
-        var local = CardRepository.getCardByName(entry.cardName);
-        if (local) {
-          entries.push({ cardId: local.id, count: entry.count });
-        } else {
-          missingNames.push(entry.cardName);
-        }
-      });
+      // Resolve portable { cardName, count } entries to { cardId, count } using local storage.
+      function _resolveEntries(src) {
+        var out = [];
+        (src || []).forEach(function (entry) {
+          var local = CardRepository.getCardByName(entry.cardName);
+          if (local) {
+            out.push({ cardId: local.id, count: entry.count });
+          } else {
+            missingNames.push(entry.cardName);
+          }
+        });
+        return out;
+      }
+
+      var entries   = _resolveEntries(parsed.deck.cards);
+      var hsEntries = _resolveEntries(parsed.deck.hyperspatialCards);
+      var grEntries = _resolveEntries(parsed.deck.superGRCards);
 
       if (missingNames.length) {
         errors.push('以下のカードが見つかりませんでした: ' + missingNames.join(', '));
       }
 
       if (entries.length) {
-        var deckResult = DeckRepository.addDeck({ name: parsed.deck.name, cards: entries });
+        var deckData = { name: parsed.deck.name, cards: entries };
+        if (hsEntries.length) deckData.hyperspatialCards = hsEntries;
+        if (grEntries.length) deckData.superGRCards      = grEntries;
+        var deckResult = DeckRepository.addDeck(deckData);
         if (deckResult.ok) {
           deckName = parsed.deck.name;
         } else {

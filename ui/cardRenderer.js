@@ -38,8 +38,7 @@ var CardRenderer = (function () {
   // Shared between the board renderer and the modal renderer.
   function appendFace(cardEl, card) {
     if (card.isFaceDown) {
-      var def     = getCardDefinition(card.definitionId);
-      var backSrc = (def && def.zone === 'superGR') ? GR_CARD_BACK : CARD_BACK;
+      var backSrc = card.isGRCard ? GR_CARD_BACK : CARD_BACK;
       var img     = document.createElement("img");
       img.className = "card__back";
       img.alt       = "Card Back";

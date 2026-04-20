@@ -98,7 +98,7 @@
 
     var counter   = 1;
     var instances = entries.map(function (def) {
-      return { id: 'ex_' + (counter++), definitionId: def.id, isFaceDown: false, currentFormIndex: 0 };
+      return { id: 'ex_' + (counter++), definitionId: def.id, isFaceDown: false, currentFormIndex: 0, isGRCard: false };
     });
     return { instances: instances, errors: errors };
   }
@@ -116,7 +116,7 @@
     (deckDefinition.superGRCards || []).forEach(function (entry) {
       if (!defMap[entry.cardId]) { errors.push('カードが見つかりません: ' + entry.cardId); return; }
       for (var i = 0; i < (entry.count || 0); i++) {
-        instances.push({ id: 'gr_' + (counter++), definitionId: entry.cardId, isFaceDown: true, currentFormIndex: 0 });
+        instances.push({ id: 'gr_' + (counter++), definitionId: entry.cardId, isFaceDown: true, currentFormIndex: 0, isGRCard: true });
       }
     });
     _shuffle(instances);
