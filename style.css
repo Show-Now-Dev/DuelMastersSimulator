@@ -8,6 +8,8 @@
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --accent: #f97316;
+  --surface: var(--panel-2);
+  --text-secondary: var(--muted);
 
   /* ── Layout constants (non-card-unit elements) ─────────────────────────────
    *  These are fixed UI chrome — not part of the card unit system.          */
@@ -1780,35 +1782,37 @@ select {
 
 .de-deck-row {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.4rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
 }
 
-.de-deck-info {
-  flex: 1;
+.de-deck-header {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: baseline;
 }
 
 .de-deck-name {
   font-size: 0.95rem;
   font-weight: 600;
+  word-break: break-word;
 }
 
 .de-deck-count {
   font-size: 0.8rem;
   color: var(--muted);
+  white-space: nowrap;
+  margin-right: auto;
 }
 
 .de-deck-actions {
   display: flex;
+  align-items: center;
   gap: 0.4rem;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .de-back-btn {
@@ -2156,5 +2160,90 @@ section.drop-target-active,
 .pdd-cancel-btn:hover {
   color: var(--text);
   border-color: var(--text);
+}
+
+/* ── Zone tab row (shared: card manager, deck builder, deck editor) ──────────
+   Displayed below the screen heading; one tab per zone (メイン / 超次元 / 超GR).
+   Active tab is underlined with the accent colour.                             */
+
+.zone-tab-row {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-2);
+  margin-bottom: 0.75rem;
+}
+
+.zone-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0.4rem 0.85rem 0.35rem;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px; /* overlap the row border */
+}
+
+.zone-tab:hover {
+  color: var(--text);
+  background: none;
+}
+
+.zone-tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.zone-tab__count {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.75;
+}
+
+.zone-tab.is-active .zone-tab__count {
+  opacity: 1;
+}
+
+/* ── Card editor zone tabs & face blocks ────────────────────────────────────
+   .card-editor__zone-tabs : the tab row inside the card editor screen
+   .card-editor__zone-hint : dim hint text shown below tabs
+   .card-editor__face-block: one face section (border + label + textarea)
+   .card-editor__face-label: "1面目" / "2面目" / "3面目" heading
+   .card-editor__input--face: shorter textarea for each face               */
+
+.card-editor__zone-tabs {
+  margin-bottom: 0.5rem;
+}
+
+.card-editor__zone-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+.card-editor__face-block {
+  border: 1px solid var(--border-2);
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.card-editor__face-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.card-editor__input--face {
+  margin-bottom: 0;
+  min-height: 5rem;
 }
 

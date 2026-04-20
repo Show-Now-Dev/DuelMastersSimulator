@@ -11,8 +11,9 @@
 
 var CardManagerUI = (function () {
 
-  var _container = null;
-  var _filters   = CardSearchUI.defaultFilters();
+  var _container  = null;
+  var _filters    = CardSearchUI.defaultFilters();
+  var _activeZone = 'main';   // currently selected zone tab
 
   var CIVS = ['light', 'water', 'darkness', 'fire', 'nature'];
   var CIV_LABELS = {
@@ -30,8 +31,34 @@ var CardManagerUI = (function () {
   }
 
   function show() {
-    _filters = CardSearchUI.defaultFilters();
+    _filters    = CardSearchUI.defaultFilters();
+    _activeZone = 'main';
     _render();
+  }
+
+  // ── Zone tab row ───────────────────────────────────────────────────────────
+
+  function _buildZoneTabs() {
+    var zones = [
+      { id: 'main',         label: 'メイン' },
+      { id: 'hyperspatial', label: '超次元' },
+      { id: 'superGR',      label: '超GR'   },
+    ];
+    var row = _el('div', { className: 'zone-tab-row' });
+    zones.forEach(function (z) {
+      var btn = _el('button', {
+        className:   'zone-tab' + (_activeZone === z.id ? ' is-active' : ''),
+        textContent: z.label,
+      });
+      btn.addEventListener('click', function () {
+        if (_activeZone === z.id) return;
+        _activeZone = z.id;
+        _filters = CardSearchUI.defaultFilters();
+        _render();
+      });
+      row.appendChild(btn);
+    });
+    return row;
   }
 
   // ── Main render ────────────────────────────────────────────────────────────
@@ -84,17 +111,20 @@ var CardManagerUI = (function () {
     ioRow.appendChild(exportTextBtn);
     _container.appendChild(ioRow);
 
+    // Zone tabs
+    _container.appendChild(_buildZoneTabs());
+
     _container.appendChild(CardSearchUI.build({
       filters:  _filters,
       onChange: function (newFilters) {
         _filters = newFilters;
-        var results = CardRepository.searchCards(_filters);
+        var results = CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone }));
         var wrap = _container.querySelector('.cm-card-list-wrap');
         if (wrap) { wrap.innerHTML = ''; _renderCardList(wrap, results); }
       },
     }));
 
-    _renderCardList(_container, CardRepository.getAllCards());
+    _renderCardList(_container, CardRepository.searchCards({ zone: _activeZone }));
   }
 
   // ── Card list ──────────────────────────────────────────────────────────────

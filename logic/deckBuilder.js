@@ -39,11 +39,20 @@
     return { instances: instances, errors: errors };
   }
 
-  // Count the total number of cards in a DeckDefinition.
-  function deckCardCount(deckDefinition) {
-    return (deckDefinition.cards || []).reduce(function (sum, e) {
-      return sum + (e.count || 0);
-    }, 0);
+  // Count cards in a specific zone of a DeckDefinition.
+  // zone: 'main' | 'hyperspatial' | 'superGR'
+  function deckCardCount(deckDefinition, zone) {
+    var entries;
+    if (!zone || zone === 'main') {
+      entries = deckDefinition.cards || [];
+    } else if (zone === 'hyperspatial') {
+      entries = deckDefinition.hyperspatialCards || [];
+    } else if (zone === 'superGR') {
+      entries = deckDefinition.superGRCards || [];
+    } else {
+      entries = [];
+    }
+    return entries.reduce(function (sum, e) { return sum + (e.count || 0); }, 0);
   }
 
   window.DeckBuilder = {

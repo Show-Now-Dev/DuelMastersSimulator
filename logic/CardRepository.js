@@ -70,24 +70,43 @@
     return null;
   }
 
+  // Normalises a card definition before storage:
+  //   - Promotes forms[0] fields to top-level if absent (multi-form cards)
+  //   - Auto-detects zone from type if zone not already set
+  function _normalizeCard(card) {
+    var c = Object.assign({}, card);
+
+    // For multi-form cards: ensure top-level name/type come from forms[0]
+    if (Array.isArray(c.forms) && c.forms.length > 0) {
+      if (!c.name) c.name = c.forms[0].name;
+      if (!c.type) c.type = c.forms[0].type;
+    }
+
+    // Auto-detect zone from type if not explicitly set
+    if (!c.zone) c.zone = detectZone(c.type || '');
+
+    return c;
+  }
+
   // Persists a parsed card.
   // Generates a stable id. If a card with the same name already exists,
   // the existing entry is replaced (keeping the original id).
   //
   // Returns { ok: true, id: string } or { ok: false, error: string }.
   function addCard(card) {
-    var errors = validateCard(card);
+    var normalized = _normalizeCard(card);
+    var errors = validateCard(normalized);
     if (errors.length) return { ok: false, error: errors.join('; ') };
 
     var cards = CardStorage.loadCards();
 
     var idx = -1;
     for (var i = 0; i < cards.length; i++) {
-      if (cards[i].name === card.name) { idx = i; break; }
+      if (cards[i].name === normalized.name) { idx = i; break; }
     }
 
     var id     = (idx !== -1 && cards[idx].id) ? cards[idx].id : generateId();
-    var stored = Object.assign({}, card, { id: id });
+    var stored = Object.assign({}, normalized, { id: id });
 
     if (idx !== -1) {
       cards[idx] = stored;
@@ -181,6 +200,12 @@
   // ── Search helpers ────────────────────────────────────────────────────────
 
   function _matchesAll(card, f) {
+    // 0. Zone filter (controlled by tab, not by search panel)
+    if (f.zone != null) {
+      var cardZone = card.zone || 'main';
+      if (cardZone !== f.zone) return false;
+    }
+
     // 1. Twin pact filter
     if (f.includeTwin === false && card.type === 'twin') return false;
 
@@ -221,11 +246,16 @@
       }
     }
 
-    // 4. colorMode / civilization / cost / power — per-side for twin cards
-    //    Twin passes if ANY side satisfies all of these simultaneously.
+    // 4. colorMode / civilization / cost / power — per-side for twin / per-form for multi-form
     if (card.type === 'twin') {
       return (card.sides || []).some(function (side) {
         return _matchesSideFilters(side, f);
+      });
+    }
+    // Multi-form hyperspatial cards: pass if ANY form satisfies the filters
+    if (Array.isArray(card.forms) && card.forms.length > 1) {
+      return card.forms.some(function (form) {
+        return _matchesSideFilters(form, f);
       });
     }
     return _matchesSideFilters(card, f);
@@ -300,6 +330,14 @@
       });
     }
 
+    // Multi-form card: check top-level name first, then each form
+    if (Array.isArray(card.forms) && card.forms.length > 0) {
+      if (t.name && (card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+      return card.forms.some(function (form) {
+        return _cardMatchesFreeword(form, word, t);
+      });
+    }
+
     if (t.name && (card.name || '').toLowerCase().indexOf(q) !== -1) return true;
 
     if (t.text) {
@@ -327,6 +365,16 @@
         });
       });
       return merged;
+    }
+    // Multi-form card: union of all form civilizations
+    if (Array.isArray(card.forms) && card.forms.length > 0) {
+      var fMerged = [];
+      card.forms.forEach(function (form) {
+        _getCardCivs(form).forEach(function (c) {
+          if (fMerged.indexOf(c) === -1) fMerged.push(c);
+        });
+      });
+      return fMerged;
     }
     if (!card.civilization) return [];
     return Array.isArray(card.civilization) ? card.civilization : [card.civilization];
