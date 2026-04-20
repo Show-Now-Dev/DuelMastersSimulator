@@ -40,7 +40,6 @@ var MenuUI = (function () {
 
     if (name === 'deck-builder')  DeckBuilderUI.show();
     if (name === 'card-manager')  CardManagerUI.show();
-    if (name === 'deck-editor')   DeckEditorUI.show();
   }
 
   // ── Menu screen ──────────────────────────────────────────────────────────────
@@ -63,20 +62,36 @@ var MenuUI = (function () {
     var toDeckBtn = _btn('デッキビルダー', 'btn', function () {
       _showScreen('deck-builder');
     });
-    var toDeckEditorBtn = _btn('デッキ管理', 'btn', function () {
-      _showScreen('deck-editor');
-    });
 
     nav.appendChild(toEditorBtn);
     nav.appendChild(toCardMgrBtn);
     nav.appendChild(toDeckBtn);
-    nav.appendChild(toDeckEditorBtn);
     container.appendChild(nav);
 
-    // Deck list heading
+    // Deck list heading + import buttons
+    var deckSectionHeader = document.createElement('div');
+    deckSectionHeader.className = 'menu__deck-section-header';
+
     var heading = document.createElement('h2');
     heading.textContent = 'デッキを選択';
-    container.appendChild(heading);
+    deckSectionHeader.appendChild(heading);
+
+    var importBtns = document.createElement('div');
+    importBtns.className = 'menu__import-btns';
+    function _onDeckImport(result) {
+      if (!result.ok) { alert('インポート失敗: ' + result.error); return; }
+      var s = result.stats;
+      var msg = 'インポート完了: 新規 ' + s.added + ' 枚、更新 ' + s.updated + ' 枚、スキップ ' + s.skipped + ' 枚';
+      if (result.deckName) msg += '\nデッキ追加: ' + result.deckName;
+      if (result.errors && result.errors.length) msg += '\n警告:\n' + result.errors.join('\n');
+      alert(msg);
+      _renderMenu();
+    }
+    importBtns.appendChild(_btn('デッキ読込（ファイル）', 'btn btn--small', function () { ImportHelper.trigger(_onDeckImport); }));
+    importBtns.appendChild(_btn('デッキ読込（テキスト）', 'btn btn--small', function () { ImportHelper.triggerText(_onDeckImport); }));
+    deckSectionHeader.appendChild(importBtns);
+
+    container.appendChild(deckSectionHeader);
 
     // Saved deck list — read via repositories, never CardStorage directly.
     var decks = DeckRepository.getAllDecks();
@@ -106,7 +121,14 @@ var MenuUI = (function () {
         countEl.className   = 'menu__deck-count';
         countEl.textContent = DeckBuilder.deckCardCount(deck) + ' 枚';
 
-        var deleteBtn = _btn('削除', 'btn btn--danger', function () {
+        var editBtn = _btn('編集', 'btn btn--small', (function (d) {
+          return function () {
+            DeckEditorUI.showEdit(d.id);
+            _showScreen('deck-editor');
+          };
+        }(deck)));
+
+        var deleteBtn = _btn('削除', 'btn btn--small btn--danger', function () {
           if (!confirm(deck.name + ' を削除しますか？')) return;
           DeckRepository.deleteDeck(deck.id);
           _renderMenu();
@@ -117,6 +139,7 @@ var MenuUI = (function () {
         });
 
         actionsRow.appendChild(countEl);
+        actionsRow.appendChild(editBtn);
         actionsRow.appendChild(deleteBtn);
         actionsRow.appendChild(startBtn);
 

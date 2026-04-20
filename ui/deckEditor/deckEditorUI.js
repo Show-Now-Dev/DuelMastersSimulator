@@ -119,10 +119,6 @@ var DeckEditorUI = (function () {
     _zoneBadgeEls = {};
     _zoneTabBtns  = {};
 
-    _container.appendChild(_btn('← 一覧に戻る', 'btn de-back-btn', function () {
-      _editingId = null;
-      _renderList();
-    }));
     _container.appendChild(_el('h2', { textContent: deck.name + ' を編集' }));
 
     // Deck name input
@@ -154,9 +150,21 @@ var DeckEditorUI = (function () {
     // Zone tabs
     _container.appendChild(_buildEditZoneTabRow());
 
-    // Zone total counter
-    var totalEl = _el('div', { className: 'deck-builder__total' });
-    _container.appendChild(totalEl);
+    // Total counter + export buttons row
+    var totalRow = _el('div', { className: 'de-total-row' });
+    var totalEl  = _el('div', { className: 'deck-builder__total' });
+    totalRow.appendChild(totalEl);
+    totalRow.appendChild(_btn('書出（ファイル）', 'btn btn--small', function () {
+      var r = DataPorter.exportDeck(_editingId);
+      if (!r.ok) { alert('エクスポート失敗: ' + r.error); return; }
+      if (r.warnings && r.warnings.length) alert('警告: ' + r.warnings.join('\n'));
+    }));
+    totalRow.appendChild(_btn('書出（テキスト）', 'btn btn--small', function () {
+      var r = DataPorter.getDeckJSON(_editingId);
+      if (!r.ok) { alert('エクスポート失敗: ' + r.error); return; }
+      ImportHelper.showTextExport(deck.name + ' テキスト書出', r.json);
+    }));
+    _container.appendChild(totalRow);
 
     // Search panel
     _container.appendChild(CardSearchUI.build({
@@ -468,6 +476,16 @@ var DeckEditorUI = (function () {
     return b;
   }
 
-  return { init: init, show: show };
+  function showEdit(deckId) {
+    var deck = DeckRepository.getDeckById(deckId);
+    if (!deck) { alert('デッキが見つかりません'); return; }
+    _editingId   = deckId;
+    _editZone    = 'main';
+    _editCounts  = { main: {}, hyperspatial: {}, superGR: {} };
+    _editFilters = CardSearchUI.defaultFilters();
+    _renderEdit(deck);
+  }
+
+  return { init: init, show: show, showEdit: showEdit };
 
 })();
