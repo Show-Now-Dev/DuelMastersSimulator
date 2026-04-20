@@ -103,10 +103,36 @@ function _withOverlay(civBg) {
 function buildCardViewModel(card, gameState) {  // eslint-disable-line no-unused-vars
   if (!card) return null;
   var def    = getCardDefinition(card.definitionId);
+  var isTwin = !!(def && def.type === "twin");
+
+  // ── Multi-form card (超次元 with forms[]) ────────────────────────────────
+  if (def && Array.isArray(def.forms) && def.forms.length > 0) {
+    var formIdx = (card.currentFormIndex != null) ? card.currentFormIndex : 0;
+    formIdx = Math.min(formIdx, def.forms.length - 1);
+    var form       = def.forms[formIdx];
+    var formCivs   = Array.isArray(form.civilization) ? form.civilization
+                   : (form.civilization ? [form.civilization] : []);
+    var formCivBg  = getCivBackground(formCivs);
+    return {
+      id:              card.id,
+      name:            form.name  || def.name || "?",
+      cost:            form.cost  != null ? form.cost  : null,
+      power:           form.power != null ? form.power : null,
+      civilizations:   formCivs,
+      backgroundStyle: _withOverlay(formCivBg),
+      isFaceDown:      card.isFaceDown,
+      isTwin:          false,
+      jokers:          !!(def.jokers || form.jokers),
+      sides:           null,
+      isMultiForm:     true,
+      formIndex:       formIdx,
+      formCount:       def.forms.length,
+    };
+  }
+
   var info   = getDisplayInfo(def);
   var civs   = getCivList(def);
   var civBg  = getCivBackground(civs);
-  var isTwin = !!(def && def.type === "twin");
 
   // jokers: true if any side (or the card itself) carries the jokers flag.
   var isJokers = !!(def && (def.jokers || (isTwin && (def.sides || []).some(function (s) { return s.jokers; }))));

@@ -15,8 +15,10 @@
 const PLAYER_ID = "player1";
 
 // Populated at startup by ui.js (via startGameSimulation) before createStore is called.
-// Each entry: { id, definitionId, isFaceDown }
+// Each entry: { id, definitionId, isFaceDown, currentFormIndex }
 let INITIAL_DECK_INSTANCES = [];
+let INITIAL_EX_INSTANCES   = [];   // 超次元ゾーン — sorted by cost, face-up
+let INITIAL_GR_INSTANCES   = [];   // 超GRゾーン   — shuffled, face-down
 
 function createInitialGameState() {
   const cards  = {};
@@ -30,14 +32,22 @@ function createInitialGameState() {
   ZONE_DEFINITIONS.forEach(function (def) {
     var stackIds = [];
 
-    if (def.initial.placement === "deck") {
-      stackIds = INITIAL_DECK_INSTANCES.map(function (raw) {
-        const inst    = createCardInstance(raw);
+    function _makeStacks(instances) {
+      return instances.map(function (raw) {
+        const inst     = createCardInstance(raw);
         cards[inst.id] = inst;
         const stackId  = "stack_" + (stackCounter++);
         stacks[stackId] = createCardStack(stackId, [inst.id]);
         return stackId;
       });
+    }
+
+    if (def.initial.placement === "deck") {
+      stackIds = _makeStacks(INITIAL_DECK_INSTANCES);
+    } else if (def.id === "ex" && INITIAL_EX_INSTANCES.length > 0) {
+      stackIds = _makeStacks(INITIAL_EX_INSTANCES);
+    } else if (def.id === "gr" && INITIAL_GR_INSTANCES.length > 0) {
+      stackIds = _makeStacks(INITIAL_GR_INSTANCES);
     }
 
     zones[def.id] = { id: def.id, name: def.name, stackIds: stackIds };

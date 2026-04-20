@@ -13,6 +13,7 @@ const CLEAR_SELECTION        = "CLEAR_SELECTION";
 const PLACE_FROM_DECK          = "PLACE_FROM_DECK";
 const PLACE_FROM_DECK_TO_STACK = "PLACE_FROM_DECK_TO_STACK";
 const SHUFFLE_ZONE             = "SHUFFLE_ZONE";
+const SET_CARD_FORM_INDEX      = "SET_CARD_FORM_INDEX";
 
 // Convenience / UI actions
 const TOGGLE_TAP_SELECTED_CARDS  = "TOGGLE_TAP_SELECTED_CARDS";
@@ -137,4 +138,9 @@ function toggleCardSelection(cardId) {
 
 function setSelectedTargetZone(zoneId) {
   return { type: SET_SELECTED_TARGET_ZONE, payload: { zoneId } };
+}
+
+// Set the active display face index for a multi-form card.
+function setCardFormIndex(cardId, formIndex) {
+  return { type: SET_CARD_FORM_INDEX, payload: { cardId, formIndex } };
 }

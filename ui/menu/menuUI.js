@@ -250,7 +250,10 @@ var MenuUI = (function () {
       return;
     }
 
-    if (_onStart) _onStart(cardDefs, result.instances);
+    var exResult = DeckBuilder.buildHyperspatialInstances(deck, cardDefs);
+    var grResult = DeckBuilder.buildSuperGRInstances(deck, cardDefs);
+
+    if (_onStart) _onStart(cardDefs, result.instances, exResult.instances, grResult.instances);
   }
 
   // Render all sample decks from the bundled JSON files.

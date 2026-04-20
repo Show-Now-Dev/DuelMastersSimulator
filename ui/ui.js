@@ -18,9 +18,11 @@
 
   // ── Game simulation entry point ───────────────────────────────────────────
   // Called by MenuUI once the user selects a deck and clicks "Start".
-  window.startGameSimulation = function (cardDefs, deckInstances) {
+  window.startGameSimulation = function (cardDefs, deckInstances, exInstances, grInstances) {
     CARD_DEFINITIONS       = cardDefs;
     INITIAL_DECK_INSTANCES = deckInstances;
+    INITIAL_EX_INSTANCES   = exInstances || [];
+    INITIAL_GR_INSTANCES   = grInstances || [];
 
     var preGame     = document.getElementById("pre-game");
     var layoutEl    = document.getElementById("layout");
@@ -544,6 +546,9 @@
               { defaultIsFaceDown: defaultFaceDown }
             );
             dragState = null;
+          },
+          onFormSwitch: function (cardId, formIndex) {
+            gameStore.dispatch(setCardFormIndex(cardId, formIndex));
           },
           hasCenterPlus: CENTER_PLUS_ZONE_IDS.indexOf(zoneId) !== -1,
           // Drop panel: dedicated 1-card-wide drop target at right edge of spread zones.

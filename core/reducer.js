@@ -86,6 +86,7 @@ function rootReducer(state, action, context) {
     case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state, context);
     case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state, context);
     case TOGGLE_CARD_SELECTION:      return handleToggleCardSelection(state, action.payload, context);
+    case SET_CARD_FORM_INDEX:        return handleSetCardFormIndex(state, action.payload);
     // SET_SELECTED_TARGET_ZONE is now handled by uiReducer — ignore here.
     default:                         return state;
   }
@@ -501,4 +502,14 @@ function handleToggleCardSelection(state, payload, context) {
     ? current.filter(function (id) { return id !== cardId; })
     : current.concat([cardId]);
   return Object.assign({}, state, { selectedCardIds: nextSelected });
+}
+
+// Set which form face a multi-form card shows.
+function handleSetCardFormIndex(state, payload) {
+  var card = state.cards[payload.cardId];
+  if (!card) return state;
+  var updated = Object.assign({}, card, { currentFormIndex: payload.formIndex });
+  return Object.assign({}, state, {
+    cards: Object.assign({}, state.cards, { [payload.cardId]: updated }),
+  });
 }

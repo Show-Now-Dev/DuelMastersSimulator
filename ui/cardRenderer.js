@@ -14,7 +14,8 @@
 
 var CardRenderer = (function () {
 
-  var CARD_BACK = "./src/assets/images/card-back.png";
+  var CARD_BACK    = "./src/assets/images/card-back.png";
+  var GR_CARD_BACK = "./src/assets/images/GR-card-back.png";
 
   // Build a top-row (cost + name) element for one card face.
   function _buildTopRow(name, cost) {
@@ -37,10 +38,12 @@ var CardRenderer = (function () {
   // Shared between the board renderer and the modal renderer.
   function appendFace(cardEl, card) {
     if (card.isFaceDown) {
+      var def     = getCardDefinition(card.definitionId);
+      var backSrc = (def && def.zone === 'superGR') ? GR_CARD_BACK : CARD_BACK;
       var img     = document.createElement("img");
       img.className = "card__back";
       img.alt       = "Card Back";
-      img.src       = CARD_BACK;
+      img.src       = backSrc;
       img.addEventListener("error", function () { cardEl.textContent = "?"; });
       cardEl.appendChild(img);
       return;

@@ -2202,6 +2202,36 @@ section.drop-target-active,
   border-color: var(--text);
 }
 
+/* ── Multi-form card face navigation (◀ / ▶) ────────────────────────────────
+   Absolute buttons on the card, vertically centred, shown only in spread zones. */
+
+.card__form-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 0.2rem;
+  padding: 0.05em 0.15em;
+  font-size: calc(var(--card-w) * 0.2);
+  line-height: 1;
+  cursor: pointer;
+  z-index: 20;
+  pointer-events: auto;
+  /* slightly transparent so the card art shows through */
+  opacity: 0.75;
+  transition: opacity 0.12s;
+}
+
+.card__form-nav:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.80);
+}
+
+.card__form-nav--prev { left: 2px; }
+.card__form-nav--next { right: 2px; }
+
 /* ── Zone tab row (shared: card manager, deck builder, deck editor) ──────────
    Displayed below the screen heading; one tab per zone (メイン / 超次元 / 超GR).
    Active tab is underlined with the accent colour.                             */

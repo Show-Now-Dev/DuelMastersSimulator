@@ -69,6 +69,37 @@ var ZoneRenderer = (function () {
     return card;
   }
 
+  // ── Form navigation ─────────────────────────────────────────────────────────
+  // Adds ◀ and/or ▶ buttons to a card element so the user can cycle forms.
+  // Only the buttons that are meaningful (prev/next exists) are rendered.
+
+  function _appendFormNav(cardEl, cardId, formIndex, formCount, onFormSwitch) {
+    if (formIndex > 0) {
+      var prevBtn = document.createElement("button");
+      prevBtn.type      = "button";
+      prevBtn.className = "card__form-nav card__form-nav--prev";
+      prevBtn.textContent = "◀";
+      prevBtn.setAttribute("aria-label", "前の面");
+      prevBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        onFormSwitch(cardId, formIndex - 1);
+      });
+      cardEl.appendChild(prevBtn);
+    }
+    if (formIndex < formCount - 1) {
+      var nextBtn = document.createElement("button");
+      nextBtn.type      = "button";
+      nextBtn.className = "card__form-nav card__form-nav--next";
+      nextBtn.textContent = "▶";
+      nextBtn.setAttribute("aria-label", "次の面");
+      nextBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        onFormSwitch(cardId, formIndex + 1);
+      });
+      cardEl.appendChild(nextBtn);
+    }
+  }
+
   // ── Zone rendering ───────────────────────────────────────────────────────────
 
   function renderZone(container, gameState, zone, peekedCardIds, config) {
@@ -181,6 +212,15 @@ var ZoneRenderer = (function () {
           displayCard = Object.assign({}, displayCard, { isFaceDown: false, isPeeked: true });
         }
         CardRenderer.appendFace(cardEl, displayCard);
+
+        // ── Form navigation indicators (◀ / ▶) ─────────────────────────────
+        // Shown on face-up multi-form cards in spread zones only.
+        if (!isStacked && !displayCard.isFaceDown && config.onFormSwitch) {
+          var vm = buildCardViewModel(displayCard);
+          if (vm && vm.isMultiForm && vm.formCount > 1) {
+            _appendFormNav(cardEl, cardId, vm.formIndex, vm.formCount, config.onFormSwitch);
+          }
+        }
 
         cardEl.addEventListener("click", function (e) {
           e.stopPropagation();
