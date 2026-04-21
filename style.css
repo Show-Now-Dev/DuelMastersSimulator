@@ -310,6 +310,7 @@ button.is-active {
 /* Tighter name clip in the narrower half-height space */
 .card__half .card__name {
   -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
 /* Top row: cost badge followed by card name */
@@ -343,6 +344,7 @@ button.is-active {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 /* Power value at the bottom-left of the card */
