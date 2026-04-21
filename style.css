@@ -2214,7 +2214,7 @@ section.drop-target-active,
   border: none;
   border-radius: 0.2rem;
   padding: 0.05em 0.15em;
-  font-size: calc(var(--card-w) * 0.2);
+  font-size: calc(var(--card-w) * 0.3);
   line-height: 1;
   cursor: pointer;
   z-index: 20;
