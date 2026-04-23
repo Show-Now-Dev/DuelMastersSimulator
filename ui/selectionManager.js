@@ -80,14 +80,27 @@ var SelectionManager = (function () {
     }
 
     // Multi-card stack:
-    //   top card    → select all cards in the stack (or clear if all already selected)
+    //   top card    → toggle entire stack in/out of selection (ADD, not replace)
     //   non-top card → open card selector modal for this stack
     if (stackSize > 1) {
       if (isTopCard) {
         var allSelected = stack.cardIds.every(function (id) {
           return selectedCardIds.indexOf(id) !== -1;
         });
-        _gameDispatch(allSelected ? clearSelection() : selectCards(stack.cardIds.slice()));
+        if (allSelected) {
+          // Deselect only this stack's cards (keep any other zones' selections).
+          var newSel = selectedCardIds.filter(function (id) {
+            return stack.cardIds.indexOf(id) === -1;
+          });
+          _gameDispatch(selectCards(newSel));
+        } else {
+          // Add this stack's cards to the current selection.
+          var added = selectedCardIds.slice();
+          stack.cardIds.forEach(function (id) {
+            if (added.indexOf(id) === -1) added.push(id);
+          });
+          _gameDispatch(selectCards(added));
+        }
       } else {
         _uiDispatch(openModal({ type: "stack", id: stackId }, "multiple", "all"));
       }
@@ -106,10 +119,17 @@ var SelectionManager = (function () {
     var allCardIds = _getZoneCardIds(zone, stacks);
     if (!allCardIds.length) return;
 
-    var allSelected = allCardIds.every(function (id) {
+    var allZoneSelected = allCardIds.every(function (id) {
       return selectedCardIds.indexOf(id) !== -1;
     });
-    _gameDispatch(allSelected ? clearSelection() : selectCards(allCardIds));
+
+    if (allZoneSelected) {
+      // All zone cards already selected → deselect them (clear to empty).
+      _gameDispatch(selectCards([]));
+    } else {
+      // Replace selection with only this zone's cards.
+      _gameDispatch(selectCards(allCardIds));
+    }
   }
 
   return {

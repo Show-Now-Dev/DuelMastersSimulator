@@ -147,6 +147,9 @@ no changes to the modal renderer or other files are needed to add a new option.
 │ タップ状態 (showTap)         │  ← deck→mana/shield only
 │   [アンタップ*]  [タップ]    │
 ├──────────────────────────────┤
+│ リンク (showLink)            │  ← non-battlefield → battlefield stack only
+│   [通常で置く*]  [リンクして出す]│
+├──────────────────────────────┤
 │              [確定] [キャンセル]│
 └──────────────────────────────┘
 ```
@@ -154,6 +157,9 @@ no changes to the modal renderer or other files are needed to add a new option.
 - Each section is shown only when its option flag is `true`
 - `showInsertIndex: true` makes the position buttons act as immediate shortcuts
   (clicking "上に置く" / "下に置く" confirms immediately without the "確定" button)
+- `showLink: true` is injected dynamically (not in DROP_TARGET_OPTIONS table) when
+  `dragState.sourceZoneId !== ZONE_IDS.BATTLEFIELD` and target is a battlefield stack
+- Selecting "リンクして出す" dispatches LINK_FROM_PENDING_DROP instead of MOVE_CARDS
 - `* ` = default selection
 
 ### Visual Feedback
@@ -294,6 +300,46 @@ If cards exceed available width:
 → overlap them horizontally
 
 - Do NOT use scrollbars
+
+---
+
+## Linked Card Display
+
+A linked stack (`isLinked: true`) is rendered as a single `.linked-group` container in spread zones.
+
+### Visual layout
+
+- Cards are positioned side-by-side horizontally, one column per `linkSlot`
+- No gap between columns (cards abut edge-to-edge)
+- Sub-stacks within each column use the standard depth offset (small diagonal shift per card)
+- Container width = `numCols × cardWidth`
+- Tap rotation is applied to the entire `.linked-group` container, not to individual cards
+
+### Interaction
+
+- Clicking any card in the group selects all cards in the linked stack
+- A link badge (`∽`) centered below the group opens the card-selector modal for individual card selection
+- In pick-target mode, the badge picks the whole stack as a merge target
+- Dragging any card in the group drags the whole group (all cards in `stack.cardIds`)
+- Moving a linked group to another zone auto-unlinks; each card moves individually
+
+### 覚醒リンク (multi-form linked groups)
+
+- ◀/▶ indicators appear at the group edges when ALL top-of-slot cards have `def.forms.length > 1`
+- Clicking ◀/▶ dispatches `SET_CARD_FORM_INDEX` for every top-of-slot card simultaneously
+- The INFO panel merges all slot data into one unified display (name, cost, power, abilities)
+
+### INFO panel (card detail)
+
+When all selected cards belong to the same linked stack, the detail panel shows merged data:
+
+| Field | Display |
+|---|---|
+| name | "A / B / C" |
+| cost | "6（2+4）" (sum + breakdown) |
+| power | "11000（5000+6000）" (sum + breakdown) |
+| races | union of all slots |
+| abilities | concatenated, separated by "──────────" dividers |
 
 ---
 

@@ -144,3 +144,36 @@ function setSelectedTargetZone(zoneId) {
 function setCardFormIndex(cardId, formIndex) {
   return { type: SET_CARD_FORM_INDEX, payload: { cardId, formIndex } };
 }
+
+// ── Link actions ──────────────────────────────────────────────────────────────
+
+const LINK_CARDS             = "LINK_CARDS";
+const UNLINK_CARDS           = "UNLINK_CARDS";
+const LINK_FROM_PENDING_DROP = "LINK_FROM_PENDING_DROP";
+const REORDER_LINK_SLOTS     = "REORDER_LINK_SLOTS";
+
+// Link top-of-stack cards into one linked object.
+// cardIds: top card IDs to link; at least one must be in the battlefield.
+function linkCards(cardIds) {
+  return { type: LINK_CARDS, payload: { cardIds } };
+}
+
+// Split a linked stack back into individual stacks.
+function unlinkCards(stackId) {
+  return { type: UNLINK_CARDS, payload: { stackId } };
+}
+
+// Link dragged card(s) with a battlefield stack via the PENDING_DROP "リンクして出す" option.
+// draggedCardIds: cards being dragged (top of their stacks).
+// targetStackId:  battlefield stack to link with (or add to if already linked).
+function linkFromPendingDrop(draggedCardIds, targetStackId) {
+  return { type: LINK_FROM_PENDING_DROP, payload: { draggedCardIds, targetStackId } };
+}
+
+// Reorder the slots within a linked stack (for link-position adjustment).
+// newOrder: array of old slot indices in the desired new order.
+// e.g. [2,0,1] means: new slot-0 ← old slot-2, new slot-1 ← old slot-0, …
+// (UI not wired in initial release — action defined for future use.)
+function reorderLinkSlots(stackId, newOrder) {
+  return { type: REORDER_LINK_SLOTS, payload: { stackId, newOrder } };
+}

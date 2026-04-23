@@ -156,18 +156,42 @@ var ZoneRenderer = (function () {
       container.appendChild(cpEl);
     }
 
-    // Compute horizontal spacing so stacks fit inside the container.
+    // Compute horizontal positions accounting for linked groups (wider than cardWidth).
     var cardWidth      = _getCardWidth();
     var stackCount     = stackIds.length;
     var containerWidth = listEl.clientWidth || container.clientWidth || 0;
+    var isCompact      = container.classList.contains("compact-zone");
 
-    var stackSpacing = 0;
-    if (stackCount > 1 && containerWidth > 0) {
-      var maxFit = (containerWidth - cardWidth) / (stackCount - 1);
-      stackSpacing = Math.max(0, Math.min(cardWidth + 4, maxFit));
-    }
-    if (container.classList.contains("compact-zone")) {
-      stackSpacing = 0;
+    // Effective width of each stack (linked groups span multiple card-widths).
+    var effectiveWidths = stackIds.map(function (sid) {
+      var s = stacks[sid];
+      if (!s || !s.isLinked || !s.linkSlots) return cardWidth;
+      var nc = 0;
+      s.linkSlots.forEach(function (sl) { if (sl.col + 1 > nc) nc = sl.col + 1; });
+      return nc * cardWidth;
+    });
+
+    // Compute left positions: scale cumulative widths to fit the container.
+    // The last stack always renders at full size; everything before it may compress.
+    var stackPositions = [];
+    if (isCompact || stackCount === 0) {
+      stackPositions = stackIds.map(function () { return 0; });
+    } else if (stackCount === 1) {
+      stackPositions = [0];
+    } else {
+      var totalEffW = effectiveWidths.reduce(function (sum, w) { return sum + w; }, 0);
+      var lastW     = effectiveWidths[effectiveWidths.length - 1];
+      // Available horizontal space before the last stack starts.
+      var available = containerWidth > 0 ? containerWidth - lastW : 0;
+      var prefixW   = totalEffW - lastW; // total width of all stacks except last
+      var scale     = (available > 0 && prefixW > available) ? available / prefixW : 1;
+      scale = Math.max(0, Math.min(1, scale));
+
+      var cumW = 0;
+      effectiveWidths.forEach(function (w) {
+        stackPositions.push(Math.round(cumW * scale));
+        cumW += w;
+      });
     }
 
     // DEPTH_OFFSET: vertical (and slight horizontal) shift per card in a multi-card stack.
@@ -177,10 +201,371 @@ var ZoneRenderer = (function () {
       var stack = stacks[stackId];
       if (!stack) return;
 
-      var stackLeft  = stackSpacing * stackIdx;
+      var stackLeft  = stackPositions[stackIdx];
       var stackSize  = stack.cardIds.length;
       var isTarget   = stackId === targetStackId;
       var stackBaseZ = (stackCount - stackIdx) * 100;
+
+      // ── Linked group rendering ────────────────────────────────────────────────
+      if (stack.isLinked && stack.linkSlots && !isStacked) {
+        var cardHeight   = Math.round(cardWidth * 7 / 5);
+        var sortedSlots  = stack.linkSlots.slice().sort(function (a, b) {
+          return a.row !== b.row ? a.row - b.row : a.col - b.col;
+        });
+        var numCols     = 0;
+        sortedSlots.forEach(function (s) { if (s.col + 1 > numCols) numCols = s.col + 1; });
+        var groupWidth  = numCols * cardWidth;
+        var anySelected = stack.cardIds.some(function (id) { return selectedIds.indexOf(id) !== -1; });
+
+        // ── Resolve top card per slot ───────────────────────────────────────────
+        var topCards = sortedSlots.map(function (slot) {
+          return gameState.cards[slot.group[slot.group.length - 1]] || null;
+        });
+
+        // ── 覚醒リンク: check if all slots resolve to the same card name ─────────
+        var slotFormNames = topCards.map(function (card) {
+          if (!card) return null;
+          var def = getCardDefinition(card.definitionId);
+          if (!def) return null;
+          if (def.forms && Array.isArray(def.forms) && def.forms.length > 0) {
+            var idx = Math.min((card.currentFormIndex || 0), def.forms.length - 1);
+            return def.forms[idx].name || def.name;
+          }
+          return def.name;
+        });
+        var allSameName = slotFormNames.length > 1
+          && slotFormNames[0] !== null
+          && slotFormNames.every(function (n) { return n !== null && n === slotFormNames[0]; });
+
+        // ── Scale: prevent horizontal overlap with adjacent stacks (issues 1, 4) ─
+        var allocatedWidth;
+        if (stackIdx < stackCount - 1) {
+          allocatedWidth = stackPositions[stackIdx + 1] - stackLeft;
+        } else {
+          allocatedWidth = containerWidth > 0
+            ? Math.max(containerWidth - stackLeft, cardWidth)
+            : groupWidth;
+        }
+        var linkedGroupScale = (allocatedWidth > 0 && allocatedWidth < groupWidth)
+          ? allocatedWidth / groupWidth : 1;
+
+        // ── Scale: tapped group must fit within zone height (issues 2, 3) ────────
+        // After 90° rotation visual height = groupWidth × scale; must ≤ cardHeight.
+        var tappedFinalScale = 1;
+        if (stack.isTapped) {
+          if (groupWidth > cardHeight) tappedFinalScale = cardHeight / groupWidth;
+          // Also constrain by allocated width (rotated visual width = cardHeight × scale).
+          if (allocatedWidth > 0 && cardHeight * tappedFinalScale > allocatedWidth) {
+            tappedFinalScale = Math.min(tappedFinalScale, allocatedWidth / cardHeight);
+          }
+        }
+
+        var groupEl = document.createElement("div");
+        groupEl.className = "linked-group";
+        // No "is-tapped" CSS class — transform is applied in JS for correct origin.
+        if (isTarget)    groupEl.classList.add("is-target-stack");
+        if (anySelected) groupEl.classList.add("is-selected");
+        groupEl.style.left   = stackLeft + "px";
+        groupEl.style.top    = "0px";
+        groupEl.style.width  = groupWidth + "px";
+        groupEl.style.height = cardHeight + "px"; // explicit height for rotation origin
+        groupEl.style.zIndex = String(stackBaseZ);
+
+        // Apply CSS transform (rotation and/or scale).
+        if (stack.isTapped) {
+          // Rotate around the group's own center.
+          groupEl.style.transformOrigin = (groupWidth / 2) + "px " + (cardHeight / 2) + "px";
+          groupEl.style.transform = tappedFinalScale < 1
+            ? "rotate(90deg) scale(" + tappedFinalScale + ")"
+            : "rotate(90deg)";
+        } else if (linkedGroupScale < 1) {
+          // Compress horizontally from the left edge.
+          groupEl.style.transformOrigin = "0 0";
+          groupEl.style.transform = "scaleX(" + linkedGroupScale + ")";
+        }
+
+        // ── 覚醒リンク unified rendering (issue 6) ────────────────────────────────
+        if (allSameName) {
+          // Render a single card centered within the group width.
+          var unifiedCard   = topCards[0];
+          var unifiedCardEl = document.createElement("button");
+          unifiedCardEl.type      = "button";
+          unifiedCardEl.className = "card";
+          var centeredLeft = Math.round((groupWidth - cardWidth) / 2);
+          unifiedCardEl.style.left   = centeredLeft + "px";
+          unifiedCardEl.style.top    = "0px";
+          unifiedCardEl.style.zIndex = String(stackBaseZ + 1);
+
+          var displayUnified = _applyPeek(unifiedCard, peekedCardIds);
+          if (zone.id === ZONE_IDS.HAND && displayUnified.isFaceDown) {
+            displayUnified = Object.assign({}, displayUnified, { isFaceDown: false, isPeeked: true });
+          }
+          CardRenderer.appendFace(unifiedCardEl, displayUnified);
+
+          unifiedCardEl.addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (onCardClick) {
+              onCardClick({
+                cardId:               unifiedCard.id,
+                stackId:              stackId,
+                zone:                 zone,
+                stack:                stack,
+                isTopCard:            true,
+                isStacked:            false,
+                stackSize:            stack.cardIds.length,
+                isPickingTargetStack: isPickingTargetStack,
+              });
+            }
+          });
+
+          if (onDragStart) {
+            unifiedCardEl.draggable = true;
+            unifiedCardEl.addEventListener("dragstart", function (e) {
+              e.stopPropagation();
+              var cw    = cardWidth;
+              var ch    = Math.round(cw * 7 / 5);
+              var ghost = document.createElement("div");
+              ghost.style.cssText =
+                "position:fixed;top:-9999px;left:-9999px;" +
+                "width:" + (cw * 2) + "px;height:" + (ch * 2) + "px;" +
+                "border-radius:0.65rem;border:1px solid rgba(255,255,255,0.2);" +
+                "background:" + getComputedStyle(unifiedCardEl).background + ";" +
+                "overflow:hidden;pointer-events:none;" +
+                "box-shadow:0 4px 24px rgba(0,0,0,.55);";
+              ghost.innerHTML = unifiedCardEl.innerHTML;
+              document.body.appendChild(ghost);
+              e.dataTransfer.setDragImage(ghost, cw, ch);
+              setTimeout(function () { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); }, 0);
+              onDragStart({
+                cardId: unifiedCard.id, stackId: stackId, zone: zone, stack: stack,
+                isTopCard: true, isStacked: false, isStackedTopCard: false,
+              });
+              setTimeout(function () { groupEl.classList.add("is-dragging"); }, 0);
+            });
+            unifiedCardEl.addEventListener("dragend", function () {
+              groupEl.classList.remove("is-dragging");
+            });
+          }
+
+          groupEl.appendChild(unifiedCardEl);
+
+        } else {
+          // ── Normal linked group: render cards slot by slot ──────────────────────
+          sortedSlots.forEach(function (slot) {
+            var colLeft  = slot.col * cardWidth;
+            var rowTop   = slot.row * cardHeight;
+            var slotSize = slot.group.length;
+
+            slot.group.forEach(function (cardId, cardIdx) {
+              var card = gameState.cards[cardId];
+              if (!card) return;
+
+              var depth     = slotSize - 1 - cardIdx; // 0 = top of this column
+              var cardEl    = document.createElement("button");
+              cardEl.type   = "button";
+              cardEl.className = "card"; // no per-card tap/select — handled by group container
+
+              cardEl.style.zIndex = String(stackBaseZ + cardIdx);
+              cardEl.style.left   = (colLeft + depth) + "px";
+              cardEl.style.top    = (rowTop + depth * DEPTH_OFFSET) + "px";
+
+              var displayCard = _applyPeek(card, peekedCardIds);
+              if (zone.id === ZONE_IDS.HAND && displayCard.isFaceDown) {
+                displayCard = Object.assign({}, displayCard, { isFaceDown: false, isPeeked: true });
+              }
+              CardRenderer.appendFace(cardEl, displayCard);
+
+              // Card click: always behave as "top card" so selectionManager selects entire group.
+              cardEl.addEventListener("click", function (e) {
+                e.stopPropagation();
+                if (onCardClick) {
+                  onCardClick({
+                    cardId:               cardId,
+                    stackId:              stackId,
+                    zone:                 zone,
+                    stack:                stack,
+                    isTopCard:            true,
+                    isStacked:            false,
+                    stackSize:            stack.cardIds.length,
+                    isPickingTargetStack: isPickingTargetStack,
+                  });
+                }
+              });
+
+              // Dragging any card in the group drags the whole group.
+              if (onDragStart) {
+                cardEl.draggable = true;
+                cardEl.addEventListener("dragstart", function (e) {
+                  e.stopPropagation();
+                  var cw    = cardWidth;
+                  var ch    = Math.round(cw * 7 / 5);
+                  var ghost = document.createElement("div");
+                  ghost.style.cssText =
+                    "position:fixed;top:-9999px;left:-9999px;" +
+                    "width:" + (cw * 2) + "px;height:" + (ch * 2) + "px;" +
+                    "border-radius:0.65rem;border:1px solid rgba(255,255,255,0.2);" +
+                    "background:" + getComputedStyle(cardEl).background + ";" +
+                    "overflow:hidden;pointer-events:none;" +
+                    "box-shadow:0 4px 24px rgba(0,0,0,.55);";
+                  ghost.innerHTML = cardEl.innerHTML;
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, cw, ch);
+                  setTimeout(function () { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); }, 0);
+                  onDragStart({
+                    cardId:           cardId,
+                    stackId:          stackId,
+                    zone:             zone,
+                    stack:            stack,
+                    isTopCard:        true,
+                    isStacked:        false,
+                    isStackedTopCard: false,
+                  });
+                  setTimeout(function () { groupEl.classList.add("is-dragging"); }, 0);
+                });
+                cardEl.addEventListener("dragend", function () {
+                  groupEl.classList.remove("is-dragging");
+                });
+              }
+
+              groupEl.appendChild(cardEl);
+            });
+          });
+        }
+
+        // Link badge (∽): click opens card-selector modal.
+        // Width: full group width normally; 1-card-wide when unified (覚醒リンク allSameName).
+        var badgeEl = document.createElement("button");
+        badgeEl.type        = "button";
+        badgeEl.className   = "link-badge";
+        badgeEl.textContent = "∽";
+        if (allSameName) {
+          // Single-card unified display: badge is 1 card wide, centered in the group.
+          var badgeLeft = Math.round((groupWidth - cardWidth) / 2);
+          badgeEl.style.left  = badgeLeft + "px";
+          badgeEl.style.right = "auto";
+          badgeEl.style.width = cardWidth + "px";
+        }
+        badgeEl.addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (onCardClick) {
+            onCardClick({
+              cardId:               stack.cardIds[0],
+              stackId:              stackId,
+              zone:                 zone,
+              stack:                stack,
+              isTopCard:            isPickingTargetStack, // pick mode → pick; else → modal
+              isStacked:            false,
+              stackSize:            stack.cardIds.length,
+              isPickingTargetStack: isPickingTargetStack,
+            });
+          }
+        });
+        groupEl.appendChild(badgeEl);
+
+        // ── Form nav for 覚醒リンク (all slots must be multi-form) ─────────────
+        // Indicators are positioned inside the group: ◀ at left edge, ▶ at right edge (issue 7).
+        if (config.onLinkedFormSwitch) {
+          var anchorCard  = topCards[0];
+          var anchorDef   = anchorCard ? getCardDefinition(anchorCard.definitionId) : null;
+          var allMultiForm = anchorDef && Array.isArray(anchorDef.forms) && anchorDef.forms.length > 1
+            && topCards.every(function (tc) {
+              if (!tc) return false;
+              var d = getCardDefinition(tc.definitionId);
+              return d && Array.isArray(d.forms) && d.forms.length > 1;
+            });
+
+          if (allMultiForm) {
+            var groupFormIdx   = anchorCard.currentFormIndex || 0;
+            var groupFormCount = anchorDef.forms.length;
+
+            // When unified (allSameName), buttons must sit inside the single centered card,
+            // not at the edges of the full group. badgeLeft = (groupWidth - cardWidth) / 2.
+            var navInset = allSameName ? Math.round((groupWidth - cardWidth) / 2) + 4 : 4;
+
+            if (groupFormIdx > 0) {
+              var prevNavBtn = document.createElement("button");
+              prevNavBtn.type        = "button";
+              prevNavBtn.className   = "linked-group__form-nav linked-group__form-nav--prev";
+              prevNavBtn.textContent = "◀";
+              prevNavBtn.setAttribute("aria-label", "前の面");
+              if (allSameName) prevNavBtn.style.left = navInset + "px"; // override CSS left:4px
+              prevNavBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                config.onLinkedFormSwitch(stackId, groupFormIdx - 1);
+              });
+              groupEl.appendChild(prevNavBtn);
+            }
+            if (groupFormIdx < groupFormCount - 1) {
+              var nextNavBtn = document.createElement("button");
+              nextNavBtn.type        = "button";
+              nextNavBtn.className   = "linked-group__form-nav linked-group__form-nav--next";
+              nextNavBtn.textContent = "▶";
+              nextNavBtn.setAttribute("aria-label", "次の面");
+              if (allSameName) nextNavBtn.style.right = navInset + "px"; // override CSS right:4px
+              nextNavBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                config.onLinkedFormSwitch(stackId, groupFormIdx + 1);
+              });
+              groupEl.appendChild(nextNavBtn);
+            }
+          }
+        }
+
+        // ── Drop target support for linked groups ──────────────────────────────
+        // Allows other cards/stacks to be dropped onto a linked group.
+        // The reducer auto-unlinks the target when a stack-type MOVE_CARDS lands on it.
+        //
+        // When 覚醒リンク (allSameName), groupEl spans the full multi-card width but only
+        // a single card is rendered. Setting pointer-events:none on groupEl makes the dead
+        // space non-interactive; drop events are attached to the visible card element instead.
+        if (allSameName) {
+          groupEl.style.pointerEvents = "none";
+          // Children (unifiedCardEl, badgeEl, nav buttons) keep pointer-events:auto by default.
+        }
+
+        if (!isStacked && onCardDragOver) {
+          // For unified display, target the actual visible card; otherwise target the whole group.
+          var dropTargetEl   = (allSameName && unifiedCardEl) ? unifiedCardEl : groupEl;
+          var groupTopCardId = stack.cardIds[stack.cardIds.length - 1];
+          dropTargetEl.addEventListener("dragover", function (e) {
+            var accepts = onCardDragOver({
+              cardId: groupTopCardId, stackId: stackId, zone: zone, stack: stack, isStacked: false,
+            });
+            if (!accepts) return;
+            e.preventDefault();
+            e.stopPropagation();
+            dropTargetEl.classList.add("drop-target-active");
+            document.body.classList.add("drag-over-stack");
+            var ddt = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+            if (ddt && ddt._img) ddt._img.style.opacity = "0.45";
+          });
+
+          dropTargetEl.addEventListener("dragleave", function (e) {
+            if (!dropTargetEl.contains(e.relatedTarget)) {
+              dropTargetEl.classList.remove("drop-target-active");
+              document.body.classList.remove("drag-over-stack");
+              var ddt2 = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+              if (ddt2 && ddt2._img) ddt2._img.style.opacity = "";
+            }
+          });
+
+          dropTargetEl.addEventListener("drop", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropTargetEl.classList.remove("drop-target-active");
+            document.body.classList.remove("drag-over-stack");
+            var ddt3 = window.DragDropTouch && DragDropTouch.DragDropTouch && DragDropTouch.DragDropTouch._instance;
+            if (ddt3 && ddt3._img) ddt3._img.style.opacity = "";
+            if (onCardDrop) {
+              onCardDrop({ cardId: groupTopCardId, stackId: stackId, zone: zone, stack: stack, isStacked: false });
+            }
+          });
+        }
+
+        listEl.appendChild(groupEl);
+        return; // skip the normal per-card rendering below
+      }
+      // ── End linked group rendering ────────────────────────────────────────────
 
       stack.cardIds.forEach(function (cardId, cardIdx) {
         var card = gameState.cards[cardId];
@@ -408,8 +793,46 @@ var ZoneRenderer = (function () {
   function renderCardDetail(container, gameState, peekedCardIds) {
     container.innerHTML = "";
 
-    // Find the last face-up card in the selection (most recently added).
     var selectedIds = gameState.selectedCardIds || [];
+
+    // ── Linked stack: show merged info ───────────────────────────────────────
+    // Find any linked stack whose ALL cards are covered by the current selection.
+    // This works even when non-linked cards from other zones are also selected.
+    if (selectedIds.length >= 2) {
+      var linkedStackForInfo = null;
+      for (var sid in gameState.stacks) {
+        if (!Object.prototype.hasOwnProperty.call(gameState.stacks, sid)) continue;
+        var st = gameState.stacks[sid];
+        if (!st || !st.isLinked || !st.linkSlots) continue;
+        var allLinkedInSel = st.cardIds.every(function (id) {
+          return selectedIds.indexOf(id) !== -1;
+        });
+        if (allLinkedInSel) { linkedStackForInfo = st; break; }
+      }
+      if (linkedStackForInfo) {
+        var linkedInfo = buildLinkedStackInfo(linkedStackForInfo, gameState.cards);
+        if (linkedInfo) {
+          // INFO panel uses compact values (sum only, no breakdown).
+          var syntheticDef = {
+            name:      linkedInfo.name,
+            cost:      linkedInfo.cost,        // compact: sum only
+            power:     linkedInfo.power,        // compact: sum only
+            races:     linkedInfo.races,
+            abilities: linkedInfo.abilities,
+            type:      "リンク",
+          };
+          var panelEl = _buildDetailHalf(syntheticDef);
+          if (linkedInfo.backgroundStyle) {
+            panelEl.style.background = linkedInfo.backgroundStyle;
+          }
+          container.appendChild(panelEl);
+          return;
+        }
+      }
+    }
+
+    // ── Standard single-card detail ───────────────────────────────────────────
+    // Find the last face-up card in the selection (most recently added).
     var targetCard  = null;
     for (var i = selectedIds.length - 1; i >= 0; i--) {
       var c = gameState.cards[selectedIds[i]];
@@ -519,7 +942,7 @@ var ZoneRenderer = (function () {
     if (def.power != null) {
       var powerEl = document.createElement("div");
       powerEl.className   = "cd-power";
-      powerEl.textContent = def.power.toLocaleString();
+      powerEl.textContent = typeof def.power === "number" ? def.power.toLocaleString() : String(def.power);
       wrap.appendChild(powerEl);
     }
 
@@ -542,6 +965,8 @@ var ZoneRenderer = (function () {
       _renderCardSelectorModal(container, gameState, modal, uiSt.peekedCardIds, callbacks);
     } else if (modal.type === "CARD_DETAIL") {
       _renderCardDetailModal(container, modal, callbacks);
+    } else if (modal.type === "LINKED_DETAIL") {
+      _renderLinkedDetailModal(container, modal, callbacks);
     } else if (modal.type === "PENDING_DROP") {
       _renderPendingDropModal(container, gameState, modal, callbacks);
     }
@@ -777,6 +1202,50 @@ var ZoneRenderer = (function () {
     cardListEl.scrollTop  = prevScrollTop;
   }
 
+  // ── Linked detail modal ──────────────────────────────────────────────────────
+  // Opened by clicking the INFO panel when a linked group is selected.
+  // Shows merged linked-group info with full cost/power breakdown.
+
+  function _renderLinkedDetailModal(container, modal, cb) {
+    container.innerHTML = "";
+    var info = modal.linkedInfo;
+    if (!info) { container.classList.remove("is-open"); return; }
+
+    var panel = document.createElement("div");
+    panel.className = "modal-panel";
+
+    var header = document.createElement("div");
+    header.className = "modal-header";
+
+    var title = document.createElement("span");
+    title.className   = "modal-title";
+    title.textContent = "リンクカード詳細";
+
+    var closeBtn = document.createElement("button");
+    closeBtn.className   = "modal-close-btn";
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", function () { cb.onClose(); });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    // Use costDetail / powerDetail (with breakdown) for modal display.
+    var syntheticDef = {
+      name:      info.name,
+      cost:      info.costDetail,    // sum + breakdown
+      power:     info.powerDetail,   // sum + breakdown
+      races:     info.races,
+      abilities: info.abilities,
+      type:      "リンク",
+    };
+    var detailEl = _buildDetailHalf(syntheticDef);
+    if (info.backgroundStyle) detailEl.style.background = info.backgroundStyle;
+    panel.appendChild(detailEl);
+
+    container.appendChild(panel);
+  }
+
   // ── Pending drop modal ───────────────────────────────────────────────────────
   // Shown when a drag-and-drop needs user confirmation.
   // Which sections are displayed is driven entirely by modal.options —
@@ -824,6 +1293,7 @@ var ZoneRenderer = (function () {
       : "keep";
     var tapChoice  = false;  // boolean
     var insertIdx  = 0;      // 0-based deck insert index
+    var linkChoice = false;  // boolean: "リンクして出す" selected
 
     // ── Position section ──────────────────────────────────────────────────────
     // When showInsertIndex is also true, position buttons confirm immediately
@@ -1003,6 +1473,47 @@ var ZoneRenderer = (function () {
       body.appendChild(tapSection);
     }
 
+    // ── Link section: "リンクして出す" ───────────────────────────────────────
+    // Shown only when dragging from a non-battlefield zone onto a battlefield stack.
+    if (opts.showLink) {
+      var linkSection = document.createElement("div");
+      linkSection.className = "pdd-section";
+
+      var linkSectionLabel = document.createElement("div");
+      linkSectionLabel.className   = "pdd-section-label";
+      linkSectionLabel.textContent = "リンク";
+      linkSection.appendChild(linkSectionLabel);
+
+      var linkRow = document.createElement("div");
+      linkRow.className = "pdd-button-group";
+
+      var normalBtn = document.createElement("button");
+      normalBtn.type        = "button";
+      normalBtn.className   = "pdd-choice-btn is-selected";
+      normalBtn.textContent = "通常で置く";
+
+      var linkAsBtn = document.createElement("button");
+      linkAsBtn.type        = "button";
+      linkAsBtn.className   = "pdd-choice-btn";
+      linkAsBtn.textContent = "リンクして出す";
+
+      normalBtn.addEventListener("click", function () {
+        linkChoice = false;
+        normalBtn.classList.add("is-selected");
+        linkAsBtn.classList.remove("is-selected");
+      });
+      linkAsBtn.addEventListener("click", function () {
+        linkChoice = true;
+        linkAsBtn.classList.add("is-selected");
+        normalBtn.classList.remove("is-selected");
+      });
+
+      linkRow.appendChild(normalBtn);
+      linkRow.appendChild(linkAsBtn);
+      linkSection.appendChild(linkRow);
+      body.appendChild(linkSection);
+    }
+
     panel.appendChild(body);
 
     // ── Footer: confirm + cancel ──────────────────────────────────────────────
@@ -1016,7 +1527,7 @@ var ZoneRenderer = (function () {
       confirmBtn.className   = "pdd-confirm-btn";
       confirmBtn.textContent = "確定";
       confirmBtn.addEventListener("click", function () {
-        cb.onConfirmDrop(cardIds, target, positionChoice, faceChoice, tapChoice);
+        cb.onConfirmDrop(cardIds, target, positionChoice, faceChoice, tapChoice, linkChoice);
       });
 
       var cancelBtn = document.createElement("button");

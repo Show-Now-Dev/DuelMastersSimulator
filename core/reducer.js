@@ -82,6 +82,11 @@ function rootReducer(state, action, context) {
     case CLEAR_SELECTION:        return handleClearSelection(state, context);
     case PLACE_FROM_DECK:          return handlePlaceFromDeck(state, action.payload, context);
     case PLACE_FROM_DECK_TO_STACK: return handlePlaceFromDeckToStack(state, action.payload, context);
+    // ── Link actions ─────────────────────────────────────────────────────────
+    case LINK_CARDS:             return handleLinkCards(state, action.payload, context);
+    case UNLINK_CARDS:           return handleUnlinkCards(state, action.payload, context);
+    case LINK_FROM_PENDING_DROP: return handleLinkFromPendingDrop(state, action.payload, context);
+    case REORDER_LINK_SLOTS:     return handleReorderLinkSlots(state, action.payload);
     // ── Convenience actions (derive from the primitives above) ───────────────
     case TOGGLE_TAP_SELECTED_CARDS:  return handleToggleTapSelectedCards(state, context);
     case TOGGLE_FACE_SELECTED_CARDS: return handleToggleFaceSelectedCards(state, context);
@@ -146,6 +151,33 @@ function applyMoveCards(state, cardIds, target, position, context) {
     stacks = Object.assign({}, stacks, { [stackId]: Object.assign({}, stack, { cardIds: newCardIds }) });
   });
 
+  // ── Step 1b: Update linkSlots on any linked stacks that lost cards ────────
+  // When cards are partially removed from a linked stack, keep linkSlots in sync.
+  // If fewer than 2 slots remain, the link is automatically dissolved.
+  Object.keys(touchedStackIds).forEach(function (stackId) {
+    var stack = stacks[stackId];
+    if (!stack || !stack.isLinked || !stack.linkSlots) return;
+
+    var updatedSlots = stack.linkSlots.map(function (slot) {
+      return Object.assign({}, slot, {
+        group: slot.group.filter(function (id) { return cardIds.indexOf(id) === -1; }),
+      });
+    }).filter(function (slot) { return slot.group.length > 0; });
+
+    var stillLinked = updatedSlots.length >= 2;
+    // Re-number col indices to be contiguous after any removal.
+    var renumbered = stillLinked ? updatedSlots.map(function (slot, idx) {
+      return Object.assign({}, slot, { col: idx });
+    }) : null;
+
+    stacks = Object.assign({}, stacks, {
+      [stackId]: Object.assign({}, stack, {
+        isLinked:  stillLinked,
+        linkSlots: renumbered,
+      }),
+    });
+  });
+
   // ── Step 2: Purge empty stacks and unlink them from zones ─────────────────
   Object.keys(touchedStackIds).forEach(function (stackId) {
     if (!stacks[stackId] || stacks[stackId].cardIds.length > 0) return;
@@ -170,6 +202,13 @@ function applyMoveCards(state, cardIds, target, position, context) {
   if (target.type === "stack") {
     var targetStack = stacks[target.stackId];
     if (!targetStack) return state; // invalid target — bail without mutation
+
+    // Auto-unlink: stacking onto a linked object dissolves the link.
+    // All previously linked cards become sub-cards below the new top card.
+    if (targetStack.isLinked) {
+      targetStack = Object.assign({}, targetStack, { isLinked: false, linkSlots: null });
+      stacks = Object.assign({}, stacks, { [target.stackId]: targetStack });
+    }
 
     // bottom→top order: "top" = end of array, "bottom" = start of array
     var mergedCardIds = (position === "top")
@@ -511,5 +550,339 @@ function handleSetCardFormIndex(state, payload) {
   var updated = Object.assign({}, card, { currentFormIndex: payload.formIndex });
   return Object.assign({}, state, {
     cards: Object.assign({}, state.cards, { [payload.cardId]: updated }),
+  });
+}
+
+// ── Handler: LINK_CARDS ───────────────────────────────────────────────────────
+// Links selected cards into one linked object on the battlefield.
+//
+// Rules enforced:
+//   - Already-linked stacks are silently skipped (must unlink first).
+//   - At least one card must be (or become) in the battlefield (anchor).
+//   - Top-of-stack cards link as-is.
+//   - Non-top-of-stack cards are extracted from their current stack into a new
+//     single-card battlefield stack first, then linked.
+//   - Non-battlefield cards are made face-up when linked.
+//   - isTapped = true if ANY of the original stacks was tapped.
+//   - The first battlefield card's stack becomes the anchor (preserved stackId).
+function handleLinkCards(state, payload, context) {
+  var requestedIds = payload.cardIds || [];
+  if (requestedIds.length < 2) return state;
+
+  var stacks = state.stacks;
+  var zones  = state.zones;
+  var cards  = state.cards;
+
+  // ── Pre-pass: extract non-top cards into new battlefield stacks ───────────
+  var workStacks = stacks;
+  var workZones  = zones;
+
+  // Build a lookup so we can detect "top of this sub-stack is also requested".
+  var requestedSet = {};
+  requestedIds.forEach(function (id) { requestedSet[id] = true; });
+
+  requestedIds.forEach(function (cardId) {
+    var stackId = findStackForCard(workStacks, cardId);
+    if (!stackId) return;
+    var stack = workStacks[stackId];
+    if (!stack || stack.isLinked) return;
+    var topId = stack.cardIds[stack.cardIds.length - 1];
+    if (topId === cardId) return;       // is top card — no extraction needed
+    if (requestedSet[topId]) return;    // top also requested → whole sub-stack handled via top card; skip
+
+    // Extract: remove card from its current stack.
+    var remaining = stack.cardIds.filter(function (id) { return id !== cardId; });
+
+    var nextWorkStacks = Object.assign({}, workStacks);
+    var nextWorkZones  = workZones;
+
+    if (remaining.length === 0) {
+      // Stack is now empty — remove it from its zone too.
+      var emptyZoneId = findZoneForStack(workZones, stackId);
+      if (emptyZoneId) {
+        nextWorkZones = Object.assign({}, workZones);
+        nextWorkZones[emptyZoneId] = Object.assign({}, workZones[emptyZoneId], {
+          stackIds: workZones[emptyZoneId].stackIds.filter(function (id) { return id !== stackId; }),
+        });
+      }
+      delete nextWorkStacks[stackId];
+    } else {
+      nextWorkStacks[stackId] = Object.assign({}, stack, { cardIds: remaining });
+    }
+
+    // Create a new single-card stack in the battlefield for the extracted card.
+    var newSid = "stk-ex-" + cardId;
+    nextWorkStacks[newSid] = { id: newSid, cardIds: [cardId], isTapped: false, isLinked: false, linkSlots: null };
+    nextWorkZones = Object.assign({}, nextWorkZones);
+    var bfId = ZONE_IDS.BATTLEFIELD;
+    nextWorkZones[bfId] = Object.assign({}, nextWorkZones[bfId] || { stackIds: [] }, {
+      stackIds: (nextWorkZones[bfId] ? nextWorkZones[bfId].stackIds : []).concat([newSid]),
+    });
+
+    workStacks = nextWorkStacks;
+    workZones  = nextWorkZones;
+  });
+
+  // ── Main pass: validate and link ──────────────────────────────────────────
+  var bfZone = workZones[ZONE_IDS.BATTLEFIELD] || { stackIds: [] };
+
+  var cardStackMap = {};
+  requestedIds.forEach(function (cardId) {
+    var stackId = findStackForCard(workStacks, cardId);
+    if (!stackId) return;
+    var stack = workStacks[stackId];
+    if (!stack || stack.isLinked) return;
+    if (stack.cardIds[stack.cardIds.length - 1] !== cardId) return; // should be top now
+    cardStackMap[cardId] = stackId;
+  });
+
+  var validCards = requestedIds.filter(function (id) { return cardStackMap[id]; });
+  if (validCards.length < 2) return state;
+
+  // At least one must be in battlefield.
+  var hasBf = validCards.some(function (id) {
+    return bfZone.stackIds.indexOf(cardStackMap[id]) !== -1;
+  });
+  if (!hasBf) return state;
+
+  // Anchor = first battlefield card's stack.
+  var anchorCardId = null;
+  for (var i = 0; i < validCards.length; i++) {
+    if (bfZone.stackIds.indexOf(cardStackMap[validCards[i]]) !== -1) {
+      anchorCardId = validCards[i];
+      break;
+    }
+  }
+  var anchorStackId = cardStackMap[anchorCardId];
+
+  // Build linkSlots (one per valid card, col = order in validCards).
+  var linkSlots = validCards.map(function (cardId, idx) {
+    return {
+      col:   idx,
+      row:   0,
+      group: workStacks[cardStackMap[cardId]].cardIds.slice(),
+    };
+  });
+
+  // Tap state: any tapped → linked stack is tapped.
+  var isTapped = validCards.some(function (id) {
+    return workStacks[cardStackMap[id]].isTapped;
+  });
+
+  // Face state: apply face-up to all cards in non-battlefield slots.
+  var newCards = Object.assign({}, cards);
+  validCards.forEach(function (cardId) {
+    var stackId = cardStackMap[cardId];
+    if (bfZone.stackIds.indexOf(stackId) !== -1) return; // battlefield → keep
+    workStacks[stackId].cardIds.forEach(function (id) {
+      if (newCards[id] && newCards[id].isFaceDown) {
+        newCards[id] = Object.assign({}, newCards[id], { isFaceDown: false });
+      }
+    });
+  });
+
+  // Remove all non-anchor stacks from their zones and the stacks map.
+  var newStacks = Object.assign({}, workStacks);
+  var newZones  = Object.assign({}, workZones);
+
+  validCards.forEach(function (cardId) {
+    var stackId = cardStackMap[cardId];
+    if (stackId === anchorStackId) return;
+    var zoneId = findZoneForStack(workZones, stackId);
+    if (zoneId) {
+      newZones[zoneId] = Object.assign({}, newZones[zoneId], {
+        stackIds: newZones[zoneId].stackIds.filter(function (id) { return id !== stackId; }),
+      });
+    }
+    delete newStacks[stackId];
+  });
+
+  // Update anchor stack → becomes the linked stack.
+  var linkedCardIds = deriveCardIdsFromLinkSlots(linkSlots);
+  newStacks[anchorStackId] = Object.assign({}, workStacks[anchorStackId], {
+    cardIds:   linkedCardIds,
+    isTapped:  isTapped,
+    isLinked:  true,
+    linkSlots: linkSlots,
+  });
+
+  return Object.assign({}, state, {
+    cards:  newCards,
+    stacks: newStacks,
+    zones:  newZones,
+    status: "リンク（" + validCards.length + "枚）",
+  });
+}
+
+// ── Handler: UNLINK_CARDS ─────────────────────────────────────────────────────
+// Splits a linked stack back into individual stacks on the battlefield.
+// Each linkSlot becomes its own new stack, preserving sub-stack groups.
+// The original anchor stack is removed; new stacks take its position in the zone.
+function handleUnlinkCards(state, payload, context) {
+  var stackId = payload.stackId;
+  var stack   = state.stacks[stackId];
+  if (!stack || !stack.isLinked || !stack.linkSlots) return state;
+
+  var zoneId = findZoneForStack(state.zones, stackId);
+  if (!zoneId) return state;
+
+  // Sort slots by (row, col) to determine rendering order.
+  var sortedSlots = stack.linkSlots.slice().sort(function (a, b) {
+    return a.row !== b.row ? a.row - b.row : a.col - b.col;
+  });
+
+  // Reset all cards to form index 0 before splitting.
+  var newCards = Object.assign({}, state.cards);
+  stack.cardIds.forEach(function (cardId) {
+    var card = newCards[cardId];
+    if (card && card.currentFormIndex !== 0) {
+      newCards[cardId] = Object.assign({}, card, { currentFormIndex: 0 });
+    }
+  });
+
+  var newStacks  = Object.assign({}, state.stacks);
+  var newZones   = Object.assign({}, state.zones);
+  var nextId     = state.nextStackId;
+
+  // Create individual stacks for each slot.
+  var newStackIds = sortedSlots.map(function (slot) {
+    var id    = "stack_" + nextId++;
+    var s     = createCardStack(id, slot.group);
+    newStacks[id] = Object.assign({}, s, { isTapped: stack.isTapped });
+    return id;
+  });
+
+  // Replace anchor in zone with the new individual stacks.
+  var zone    = newZones[zoneId];
+  var oldIdx  = zone.stackIds.indexOf(stackId);
+  newZones[zoneId] = Object.assign({}, zone, {
+    stackIds: zone.stackIds.slice(0, oldIdx)
+      .concat(newStackIds)
+      .concat(zone.stackIds.slice(oldIdx + 1)),
+  });
+
+  // Delete anchor stack.
+  delete newStacks[stackId];
+
+  return Object.assign({}, state, {
+    cards:       newCards,
+    stacks:      newStacks,
+    zones:       newZones,
+    nextStackId: nextId,
+    status:      "リンク解除",
+  });
+}
+
+// ── Handler: LINK_FROM_PENDING_DROP ──────────────────────────────────────────
+// Links dragged card(s) with a battlefield target stack.
+// If target is already linked → add new slots to the existing linked group.
+// If target is not yet linked → delegate to handleLinkCards.
+function handleLinkFromPendingDrop(state, payload, context) {
+  var draggedCardIds = payload.draggedCardIds || [];
+  var targetStackId  = payload.targetStackId;
+  if (!draggedCardIds.length || !targetStackId) return state;
+
+  var targetStack = state.stacks[targetStackId];
+  if (!targetStack) return state;
+
+  // Target must be in battlefield.
+  var bfZone = state.zones[ZONE_IDS.BATTLEFIELD] || { stackIds: [] };
+  if (bfZone.stackIds.indexOf(targetStackId) === -1) return state;
+
+  if (targetStack.isLinked) {
+    // ── Already linked: append new slots ─────────────────────────────────
+    var stacks = state.stacks;
+    var zones  = state.zones;
+    var cards  = state.cards;
+
+    var nextCol = 0;
+    targetStack.linkSlots.forEach(function (s) {
+      if (s.col >= nextCol) nextCol = s.col + 1;
+    });
+
+    var newSlots      = [];
+    var stacksToRemove = {};
+
+    draggedCardIds.forEach(function (cardId) {
+      var stackId = findStackForCard(stacks, cardId);
+      if (!stackId) return;
+      var stack = stacks[stackId];
+      if (stack.cardIds[stack.cardIds.length - 1] !== cardId) return; // must be top
+      newSlots.push({ col: nextCol++, row: 0, group: stack.cardIds.slice() });
+      if (stackId !== targetStackId) stacksToRemove[stackId] = true;
+    });
+
+    if (!newSlots.length) return state;
+
+    // Apply face-up to dragged cards.
+    var newCards = Object.assign({}, cards);
+    newSlots.forEach(function (slot) {
+      slot.group.forEach(function (id) {
+        if (newCards[id] && newCards[id].isFaceDown) {
+          newCards[id] = Object.assign({}, newCards[id], { isFaceDown: false });
+        }
+      });
+    });
+
+    var updatedSlots   = targetStack.linkSlots.concat(newSlots);
+    var updatedCardIds = deriveCardIdsFromLinkSlots(updatedSlots);
+
+    var newStacks = Object.assign({}, stacks, {
+      [targetStackId]: Object.assign({}, targetStack, {
+        cardIds:   updatedCardIds,
+        linkSlots: updatedSlots,
+      }),
+    });
+
+    var newZones = Object.assign({}, zones);
+    Object.keys(stacksToRemove).forEach(function (sid) {
+      var zid = findZoneForStack(zones, sid);
+      if (zid) {
+        newZones[zid] = Object.assign({}, newZones[zid], {
+          stackIds: newZones[zid].stackIds.filter(function (id) { return id !== sid; }),
+        });
+      }
+      delete newStacks[sid];
+    });
+
+    return Object.assign({}, state, {
+      cards:  newCards,
+      stacks: newStacks,
+      zones:  newZones,
+      status: "リンクに追加（+" + newSlots.length + "枚）",
+    });
+
+  } else {
+    // ── Not yet linked: use standard handleLinkCards ──────────────────────
+    var topCardId = targetStack.cardIds[targetStack.cardIds.length - 1];
+    return handleLinkCards(
+      state,
+      { cardIds: [topCardId].concat(draggedCardIds) },
+      context
+    );
+  }
+}
+
+// ── Handler: REORDER_LINK_SLOTS ───────────────────────────────────────────────
+// Reorders the slots of a linked stack using a permutation array.
+// newOrder[i] = index of the old slot that should appear at position i.
+// (UI not wired in initial release — handler defined for future use.)
+function handleReorderLinkSlots(state, payload) {
+  var stackId  = payload.stackId;
+  var newOrder = payload.newOrder;
+  var stack    = state.stacks[stackId];
+  if (!stack || !stack.isLinked || !stack.linkSlots) return state;
+  if (!newOrder || newOrder.length !== stack.linkSlots.length) return state;
+
+  var reordered = newOrder.map(function (oldIdx, newIdx) {
+    return Object.assign({}, stack.linkSlots[oldIdx], { col: newIdx, row: stack.linkSlots[oldIdx].row });
+  });
+  var newCardIds = deriveCardIdsFromLinkSlots(reordered);
+
+  return Object.assign({}, state, {
+    stacks: Object.assign({}, state.stacks, {
+      [stackId]: Object.assign({}, stack, { linkSlots: reordered, cardIds: newCardIds }),
+    }),
+    status: "リンクスロット並び替え",
   });
 }

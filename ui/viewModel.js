@@ -166,3 +166,137 @@ function buildCardViewModel(card, gameState) {  // eslint-disable-line no-unused
 
   return vm;
 }
+
+// ── buildLinkedStackInfo ──────────────────────────────────────────────────────
+// Builds merged display info for a linked stack (for the INFO panel).
+//
+// Merging rules:
+//   name        — "X / Y / Z" (slash-separated)
+//   cost        — sum, with breakdown: "3（1+2）"
+//   power       — sum of non-null values, with breakdown: "3000（1000+2000）"
+//   civilizations — union of all civs
+//   races         — union of all races
+//   abilities     — each card's text lines concatenated, separated by "──────" dividers
+//   backgroundStyle — gradient from merged civilizations
+//
+// Returns null when linkedStack is not actually linked.
+function buildLinkedStackInfo(linkedStack, cards) {  // eslint-disable-line no-unused-vars
+  if (!linkedStack || !linkedStack.isLinked || !linkedStack.linkSlots) return null;
+
+  // Sort slots by (row, col) so merging follows display order.
+  var sortedSlots = linkedStack.linkSlots.slice().sort(function (a, b) {
+    return a.row !== b.row ? a.row - b.row : a.col - b.col;
+  });
+
+  // Resolve the effective definition for each slot's top card (handles multi-form).
+  var slotDefs = sortedSlots.map(function (slot) {
+    var topCardId = slot.group[slot.group.length - 1];
+    var card      = cards && cards[topCardId];
+    if (!card) return null;
+    var def = getCardDefinition(card.definitionId);
+    if (!def) return null;
+    if (def.forms && Array.isArray(def.forms) && def.forms.length > 0) {
+      var idx = Math.min((card.currentFormIndex || 0), def.forms.length - 1);
+      return Object.assign({}, def, def.forms[idx]);
+    }
+    return def;
+  }).filter(Boolean);
+
+  if (!slotDefs.length) return null;
+
+  // ── 覚醒リンク同一定義チェック ─────────────────────────────────────────────
+  // 全スロットが同じカード名に解決された場合（例: 同名両面カードの裏面が全スロット共通）、
+  // 合算ではなく単体カードとして表示する。
+  var allSameName = slotDefs.length > 1 && slotDefs.every(function (def) {
+    return def.name === slotDefs[0].name;
+  });
+  if (allSameName) {
+    var sd   = slotDefs[0];
+    var sdCivs = Array.isArray(sd.civilization) ? sd.civilization
+               : (sd.civilization ? [sd.civilization] : []);
+    var sdCostStr  = sd.cost  != null ? String(sd.cost)              : null;
+    var sdPowerStr = sd.power != null ? sd.power.toLocaleString()    : null;
+    return {
+      name:            sd.name || "?",
+      cost:            sdCostStr,
+      costDetail:      sdCostStr,
+      power:           sdPowerStr,
+      powerDetail:     sdPowerStr,
+      civilizations:   sdCivs,
+      races:           Array.isArray(sd.races) ? sd.races : (sd.race ? [sd.race] : []),
+      abilities:       Array.isArray(sd.abilities) ? sd.abilities : (sd.text ? [sd.text] : []),
+      backgroundStyle: _withOverlay(getCivBackground(sdCivs)),
+    };
+  }
+
+  // Name.
+  var mergedName = slotDefs.map(function (def) { return def.name || "?"; }).join(" / ");
+
+  // Cost: sum (compact) + sum＋breakdown (detail).
+  var costVals = slotDefs.map(function (def) { return def.cost != null ? Number(def.cost) : null; });
+  var validCosts = costVals.filter(function (c) { return c != null; });
+  var mergedCost       = null;  // compact: sum only
+  var mergedCostDetail = null;  // detail: "sum（a+b）"
+  if (validCosts.length) {
+    var costSum = validCosts.reduce(function (a, b) { return a + b; }, 0);
+    mergedCost       = String(costSum);
+    mergedCostDetail = validCosts.length > 1
+      ? costSum + "（" + validCosts.join("+") + "）"
+      : String(costSum);
+  }
+
+  // Power: sum (compact) + sum＋breakdown (detail).
+  var powerVals = slotDefs.map(function (def) { return def.power != null ? Number(def.power) : null; });
+  var validPowers = powerVals.filter(function (p) { return p != null; });
+  var mergedPower       = null;
+  var mergedPowerDetail = null;
+  if (validPowers.length) {
+    var powerSum = validPowers.reduce(function (a, b) { return a + b; }, 0);
+    mergedPower       = powerSum.toLocaleString();
+    mergedPowerDetail = validPowers.length > 1
+      ? powerSum.toLocaleString() + "（" + validPowers.map(function (p) { return p.toLocaleString(); }).join("+") + "）"
+      : validPowers[0].toLocaleString();
+  }
+
+  // Civilizations: union, keeping display order.
+  var civSeen = {};
+  var mergedCivs = [];
+  slotDefs.forEach(function (def) {
+    var civs = def.civilization
+      ? (Array.isArray(def.civilization) ? def.civilization : [def.civilization])
+      : [];
+    civs.forEach(function (c) {
+      if (!civSeen[c]) { civSeen[c] = true; mergedCivs.push(c); }
+    });
+  });
+
+  // Races: union.
+  var raceSeen = {};
+  var mergedRaces = [];
+  slotDefs.forEach(function (def) {
+    var races = Array.isArray(def.races) ? def.races : (def.race ? [def.race] : []);
+    races.forEach(function (r) {
+      if (!raceSeen[r]) { raceSeen[r] = true; mergedRaces.push(r); }
+    });
+  });
+
+  // Abilities: concatenated with dividers between cards.
+  var mergedAbilities = [];
+  slotDefs.forEach(function (def, i) {
+    var abilities = Array.isArray(def.abilities) ? def.abilities : (def.text ? [def.text] : []);
+    if (i > 0 && abilities.length) mergedAbilities.push("──────────");
+    abilities.forEach(function (a) { mergedAbilities.push(a); });
+  });
+
+  return {
+    name:            mergedName,
+    cost:            mergedCost,        // sum only (for INFO zone)
+    costDetail:      mergedCostDetail,  // sum + breakdown (for modal)
+    power:           mergedPower,       // sum only (for INFO zone)
+    powerDetail:     mergedPowerDetail, // sum + breakdown (for modal)
+    civilizations:   mergedCivs,
+    races:           mergedRaces,
+    abilities:       mergedAbilities,
+    backgroundStyle: _withOverlay(getCivBackground(mergedCivs)),
+  };
+}

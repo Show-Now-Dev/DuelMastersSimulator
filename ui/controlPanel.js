@@ -16,7 +16,8 @@
 //     config: {
 //       els: {
 //         drawButton, shuffleButton, resetButton,
-//         toggleTapButton, toggleFaceButton, peekButton, clearSelectionButton,
+//         toggleTapButton, toggleFaceButton, linkButton,
+//         peekButton, clearSelectionButton,
 //         moveTarget, moveButton,
 //         pickStackButton, stackTopButton, stackBottomButton,
 //       },
@@ -106,6 +107,36 @@ var ControlPanel = (function () {
       game.dispatch(toggleFaceSelectedCards());
       log("表向き/裏向き切り替え（" + sel.length + "枚）");
     });
+
+    // ── Link / Unlink toggle ──────────────────────────────────────────────────
+    // Button label is updated by render() in ui.js based on selection state.
+    if (els.linkButton) {
+      els.linkButton.addEventListener("click", function () {
+        var st  = game.getState();
+        var sel = st.selectedCardIds || [];
+        if (!sel.length) return;
+
+        // If any selected card is in a linked stack → unlink that stack.
+        var linkedStackId = null;
+        for (var sid in st.stacks) {
+          if (Object.prototype.hasOwnProperty.call(st.stacks, sid)) {
+            var s = st.stacks[sid];
+            if (s.isLinked && sel.some(function (id) { return s.cardIds.indexOf(id) !== -1; })) {
+              linkedStackId = sid;
+              break;
+            }
+          }
+        }
+
+        if (linkedStackId) {
+          game.dispatch(unlinkCards(linkedStackId));
+          log("リンク解除");
+        } else if (sel.length >= 2) {
+          game.dispatch(linkCards(sel));
+          log("リンク（" + sel.length + "枚）");
+        }
+      });
+    }
 
     // ── Peek (view face-down cards without changing game state) ───────────────
     els.peekButton.addEventListener("click", function () {

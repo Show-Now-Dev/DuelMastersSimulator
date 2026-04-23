@@ -242,6 +242,72 @@ none
 
 ---
 
+## LINK_CARDS
+
+Link two or more cards into one logical linked object on the battlefield.
+
+payload:
+cardIds: string[]   // top-of-stack card IDs to link; ≥2 required; ≥1 must be in battlefield
+
+behavior:
+- Only top-of-stack cards can be linked (non-top cards are ignored / error)
+- Requires at least one battlefield card; non-battlefield cards are moved to battlefield first
+- The anchor stack ID is the first battlefield card's existing stack ID
+- All slots are arranged horizontally: col = index, row = 0
+- Tap state = union (any original stack tapped → linked group is tapped)
+- Non-battlefield cards become face-up when linked
+- linkSlots are sorted by (row, col); cardIds is kept as flat concat of sorted slot groups
+
+---
+
+## UNLINK_CARDS
+
+Split a linked stack back into individual per-slot stacks.
+
+payload:
+stackId: string   // the linked stack to dissolve
+
+behavior:
+- Sorts slots by (row, col); creates a new single-card stack for each slot
+- Replaces the anchor's position in zone.stackIds with the new stack IDs (in slot order)
+- New stacks inherit isTapped from the original linked stack
+- The original anchor stack is deleted
+
+---
+
+## LINK_FROM_PENDING_DROP
+
+Link dragged card(s) with a battlefield stack, triggered from the PENDING_DROP "リンクして出す" option.
+
+payload:
+draggedCardIds: string[]   // cards being dragged (top of their stacks in source zones)
+targetStackId:  string     // battlefield stack to link with
+
+behavior:
+- If target stack is already linked: appends new slot(s) at the next available col
+- If target stack is not linked: delegates to LINK_CARDS([targetTopCard, ...draggedCardIds])
+- Dragged cards are moved to battlefield (face-up) before linking
+
+---
+
+## REORDER_LINK_SLOTS
+
+Reorder the slots within a linked stack.
+
+payload:
+stackId:  string
+newOrder: number[]   // array of old slot indices in the desired new order
+
+behavior:
+- Permutes linkSlots according to newOrder
+- Renumbers col indices sequentially from 0
+- Recomputes cardIds from sorted slots
+
+note:
+  Action is defined for future use — no UI wiring in the initial release.
+
+---
+
 ## PLACE_FROM_DECK
 
 Move the top card of the deck to a zone with explicit face and tap state.

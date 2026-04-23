@@ -64,6 +64,7 @@
     const pickStackButtonEl   = document.getElementById("pick-stack-button");
     const stackTopButtonEl    = document.getElementById("stack-top-button");
     const stackBottomButtonEl = document.getElementById("stack-bottom-button");
+    const linkButtonEl        = document.getElementById("link-button");
 
     // All zone DOM elements, keyed by zone id — derived from ZONE_DEFINITIONS.
     const zoneEls = (function () {
@@ -257,7 +258,8 @@
     // position:   "top" | "bottom" | number (deck insert index)
     // faceChoice: "keep" | "up" | "down"
     // tapChoice:  boolean
-    function _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice) {
+    // linkChoice: boolean — true = link dragged cards with the target stack
+    function _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice) {
       var opts = ((uiStore.getState().modal) || {}).options || {};
 
       if (opts.isDeckDrag) {
@@ -270,6 +272,10 @@
           gameStore.dispatch(placeFromDeck(target.zoneId, faceChoice === "down", !!tapChoice));
           LogPanel.log("山札から " + target.zoneId + " へ");
         }
+      } else if (linkChoice && target.type === "stack") {
+        // "リンクして出す": move cards to battlefield then link with target stack.
+        gameStore.dispatch(linkFromPendingDrop(cardIds, target.stackId));
+        LogPanel.log(cardIds.length + "枚をリンクして出した");
       } else {
         gameStore.dispatch(moveCards(cardIds, target, position));
 
@@ -304,6 +310,7 @@
         resetButton:          document.getElementById("reset-button"),
         toggleTapButton:      document.getElementById("toggle-tap-button"),
         toggleFaceButton:     document.getElementById("toggle-face-button"),
+        linkButton:           document.getElementById("link-button"),
         peekButton:           document.getElementById("peek-button"),
         clearSelectionButton: document.getElementById("clear-selection-button"),
         moveTarget:           moveTargetEl,
@@ -402,6 +409,33 @@
         var gameState = gameStore.getState();
         var peeked    = uiStore.getState().peekedCardIds || [];
         var selIds    = gameState.selectedCardIds || [];
+
+        // Linked group: open LINKED_DETAIL modal showing breakdown cost/power.
+        if (selIds.length >= 2) {
+          var firstSid = null;
+          for (var skey in gameState.stacks) {
+            if (Object.prototype.hasOwnProperty.call(gameState.stacks, skey)) {
+              var sk = gameState.stacks[skey];
+              if (sk.isLinked && selIds.some(function (id) { return sk.cardIds.indexOf(id) !== -1; })) {
+                firstSid = skey;
+                break;
+              }
+            }
+          }
+          if (firstSid) {
+            var lstack = gameState.stacks[firstSid];
+            var allInSame = selIds.every(function (id) { return lstack.cardIds.indexOf(id) !== -1; });
+            if (allInSame) {
+              var linfo = buildLinkedStackInfo(lstack, gameState.cards);
+              if (linfo) {
+                uiStore.dispatch(openLinkedDetailModal(linfo));
+                return;
+              }
+            }
+          }
+        }
+
+        // Standard single-card detail modal.
         for (var i = selIds.length - 1; i >= 0; i--) {
           var c = gameState.cards[selIds[i]];
           if (!c) continue;
@@ -451,6 +485,16 @@
       const hasTarget   = !!targetStackId;
       stackTopButtonEl.disabled    = !hasSelected || !hasTarget;
       stackBottomButtonEl.disabled = !hasSelected || !hasTarget;
+
+      // Update link/unlink toggle button label.
+      if (linkButtonEl) {
+        var selIds2       = gameState.selectedCardIds || [];
+        var isLinkedSel   = selIds2.length > 0 && Object.keys(gameState.stacks).some(function (sid) {
+          var s = gameState.stacks[sid];
+          return s.isLinked && selIds2.some(function (id) { return s.cardIds.indexOf(id) !== -1; });
+        });
+        linkButtonEl.textContent = isLinkedSel ? "リンク解除" : "リンク";
+      }
 
       // ── Board zones ────────────────────────────────────────────────────────
       Object.keys(zoneEls).forEach(function (zoneId) {
@@ -552,16 +596,29 @@
             // Pre-select the face button based on the target zone's convention.
             var defaultFaceDown = ZONE_DEFAULT_FACE_DOWN[info.zone.id] !== undefined
               ? ZONE_DEFAULT_FACE_DOWN[info.zone.id] : false;
+            // Show "リンクして出す" when dropping onto a battlefield stack from outside battlefield.
+            var showLink = (info.zone.id === ZONE_IDS.BATTLEFIELD &&
+                            dragState.sourceZoneId !== ZONE_IDS.BATTLEFIELD);
             _handleDrop(
               dragState.cardIds,
               false,
               { type: "stack", stackId: info.stackId, zoneId: info.zone.id },
-              { defaultIsFaceDown: defaultFaceDown }
+              { defaultIsFaceDown: defaultFaceDown, showLink: showLink || undefined }
             );
             dragState = null;
           },
           onFormSwitch: function (cardId, formIndex) {
             gameStore.dispatch(setCardFormIndex(cardId, formIndex));
+          },
+          onLinkedFormSwitch: function (stackId, formIndex) {
+            // Switch all top-of-slot cards in the linked group to the same form index.
+            var st = gameStore.getState();
+            var lstack = st.stacks[stackId];
+            if (!lstack || !lstack.isLinked || !lstack.linkSlots) return;
+            lstack.linkSlots.forEach(function (slot) {
+              var topId = slot.group[slot.group.length - 1];
+              if (topId) gameStore.dispatch(setCardFormIndex(topId, formIndex));
+            });
           },
           hasCenterPlus: CENTER_PLUS_ZONE_IDS.indexOf(zoneId) !== -1,
           // Drop panel: dedicated 1-card-wide drop target at right edge of spread zones.
@@ -628,8 +685,8 @@
           LogPanel.log(zoneId + " をシャッフル");
         },
         parseMoveTarget:  ControlPanel.parseMoveTarget,
-        onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice) {
-          _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice);
+        onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice, linkChoice) {
+          _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice);
         },
       });
 

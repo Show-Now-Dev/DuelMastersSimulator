@@ -37,6 +37,7 @@
 
 const OPEN_MODAL                = "OPEN_MODAL";
 const OPEN_CARD_DETAIL_MODAL    = "OPEN_CARD_DETAIL_MODAL";
+const OPEN_LINKED_DETAIL_MODAL  = "OPEN_LINKED_DETAIL_MODAL";
 const OPEN_PENDING_DROP_MODAL   = "OPEN_PENDING_DROP_MODAL";
 const CLOSE_MODAL               = "CLOSE_MODAL";
 const SELECT_MODAL_CARDS        = "SELECT_MODAL_CARDS";
@@ -70,6 +71,15 @@ function openCardDetailModal(definitionId, formIndex) {
   return {
     type: OPEN_CARD_DETAIL_MODAL,
     payload: { definitionId: definitionId, formIndex: formIndex != null ? formIndex : 0 },
+  };
+}
+
+// Open a LINKED_DETAIL modal showing merged linked-group info with cost/power breakdown.
+// linkedInfo: return value of buildLinkedStackInfo().
+function openLinkedDetailModal(linkedInfo) {
+  return {
+    type: OPEN_LINKED_DETAIL_MODAL,
+    payload: { linkedInfo: linkedInfo },
   };
 }
 
@@ -152,6 +162,14 @@ function uiReducer(state, action) {
           type:         "CARD_DETAIL",
           definitionId: action.payload.definitionId,
           formIndex:    action.payload.formIndex || 0,
+        },
+      });
+
+    case OPEN_LINKED_DETAIL_MODAL:
+      return Object.assign({}, state, {
+        modal: {
+          type:       "LINKED_DETAIL",
+          linkedInfo: action.payload.linkedInfo,
         },
       });
 
