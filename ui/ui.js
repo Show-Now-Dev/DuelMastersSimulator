@@ -190,7 +190,7 @@
 
     function _needsModal(options) {
       return options && (
-        options.showPosition || options.showFace || options.showInsertIndex || options.showTap
+        options.showPosition || options.showFace || options.showInsertIndex || options.showTap || options.showStack
       );
     }
 
@@ -239,10 +239,117 @@
       LogPanel.log(cardIds.length + "枚を移動");
     }
 
+    // ── Stack grouping helper ─────────────────────────────────────────────────
+    // Groups dragged cardIds by their source stack, preserving zone order.
+    // Works across multiple source zones (multi-zone selections).
+    // Returns [{ cardIds, isFullStack, isLinked, linkSlots }, ...]
+    function _groupBySourceStack(cardIds, stacks, zones, sourceZoneId) {
+      var remaining = {};
+      cardIds.forEach(function (id) { remaining[id] = true; });
+
+      // Start with the source zone's stack order, then add stacks from other zones.
+      var sourceZone    = sourceZoneId ? zones[sourceZoneId] : null;
+      var orderedStkIds = sourceZone ? sourceZone.stackIds.slice() : [];
+      Object.keys(stacks).forEach(function (sid) {
+        if (orderedStkIds.indexOf(sid) === -1) {
+          var s = stacks[sid];
+          if (s && s.cardIds.some(function (id) { return remaining[id]; })) {
+            orderedStkIds.push(sid);
+          }
+        }
+      });
+
+      var groups = [];
+      orderedStkIds.forEach(function (sid) {
+        var stack  = stacks[sid];
+        if (!stack) return;
+        var inDrag = stack.cardIds.filter(function (id) { return remaining[id]; });
+        if (!inDrag.length) return;
+        inDrag.forEach(function (id) { delete remaining[id]; });
+        var isFullStack = inDrag.length === stack.cardIds.length;
+        groups.push({
+          cardIds:     inDrag,
+          isFullStack: isFullStack,
+          isLinked:    !!(isFullStack && stack.isLinked),
+          linkSlots:   (isFullStack && stack.isLinked) ? stack.linkSlots : null,
+        });
+      });
+      return groups;
+    }
+
+    // Move multiple source groups to the same zone, preserving each group's structure.
+    // Each group that is a complete multi-card stack arrives as one stack in the target
+    // zone. Single cards and partial extractions arrive individually.
+    function _executeGroupedDrop(groups, target, targetLinkBehavior) {
+      groups.forEach(function (group) {
+        if (group.cardIds.length === 1 || !group.isFullStack) {
+          group.cardIds.forEach(function (id) {
+            gameStore.dispatch(moveCards([id], target, "bottom"));
+          });
+        } else {
+          var linkSlots = (targetLinkBehavior === "keep" && group.isLinked)
+            ? group.linkSlots : null;
+          var opts = { keepStack: true };
+          if (linkSlots) opts.linkSlots = linkSlots;
+          gameStore.dispatch(moveCards(group.cardIds, target, "bottom", opts));
+        }
+      });
+      gameStore.dispatch(clearSelection());
+      LogPanel.log("複数オブジェクトを移動");
+    }
+
     // Route a drop: immediate execution or open the PENDING_DROP modal.
     // optsOverride (optional): extra fields merged into opts (e.g. defaultIsFaceDown).
     function _handleDrop(cardIds, isDeckDrag, target, optsOverride) {
       if (!target) return;
+
+      // ── Stack / link preservation for multi-card zone drops ───────────────
+      // Only applies when: multiple cards dragged, not a deck drag, dropping onto a zone background.
+      // Card-on-card drops (target.type === "stack") use the existing merge path unchanged.
+      if (!isDeckDrag && target.type === "zone" && cardIds.length > 1) {
+        var gs             = gameStore.getState();
+        var isSameZone     = dragState && dragState.sourceZoneId === target.zoneId;
+        var targetZoneDef  = ZONE_DEFS_MAP[target.zoneId];
+        var stackBehavior  = isSameZone
+          ? "keep"
+          : (targetZoneDef && targetZoneDef.ui.incomingStackBehavior) || "split";
+
+        // Group dragged cards by their source stack so we can tell whether
+        // this is a single multi-card stack drag or a multi-object selection drag.
+        var groups           = _groupBySourceStack(cardIds, gs.stacks, gs.zones, dragState && dragState.sourceZoneId);
+        var isSingleFullStack = groups.length === 1 && groups[0].isFullStack;
+
+        var targetLinkBehavior = isSameZone ? "keep"
+          : (targetZoneDef && targetZoneDef.ui.incomingLinkBehavior) || "dissolve";
+
+        if (stackBehavior === "keep") {
+          if (isSingleFullStack) {
+            // Single full stack: apply keepStack + link preservation.
+            var srcLinkSlots = groups[0].isLinked ? groups[0].linkSlots : null;
+            var linkSlots    = (targetLinkBehavior === "keep" && srcLinkSlots) ? srcLinkSlots : null;
+            var moveOptions  = { keepStack: true };
+            if (linkSlots) moveOptions.linkSlots = linkSlots;
+            gameStore.dispatch(moveCards(cardIds, target, "bottom", moveOptions));
+            gameStore.dispatch(clearSelection());
+            LogPanel.log(cardIds.length + "枚をスタックのまま移動");
+          } else {
+            // Multiple distinct source stacks: move each group independently.
+            _executeGroupedDrop(groups, target, targetLinkBehavior);
+          }
+          return;
+        }
+
+        if (stackBehavior === "ask") {
+          // Inject showStack so the modal shows the stack/split choice.
+          // multiGroups is stored in opts so the confirm handler can apply
+          // per-group keepStack when the user picks "スタックのまま".
+          var extraOpts = { showStack: true };
+          if (!isSingleFullStack) extraOpts.multiGroups = groups;
+          optsOverride = Object.assign({}, optsOverride || {}, extraOpts);
+        }
+        // "split": fall through to normal DROP_TARGET_OPTIONS handling
+      }
+
       var key      = _dropOptionsKey(isDeckDrag, target);
       var baseOpts = DROP_TARGET_OPTIONS[key];
       if (!baseOpts) return; // no matching rule → drop is not accepted
@@ -255,11 +362,12 @@
     }
 
     // Confirm handler called by the PENDING_DROP modal's confirm button.
-    // position:   "top" | "bottom" | number (deck insert index)
-    // faceChoice: "keep" | "up" | "down"
-    // tapChoice:  boolean
-    // linkChoice: boolean — true = link dragged cards with the target stack
-    function _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice) {
+    // position:    "top" | "bottom" | number (deck insert index)
+    // faceChoice:  "keep" | "up" | "down"
+    // tapChoice:   boolean
+    // linkChoice:  boolean — true = link dragged cards with the target stack
+    // stackChoice: "stack" | "split" — used when opts.showStack is true (shield multi-card drop)
+    function _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice, stackChoice) {
       var opts = ((uiStore.getState().modal) || {}).options || {};
 
       if (opts.isDeckDrag) {
@@ -277,7 +385,31 @@
         gameStore.dispatch(linkFromPendingDrop(cardIds, target.stackId));
         LogPanel.log(cardIds.length + "枚をリンクして出した");
       } else {
-        gameStore.dispatch(moveCards(cardIds, target, position));
+        if (stackChoice === "stack" && opts.multiGroups && opts.multiGroups.length > 1) {
+          // Multiple source objects → "スタックのまま": each source group arrives as its own stack.
+          // Links are dissolved (shield and similar "ask" zones use incomingLinkBehavior: "dissolve").
+          var targetZoneDef = ZONE_DEFS_MAP[target.zoneId];
+          var tgtLinkBeh    = (targetZoneDef && targetZoneDef.ui.incomingLinkBehavior) || "dissolve";
+          opts.multiGroups.forEach(function (group) {
+            if (group.cardIds.length === 1 || !group.isFullStack) {
+              group.cardIds.forEach(function (id) {
+                gameStore.dispatch(moveCards([id], target, position));
+              });
+            } else {
+              var gOpts = { keepStack: true };
+              if (tgtLinkBeh === "keep" && group.isLinked && group.linkSlots) {
+                gOpts.linkSlots = group.linkSlots;
+              }
+              gameStore.dispatch(moveCards(group.cardIds, target, position, gOpts));
+            }
+          });
+        } else {
+          // Single stack or "バラバラで" choice: one moveCards call.
+          // keepStack only applies for single-stack drops; multiGroups "バラバラで" always splits.
+          var keepStack   = (stackChoice === "stack") && !opts.multiGroups;
+          var moveOptions = keepStack ? { keepStack: true } : undefined;
+          gameStore.dispatch(moveCards(cardIds, target, position, moveOptions));
+        }
 
         // Apply explicit face override when faceChoice is not "keep".
         if (faceChoice && faceChoice !== "keep") {
@@ -558,11 +690,21 @@
             // "dragend" on that now-detached element, which does not bubble to
             // document — leaving ghost images and zone highlights on screen.
             // dragState.cardIds is sufficient to identify what to move on drop.
+            //
+            // Capture link structure only when dragging the complete linked stack
+            // (not a partial selection or a selection spanning multiple stacks).
+            var srcLinkSlotsCapture = (
+              info.stack &&
+              info.stack.isLinked &&
+              info.stack.linkSlots &&
+              cardIds.length === info.stack.cardIds.length
+            ) ? info.stack.linkSlots : null;
             dragState = {
-              cardIds:       cardIds,
-              sourceZoneId:  info.zone.id,
-              sourceStackId: info.stackId,
-              isDeckDrag:    false,
+              cardIds:         cardIds,
+              sourceZoneId:    info.zone.id,
+              sourceStackId:   info.stackId,
+              isDeckDrag:      false,
+              sourceLinkSlots: srcLinkSlotsCapture,
             };
           },
           onCardDragOver: function (info) {
@@ -685,8 +827,8 @@
           LogPanel.log(zoneId + " をシャッフル");
         },
         parseMoveTarget:  ControlPanel.parseMoveTarget,
-        onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice, linkChoice) {
-          _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice);
+        onConfirmDrop: function (cardIds, target, position, faceChoice, tapChoice, linkChoice, stackChoice) {
+          _handleDropConfirm(cardIds, target, position, faceChoice, tapChoice, linkChoice, stackChoice);
         },
       });
 

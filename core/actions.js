@@ -50,8 +50,19 @@ function resetGame() {
 //               number   = insert at 0-based index in zone.stackIds (deck insertion)
 //   For stacks: "top"    = top of pile (end of cardIds in bottom→top order)
 //               "bottom" = bottom of pile
-function moveCards(cardIds, target, position) {
-  return { type: MOVE_CARDS, payload: { cardIds, target, position: position !== undefined ? position : "bottom" } };
+// options (optional): { keepStack: boolean, linkSlots: [...] | null }
+//   keepStack: true  → place all cardIds as a single new stack (zone target only)
+//   linkSlots:       → recreate the linked structure on the new stack (requires keepStack)
+function moveCards(cardIds, target, position, options) {
+  return {
+    type: MOVE_CARDS,
+    payload: {
+      cardIds,
+      target,
+      position: position !== undefined ? position : "bottom",
+      options:  options || undefined,
+    },
+  };
 }
 
 // Move the top card of the deck to a zone with explicit face and tap state.

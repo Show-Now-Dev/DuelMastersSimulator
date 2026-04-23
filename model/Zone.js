@@ -45,6 +45,9 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "hand", label: "手札", position: "bottom" },
       ],
+      // Multi-card stacks are always split into individual cards on arrival.
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },
@@ -60,6 +63,10 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "resolutionZone", label: "待機ゾーン", position: "bottom" },
       ],
+      // Stacks (including linked groups) arrive intact so assembled objects
+      // can be moved to the battlefield without being disassembled first.
+      incomingStackBehavior: "keep",
+      incomingLinkBehavior:  "keep",
     },
     initial: { placement: null },
   },
@@ -75,6 +82,9 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "battlefield", label: "バトルゾーン", position: "bottom" },
       ],
+      // Stacks and linked groups arrive intact so multi-card creatures stay assembled.
+      incomingStackBehavior: "keep",
+      incomingLinkBehavior:  "keep",
     },
     initial: { placement: null },
   },
@@ -90,6 +100,10 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "shield", label: "シールド", position: "bottom" },
       ],
+      // User chooses: place as a single shield (stack intact) or individual cards.
+      // Links are always dissolved — shields don't need the linked structure.
+      incomingStackBehavior: "ask",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },
@@ -106,6 +120,8 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "graveyard", label: "墓地", position: "bottom" },
       ],
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },
@@ -121,6 +137,8 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "mana", label: "マナ", position: "bottom" },
       ],
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },
@@ -138,6 +156,8 @@ const ZONE_DEFINITIONS = [
         { value: "deck-top",    label: "山札（上）", position: "top"    },
         { value: "deck-bottom", label: "山札（下）", position: "bottom" },
       ],
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: "deck" }, // receives all initial deck cards
   },
@@ -154,6 +174,8 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "ex", label: "EX", position: "bottom" },
       ],
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },
@@ -170,6 +192,8 @@ const ZONE_DEFINITIONS = [
       moveOptions: [
         { value: "gr", label: "GR", position: "bottom" },
       ],
+      incomingStackBehavior: "split",
+      incomingLinkBehavior:  "dissolve",
     },
     initial: { placement: null },
   },

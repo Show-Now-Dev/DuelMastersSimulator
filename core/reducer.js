@@ -133,7 +133,13 @@ function getZoneDefaultIsFaceDown(zoneId) {
 //   - Cards not found in any stack are silently skipped.
 //   - Stacks that become empty after removal are deleted and unlinked from zones.
 //   - isFaceDown on moved cards is updated to match the target zone's default.
-function applyMoveCards(state, cardIds, target, position, context) {
+//
+// options (optional):
+//   keepStack: boolean  — when true and target is a zone, place all cardIds as
+//                         one combined stack instead of N individual stacks.
+//   linkSlots: [...]    — if provided alongside keepStack, recreate link structure
+//                         on the new stack (cardIds derived from slots).
+function applyMoveCards(state, cardIds, target, position, context, options) {
   var stacks      = state.stacks;
   var zones       = state.zones;
   var cards       = state.cards;
@@ -227,16 +233,36 @@ function applyMoveCards(state, cardIds, target, position, context) {
 
     targetZoneId = target.zoneId;
 
-    // Each moved card becomes its own new single-card stack in the zone.
-    var newStackIds = cardIds.map(function (cardId) {
-      var id = "stack_" + nextStackId;
-      nextStackId += 1;
-      stacks = Object.assign({}, stacks, { [id]: createCardStack(id, [cardId]) });
-      return id;
-    });
-
     // Graveyard always receives cards on top (newest first), ignoring caller position.
     var effectivePosition = (targetZoneId === ZONE_IDS.GRAVEYARD) ? "top" : position;
+
+    var keepStack   = !!(options && options.keepStack) && cardIds.length > 1;
+    var inLinkSlots = (options && options.linkSlots) || null;
+    var arrivedStackIds; // stack IDs added to the zone
+
+    if (keepStack) {
+      // ── Place all cards as ONE combined stack ─────────────────────────────
+      // When linkSlots is provided, recreate the linked structure; cardIds order
+      // is derived from the slots (row-then-col) to stay consistent.
+      var ksId      = "stack_" + nextStackId;
+      nextStackId  += 1;
+      var ksCardIds = inLinkSlots ? deriveCardIdsFromLinkSlots(inLinkSlots) : cardIds;
+      var ksStack   = createCardStack(ksId, ksCardIds);
+      if (inLinkSlots) {
+        ksStack = Object.assign({}, ksStack, { isLinked: true, linkSlots: inLinkSlots });
+        cardIds = ksCardIds; // align for face-state application in Step 4
+      }
+      stacks         = Object.assign({}, stacks, { [ksId]: ksStack });
+      arrivedStackIds = [ksId];
+    } else {
+      // ── Each moved card becomes its own new single-card stack (default) ───
+      arrivedStackIds = cardIds.map(function (cardId) {
+        var sid = "stack_" + nextStackId;
+        nextStackId += 1;
+        stacks = Object.assign({}, stacks, { [sid]: createCardStack(sid, [cardId]) });
+        return sid;
+      });
+    }
 
     // "top"    = prepend (front of zone, e.g. top of deck or graveyard).
     // "bottom" = append (back of zone).
@@ -245,12 +271,12 @@ function applyMoveCards(state, cardIds, target, position, context) {
     if (typeof effectivePosition === "number") {
       var insertIdx = Math.max(0, Math.min(effectivePosition, targetZone.stackIds.length));
       updatedStackIds = targetZone.stackIds.slice(0, insertIdx)
-        .concat(newStackIds)
+        .concat(arrivedStackIds)
         .concat(targetZone.stackIds.slice(insertIdx));
     } else if (effectivePosition === "top") {
-      updatedStackIds = newStackIds.concat(targetZone.stackIds);
+      updatedStackIds = arrivedStackIds.concat(targetZone.stackIds);
     } else {
-      updatedStackIds = targetZone.stackIds.concat(newStackIds);
+      updatedStackIds = targetZone.stackIds.concat(arrivedStackIds);
     }
 
     zones = Object.assign({}, zones, {
@@ -277,8 +303,9 @@ function handleMoveCards(state, payload, context) {
   var cardIds  = payload.cardIds;
   var target   = payload.target;
   var position = payload.position || "bottom";
+  var options  = payload.options;
   if (!cardIds || !cardIds.length || !target) return state;
-  return applyMoveCards(state, cardIds, target, position, context);
+  return applyMoveCards(state, cardIds, target, position, context, options);
 }
 
 // ── Handler: MOVE_SELECTED_CARDS ─────────────────────────────────────────────

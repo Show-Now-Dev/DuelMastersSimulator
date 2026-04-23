@@ -515,13 +515,15 @@ var ZoneRenderer = (function () {
         // Allows other cards/stacks to be dropped onto a linked group.
         // The reducer auto-unlinks the target when a stack-type MOVE_CARDS lands on it.
         //
-        // When 覚醒リンク (allSameName), groupEl spans the full multi-card width but only
-        // a single card is rendered. Setting pointer-events:none on groupEl makes the dead
-        // space non-interactive; drop events are attached to the visible card element instead.
-        if (allSameName) {
-          groupEl.style.pointerEvents = "none";
-          // Children (unifiedCardEl, badgeEl, nav buttons) keep pointer-events:auto by default.
-        }
+        // Prevent dead-space clicks within the group from bubbling to the zone background
+        // click handler, which would otherwise trigger zone-wide (select-all) selection.
+        // For 覚醒リンク (allSameName), groupEl spans multiple card-widths while only one
+        // card is rendered — without this, clicking the empty area selects all zone cards.
+        // The same issue affects any linked group (non-allSameName) where gaps between
+        // cards are not covered by a child element.
+        groupEl.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
 
         if (!isStacked && onCardDragOver) {
           // For unified display, target the actual visible card; otherwise target the whole group.
@@ -1291,9 +1293,10 @@ var ZoneRenderer = (function () {
     var faceChoice = opts.showFace
       ? (opts.defaultIsFaceDown ? "down" : "up")
       : "keep";
-    var tapChoice  = false;  // boolean
-    var insertIdx  = 0;      // 0-based deck insert index
-    var linkChoice = false;  // boolean: "リンクして出す" selected
+    var tapChoice   = false;    // boolean
+    var insertIdx   = 0;        // 0-based deck insert index
+    var linkChoice  = false;    // boolean: "リンクして出す" selected
+    var stackChoice = "stack";  // "stack" | "split" — used when opts.showStack is true
 
     // ── Position section ──────────────────────────────────────────────────────
     // When showInsertIndex is also true, position buttons confirm immediately
@@ -1394,6 +1397,46 @@ var ZoneRenderer = (function () {
 
       idxSection.appendChild(idxRow);
       body.appendChild(idxSection);
+    }
+
+    // ── Stack section: place all cards as one stack or split into individuals ─
+    if (opts.showStack) {
+      var stackSection = document.createElement("div");
+      stackSection.className = "pdd-section";
+
+      var stackSectionLabel = document.createElement("div");
+      stackSectionLabel.className   = "pdd-section-label";
+      stackSectionLabel.textContent = "スタック扱い";
+      stackSection.appendChild(stackSectionLabel);
+
+      var stackRow = document.createElement("div");
+      stackRow.className = "pdd-button-group";
+
+      var asStackBtn = document.createElement("button");
+      asStackBtn.type        = "button";
+      asStackBtn.className   = "pdd-choice-btn is-selected"; // default: one stack
+      asStackBtn.textContent = "スタックのまま";
+
+      var splitCardsBtn = document.createElement("button");
+      splitCardsBtn.type        = "button";
+      splitCardsBtn.className   = "pdd-choice-btn";
+      splitCardsBtn.textContent = "バラバラで";
+
+      asStackBtn.addEventListener("click", function () {
+        stackChoice = "stack";
+        asStackBtn.classList.add("is-selected");
+        splitCardsBtn.classList.remove("is-selected");
+      });
+      splitCardsBtn.addEventListener("click", function () {
+        stackChoice = "split";
+        splitCardsBtn.classList.add("is-selected");
+        asStackBtn.classList.remove("is-selected");
+      });
+
+      stackRow.appendChild(asStackBtn);
+      stackRow.appendChild(splitCardsBtn);
+      stackSection.appendChild(stackRow);
+      body.appendChild(stackSection);
     }
 
     // ── Face section ──────────────────────────────────────────────────────────
@@ -1527,7 +1570,7 @@ var ZoneRenderer = (function () {
       confirmBtn.className   = "pdd-confirm-btn";
       confirmBtn.textContent = "確定";
       confirmBtn.addEventListener("click", function () {
-        cb.onConfirmDrop(cardIds, target, positionChoice, faceChoice, tapChoice, linkChoice);
+        cb.onConfirmDrop(cardIds, target, positionChoice, faceChoice, tapChoice, linkChoice, stackChoice);
       });
 
       var cancelBtn = document.createElement("button");
