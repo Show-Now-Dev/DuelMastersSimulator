@@ -148,8 +148,9 @@ var DeckEditorUI = (function () {
     _loadEntries(deck.hyperspatialCards || [], 'hyperspatial');
     _loadEntries(deck.superGRCards || [],      'superGR');
 
-    // Deck visual panel
+    // Deck visual panel (starts expanded in the editor for quick overview)
     _visualPanel = DeckVisualPanel.build({
+      startOpen:     true,
       getZone:       function () { return _editZone; },
       getCounts:     function () { return _editCounts[_editZone]; },
       getCards:      function () { return CardRepository.getAllCards(); },
@@ -185,6 +186,7 @@ var DeckEditorUI = (function () {
     // Search panel
     var totalEl = _el('div', { className: 'deck-builder__total' });
     _container.appendChild(CardSearchUI.build({
+      alwaysShowFreeword: true,
       filters:  _editFilters,
       onChange: function (newFilters) {
         _editFilters = newFilters;

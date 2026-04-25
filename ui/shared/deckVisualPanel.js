@@ -59,12 +59,13 @@ var DeckVisualPanel = (function () {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   function build(opts) {
-    var getZone      = opts.getZone;
-    var getCounts    = opts.getCounts;
-    var getCards     = opts.getCards;
-    var onDecrement  = opts.onDecrement  || function () {};
-    var onIncrement  = opts.onIncrement  || function () {};
+    var getZone       = opts.getZone;
+    var getCounts     = opts.getCounts;
+    var getCards      = opts.getCards;
+    var onDecrement   = opts.onDecrement   || function () {};
+    var onIncrement   = opts.onIncrement   || function () {};
     var getMaxForCard = opts.getMaxForCard || function () { return 4; };
+    var startOpen     = !!opts.startOpen;
 
     // ── Panel shell ───────────────────────────────────────────────────────────
     var panel = _el('div', { className: 'dvp-panel' });
@@ -73,14 +74,14 @@ var DeckVisualPanel = (function () {
     var header    = _el('div', { className: 'dvp-header' });
     var titleEl   = _el('span', { className: 'dvp-title', textContent: 'デッキ構成' });
     var countEl   = _el('span', { className: 'dvp-count' });
-    var toggleBtn = _el('button', { type: 'button', className: 'dvp-toggle', textContent: '▼' });
+    var toggleBtn = _el('button', { type: 'button', className: 'dvp-toggle', textContent: startOpen ? '▲' : '▼' });
     header.appendChild(titleEl);
     header.appendChild(countEl);
     header.appendChild(toggleBtn);
     panel.appendChild(header);
 
-    // Grid wrapper — starts collapsed
-    var gridWrap = _el('div', { className: 'dvp-grid-wrap is-collapsed' });
+    // Grid wrapper — default state controlled by startOpen
+    var gridWrap = _el('div', { className: 'dvp-grid-wrap' + (startOpen ? '' : ' is-collapsed') });
     panel.appendChild(gridWrap);
 
     toggleBtn.addEventListener('click', function () {
@@ -145,7 +146,7 @@ var DeckVisualPanel = (function () {
         if (cardId) {
           slot = _buildFilledSlot(
             byId[cardId], isExt, cardId,
-            counts, getMaxForCard,
+            getCounts, getMaxForCard,
             onDecrement, onIncrement, refresh
           );
         } else {
@@ -179,39 +180,52 @@ var DeckVisualPanel = (function () {
     }
 
     // ── Drag-or-click detection ─────────────────────────────────────────────
+    //
+    // PC (mouse): mouseup is tracked at document level so cross-slot drag
+    // is still detected correctly even when released over a different element.
+    //
+    // Mobile (touch): touchmove calls preventDefault() to suppress page scroll
+    // while the user is interacting with a slot.
+    //
+    // Threshold: |deltaY| < 8px → click (open modal), else increment/decrement.
+
     var startY = 0;
 
-    function _onStart(y) {
-      startY = y;
-    }
-
-    function _onEnd(y) {
-      var delta = y - startY;
+    function _act(delta) {
       if (Math.abs(delta) < 8) {
-        // Treat as click → open modal
         _openCardModal(card, cardId, getCounts, getMaxForCard, onDecrement, onIncrement, refresh);
-      } else if (delta < -8) {
+      } else if (delta < 0) {
         onIncrement(cardId);
       } else {
         onDecrement(cardId);
       }
     }
 
-    // Mouse
+    // ── Mouse (desktop) ──────────────────────────────────────────────────────
     slot.addEventListener('mousedown', function (e) {
-      _onStart(e.clientY);
-      e.preventDefault(); // prevent text selection during drag
-    });
-    slot.addEventListener('mouseup', function (e) {
-      _onEnd(e.clientY);
+      if (e.button !== 0) return;  // left button only
+      startY = e.clientY;
+      e.preventDefault();          // prevent text-selection during drag
+
+      function onDocMouseUp(ev) {
+        document.removeEventListener('mouseup', onDocMouseUp);
+        _act(ev.clientY - startY);
+      }
+      document.addEventListener('mouseup', onDocMouseUp);
     });
 
-    // Touch
+    // ── Touch (mobile) ───────────────────────────────────────────────────────
     slot.addEventListener('touchstart', function (e) {
-      if (e.touches.length) _onStart(e.touches[0].clientY);
+      if (e.touches.length) startY = e.touches[0].clientY;
     }, { passive: true });
+
+    // Block page scroll while the finger is on a slot
+    slot.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+    }, { passive: false });
+
     slot.addEventListener('touchend', function (e) {
-      if (e.changedTouches.length) _onEnd(e.changedTouches[0].clientY);
+      if (e.changedTouches.length) _act(e.changedTouches[0].clientY - startY);
     });
 
     return slot;

@@ -50,8 +50,11 @@ var CardSearchUI = (function () {
 
   // Build and return a search panel element.
   function build(options) {
-    var filters  = options.filters  || defaultFilters();
-    var onChange = options.onChange || function () {};
+    var filters            = options.filters  || defaultFilters();
+    var onChange           = options.onChange || function () {};
+    // When true: freeword + search/clear buttons are always visible;
+    // the remaining filter rows (checkboxes, cost, etc.) start collapsed.
+    var alwaysShowFreeword = !!options.alwaysShowFreeword;
 
     // Back-fill any missing keys so the panel always has a complete state
     if (filters.freeword             == null) filters.freeword            = '';
@@ -65,18 +68,24 @@ var CardSearchUI = (function () {
     var panel = _el('div', { className: 'cm-search-panel' });
 
     // ── Accordion header ──────────────────────────────────────────────────────
+    // In alwaysShowFreeword mode, the header label changes to "詳細条件" and
+    // the collapsible starts closed (freeword+buttons remain always visible).
     var accordionHeader = _el('div', { className: 'cm-search-accordion-header' });
-    accordionHeader.appendChild(_el('span', { className: 'cm-search-accordion-label', textContent: '絞り込み' }));
+    accordionHeader.appendChild(_el('span', {
+      className:   'cm-search-accordion-label',
+      textContent: alwaysShowFreeword ? '詳細条件' : '絞り込み',
+    }));
     var accordionToggle = _el('button', {
       type:      'button',
       className: 'cm-search-accordion-toggle',
       textContent: '▼',
     });
     accordionHeader.appendChild(accordionToggle);
-    panel.appendChild(accordionHeader);
 
     // ── Collapsible content ───────────────────────────────────────────────────
-    var collapsible = _el('div', { className: 'cm-search-collapsible' });
+    var collapsible = _el('div', {
+      className: 'cm-search-collapsible' + (alwaysShowFreeword ? ' is-collapsed' : ''),
+    });
 
     accordionToggle.addEventListener('click', function () {
       var isOpen = !collapsible.classList.contains('is-collapsed');
@@ -107,7 +116,15 @@ var CardSearchUI = (function () {
       orAndPill.dataset.mode = filters.freewordMode;
     });
     freewordRow.appendChild(orAndPill);
-    collapsible.appendChild(freewordRow);
+    // In alwaysShowFreeword mode: freeword row is pinned above the detail accordion.
+    // In normal mode: freeword row is the first row inside the collapsible.
+    if (alwaysShowFreeword) {
+      panel.appendChild(freewordRow);    // always-visible freeword
+      panel.appendChild(accordionHeader); // "詳細条件 ▼" below it
+    } else {
+      panel.appendChild(accordionHeader); // "絞り込み ▼" at top
+      collapsible.appendChild(freewordRow);
+    }
 
     // ── Row 1b: Freeword target checkboxes ───────────────────────────────────
     var targetRow  = _el('div', { className: 'cm-search-row cm-search-row--sub' });
@@ -306,8 +323,16 @@ var CardSearchUI = (function () {
 
     btnRow.appendChild(searchBtn);
     btnRow.appendChild(clearBtn);
-    collapsible.appendChild(btnRow);
-    panel.appendChild(collapsible);
+
+    // In alwaysShowFreeword mode: buttons are pinned below the collapsible.
+    // In normal mode: buttons are the last item inside the collapsible.
+    if (alwaysShowFreeword) {
+      panel.appendChild(collapsible);
+      panel.appendChild(btnRow);
+    } else {
+      collapsible.appendChild(btnRow);
+      panel.appendChild(collapsible);
+    }
 
     // ── Reactive bindings ─────────────────────────────────────────────────────
 
