@@ -91,6 +91,7 @@ var DeckBuilderUI = (function () {
 
     // Deck visual panel
     _visualPanel = DeckVisualPanel.build({
+      startOpen:     true,
       getZone:       function () { return _activeZone; },
       getCounts:     function () { return _countsByZone[_activeZone]; },
       getCards:      function () { return _allCards; },
@@ -117,6 +118,7 @@ var DeckBuilderUI = (function () {
 
     // Search panel
     _container.appendChild(CardSearchUI.build({
+      alwaysShowFreeword: true,
       filters:  _filters,
       onChange: function (newFilters) {
         _filters = newFilters;

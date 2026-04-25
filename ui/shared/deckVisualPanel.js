@@ -35,16 +35,6 @@ var DeckVisualPanel = (function () {
   };
   var CIV_ORDER = ['light', 'water', 'darkness', 'fire', 'nature'];
 
-  var CIV_LABELS = { light:'光', water:'水', darkness:'闇', fire:'火', nature:'自然' };
-  var TYPE_LABELS = {
-    creature:     'クリーチャー',
-    spell:        '呪文',
-    evolution:    '進化クリーチャー',
-    'cross-gear': 'クロスギア',
-    fortres:      '城',
-    unknown:      '不明',
-  };
-
   // Column counts per zone
   var ZONE_COLS = { main: 8, hyperspatial: 8, superGR: 6 };
   // Standard (reference) max per zone
@@ -283,6 +273,17 @@ var DeckVisualPanel = (function () {
   }
 
   // ── Card detail modal ────────────────────────────────────────────────────────
+  //
+  // Uses the same modal-panel / cdi-* classes as the game's card detail modal
+  // (zoneRenderer._renderCardDetailModal), with a count control appended below.
+
+  var CIV_NAMES_JP = {
+    light:    '光文明',
+    water:    '水文明',
+    darkness: '闇文明',
+    fire:     '火文明',
+    nature:   '自然文明',
+  };
 
   function _openCardModal(card, cardId, getCounts, getMaxForCard, onDecrement, onIncrement, refreshPanel) {
     var layer = document.getElementById('modal-layer');
@@ -291,31 +292,44 @@ var DeckVisualPanel = (function () {
     layer.innerHTML = '';
     layer.classList.add('is-open');
 
-    var overlay = _el('div', { className: 'dvp-modal-overlay' });
-
-    // ── Close on backdrop click ───────────────────────────────────────────────
-    overlay.addEventListener('mousedown', function (e) {
-      if (e.target === overlay) _closeModal(layer);
+    // Close on backdrop (clicking the semi-transparent overlay, not the panel)
+    layer.addEventListener('click', function _onLayerClick(e) {
+      if (e.target === layer) {
+        layer.removeEventListener('click', _onLayerClick);
+        _closeModal(layer);
+      }
     });
 
-    var panel = _el('div', { className: 'dvp-modal-panel' });
+    // ── Panel (same structure as game's card detail modal) ────────────────────
+    var panel = document.createElement('div');
+    panel.className = 'modal-panel modal-panel--card-detail';
 
-    // ── Close button ──────────────────────────────────────────────────────────
-    var closeBtn = _el('button', { className: 'dvp-modal-close', textContent: '✕' });
+    // Close button bar
+    var closeBar = document.createElement('div');
+    closeBar.className = 'cdi-close-bar';
+    var closeBtn = document.createElement('button');
+    closeBtn.className   = 'modal-close-btn';
+    closeBtn.textContent = '✕';
     closeBtn.addEventListener('click', function () { _closeModal(layer); });
-    panel.appendChild(closeBtn);
+    closeBar.appendChild(closeBtn);
+    panel.appendChild(closeBar);
 
-    // ── Card preview ──────────────────────────────────────────────────────────
-    var preview = _buildCardPreview(card);
-    panel.appendChild(preview);
-
-    // ── Card details ──────────────────────────────────────────────────────────
-    var details = _buildCardDetails(card);
-    panel.appendChild(details);
+    // ── Card info section(s) ──────────────────────────────────────────────────
+    if (card && card.type === 'twin') {
+      var twinWrap = document.createElement('div');
+      twinWrap.className = 'cdi-twin';
+      (card.sides || []).forEach(function (side) {
+        twinWrap.appendChild(_buildCardInfoSection(side));
+      });
+      panel.appendChild(twinWrap);
+    } else if (card && Array.isArray(card.forms) && card.forms.length) {
+      panel.appendChild(_buildCardInfoSection(Object.assign({}, card, card.forms[0])));
+    } else {
+      panel.appendChild(_buildCardInfoSection(card || {}));
+    }
 
     // ── Count control ─────────────────────────────────────────────────────────
-    var ctrl = _el('div', { className: 'dvp-modal-ctrl' });
-
+    var ctrl    = _el('div',    { className: 'dvp-modal-ctrl' });
     var minusBtn = _el('button', { className: 'dvp-modal-ctrl__btn', textContent: '−' });
     var countEl  = _el('span',  { className: 'dvp-modal-ctrl__count' });
     var plusBtn  = _el('button', { className: 'dvp-modal-ctrl__btn', textContent: '＋' });
@@ -323,9 +337,9 @@ var DeckVisualPanel = (function () {
     function _updateCountDisplay() {
       var cur = (getCounts()[cardId] || 0);
       var max = getMaxForCard(cardId);
-      countEl.textContent = cur + ' / ' + max + '枚';
-      minusBtn.disabled = (cur <= 0);
-      plusBtn.disabled  = (cur >= max);
+      countEl.textContent  = cur + ' / ' + max + '枚';
+      minusBtn.disabled    = (cur <= 0);
+      plusBtn.disabled     = (cur >= max);
     }
     _updateCountDisplay();
 
@@ -345,8 +359,7 @@ var DeckVisualPanel = (function () {
     ctrl.appendChild(plusBtn);
     panel.appendChild(ctrl);
 
-    overlay.appendChild(panel);
-    layer.appendChild(overlay);
+    layer.appendChild(panel);
   }
 
   function _closeModal(layer) {
@@ -355,116 +368,84 @@ var DeckVisualPanel = (function () {
     layer.innerHTML = '';
   }
 
-  // ── Card preview (mini card face) ────────────────────────────────────────────
+  // ── Card info section (mirrors zoneRenderer._buildCardInfoSection) ────────────
+  // Layout: header (cost + name-block) / scrollable body (abilities) / footer (power)
 
-  function _buildCardPreview(card) {
-    var wrap = _el('div', { className: 'dvp-modal-preview' });
-    var isTwin = card && card.type === 'twin';
+  function _buildCardInfoSection(def) {
+    var section = document.createElement('div');
+    section.className = 'cdi-section';
 
-    if (isTwin) {
-      wrap.classList.add('dvp-modal-preview--twin');
-      var sides = card.sides || [];
-      sides.forEach(function (side, i) {
-        var sideCivs = Array.isArray(side.civilization)
-          ? side.civilization
-          : (side.civilization ? [side.civilization] : []);
-        var half = _el('div', {
-          className: 'dvp-modal-half dvp-modal-half--' + (i === 0 ? 'top' : 'bottom'),
-        });
-        half.style.background = _civBackground(sideCivs);
+    // ── Header ────────────────────────────────────────────────────────────────
+    var hd = document.createElement('div');
+    hd.className = 'cdi-header';
 
-        var topRow = _el('div', { className: 'dvp-modal-top-row' });
-        if (side.cost != null) {
-          topRow.appendChild(_el('span', { className: 'dvp-modal-cost', textContent: String(side.cost) }));
-        }
-        topRow.appendChild(_el('span', { className: 'dvp-modal-name', textContent: side.name || '' }));
-        half.appendChild(topRow);
-
-        if (side.power != null) {
-          half.appendChild(_el('div', { className: 'dvp-modal-power', textContent: String(side.power) }));
-        }
-        wrap.appendChild(half);
-      });
-    } else {
-      var civs = _getCardCivs(card);
-      wrap.style.background = _civBackground(civs);
-
-      var topRow2 = _el('div', { className: 'dvp-modal-top-row' });
-      var costTxt = _costText(card);
-      if (costTxt !== '') {
-        topRow2.appendChild(_el('span', { className: 'dvp-modal-cost', textContent: costTxt }));
-      }
-      topRow2.appendChild(_el('span', { className: 'dvp-modal-name', textContent: card.name || '' }));
-      wrap.appendChild(topRow2);
-
-      var power = _getPower(card);
-      if (power != null) {
-        wrap.appendChild(_el('div', { className: 'dvp-modal-power', textContent: String(power) }));
-      }
+    if (def.cost != null) {
+      var costEl = document.createElement('span');
+      costEl.className   = 'cdi-cost';
+      costEl.textContent = String(def.cost);
+      hd.appendChild(costEl);
     }
 
-    return wrap;
-  }
+    var nameBlock = document.createElement('div');
+    nameBlock.className = 'cdi-name-block';
 
-  // ── Card details (text info below preview) ───────────────────────────────────
+    var nameRow = document.createElement('div');
+    nameRow.className = 'cdi-name-row';
+    var nameEl = document.createElement('span');
+    nameEl.className   = 'cdi-name';
+    nameEl.textContent = def.name || '—';
+    nameRow.appendChild(nameEl);
+    if (def.type) {
+      var metaEl = document.createElement('span');
+      metaEl.className   = 'cdi-meta';
+      metaEl.textContent = def.type;
+      nameRow.appendChild(metaEl);
+    }
+    nameBlock.appendChild(nameRow);
 
-  function _buildCardDetails(card) {
-    var isTwin = card && card.type === 'twin';
-    var wrap = _el('div', { className: 'dvp-modal-details' });
-
-    function _row(label, value) {
-      if (!value && value !== 0) return;
-      var row = _el('div', { className: 'dvp-modal-detail-row' });
-      row.appendChild(_el('span', { className: 'dvp-modal-detail-label', textContent: label }));
-      row.appendChild(_el('span', { className: 'dvp-modal-detail-value', textContent: String(value) }));
-      wrap.appendChild(row);
+    var races = Array.isArray(def.races) ? def.races : (def.race ? [def.race] : []);
+    if (races.length) {
+      var raceEl = document.createElement('div');
+      raceEl.className   = 'cdi-race';
+      raceEl.textContent = races.join(' / ');
+      nameBlock.appendChild(raceEl);
     }
 
-    if (isTwin) {
-      var sides = card.sides || [];
-      sides.forEach(function (side, i) {
-        var label = i === 0 ? '上面' : '下面';
-        var sideCivs = Array.isArray(side.civilization)
-          ? side.civilization
-          : (side.civilization ? [side.civilization] : []);
-        var civStr = sideCivs.map(function (c) { return CIV_LABELS[c] || c; }).join('/');
-
-        var divider = _el('div', { className: 'dvp-modal-side-label', textContent: '── ' + label });
-        wrap.appendChild(divider);
-        _row('文明', civStr || '無色');
-        _row('コスト', side.cost);
-        if (side.type) _row('種類', TYPE_LABELS[side.type] || side.type);
-        if (side.races && side.races.length) _row('種族', side.races.join(' / '));
-        if (side.power != null) _row('パワー', side.power);
-        if (side.abilities && side.abilities.length) {
-          var abRow = _el('div', { className: 'dvp-modal-detail-row dvp-modal-detail-row--block' });
-          abRow.appendChild(_el('span', { className: 'dvp-modal-detail-label', textContent: 'テキスト' }));
-          var abText = _el('span', { className: 'dvp-modal-detail-value dvp-modal-abilities' });
-          abText.textContent = side.abilities.join('\n');
-          abRow.appendChild(abText);
-          wrap.appendChild(abRow);
-        }
-      });
-    } else {
-      var civs2  = _getCardCivs(card);
-      var civStr2 = civs2.map(function (c) { return CIV_LABELS[c] || c; }).join('/');
-      _row('文明', civStr2 || '無色');
-      _row('コスト', _costText(card));
-      if (card.type) _row('種類', TYPE_LABELS[card.type] || card.type);
-      if (card.races && card.races.length) _row('種族', card.races.join(' / '));
-      var pwr = _getPower(card);
-      if (pwr != null) _row('パワー', pwr);
-      if (card.abilities && card.abilities.length) {
-        var abRow2 = _el('div', { className: 'dvp-modal-detail-row dvp-modal-detail-row--block' });
-        abRow2.appendChild(_el('span', { className: 'dvp-modal-detail-label', textContent: 'テキスト' }));
-        var abText2 = _el('span', { className: 'dvp-modal-abilities' });
-        abText2.textContent = card.abilities.join('\n');
-        abRow2.appendChild(abText2);
-        wrap.appendChild(abRow2);
-      }
+    var civs = Array.isArray(def.civilization)
+      ? def.civilization
+      : (def.civilization ? [def.civilization] : []);
+    if (civs.length) {
+      var civEl = document.createElement('div');
+      civEl.className   = 'cdi-civ';
+      civEl.textContent = civs.map(function (c) { return CIV_NAMES_JP[c] || c; }).join(' / ');
+      nameBlock.appendChild(civEl);
     }
 
-    return wrap;
+    hd.appendChild(nameBlock);
+    section.appendChild(hd);
+
+    // ── Body: abilities (scrollable) ──────────────────────────────────────────
+    var body = document.createElement('div');
+    body.className = 'cdi-body';
+    var abilities = Array.isArray(def.abilities) ? def.abilities
+      : (def.text ? [def.text] : []);
+    abilities.forEach(function (line) {
+      var p = document.createElement('div');
+      p.className   = 'cdi-ability-line';
+      p.textContent = line;
+      body.appendChild(p);
+    });
+    section.appendChild(body);
+
+    // ── Footer: power ─────────────────────────────────────────────────────────
+    if (def.power != null) {
+      var ft = document.createElement('div');
+      ft.className   = 'cdi-footer';
+      ft.textContent = typeof def.power === 'number' ? def.power.toLocaleString() : String(def.power);
+      section.appendChild(ft);
+    }
+
+    return section;
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
