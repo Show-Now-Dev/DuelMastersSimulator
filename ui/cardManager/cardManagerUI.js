@@ -111,9 +111,6 @@ var CardManagerUI = (function () {
     ioRow.appendChild(exportTextBtn);
     _container.appendChild(ioRow);
 
-    // Zone tabs
-    _container.appendChild(_buildZoneTabs());
-
     _container.appendChild(CardSearchUI.build({
       filters:  _filters,
       onChange: function (newFilters) {
@@ -123,6 +120,9 @@ var CardManagerUI = (function () {
         if (wrap) { wrap.innerHTML = ''; _renderCardList(wrap, results); }
       },
     }));
+
+    // Zone tabs (below search panel — closer to card list)
+    _container.appendChild(_buildZoneTabs());
 
     _renderCardList(_container, CardRepository.searchCards({ zone: _activeZone }));
   }

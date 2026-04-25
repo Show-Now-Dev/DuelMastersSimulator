@@ -64,6 +64,26 @@ var CardSearchUI = (function () {
 
     var panel = _el('div', { className: 'cm-search-panel' });
 
+    // ── Accordion header ──────────────────────────────────────────────────────
+    var accordionHeader = _el('div', { className: 'cm-search-accordion-header' });
+    accordionHeader.appendChild(_el('span', { className: 'cm-search-accordion-label', textContent: '絞り込み' }));
+    var accordionToggle = _el('button', {
+      type:      'button',
+      className: 'cm-search-accordion-toggle',
+      textContent: '▼',
+    });
+    accordionHeader.appendChild(accordionToggle);
+    panel.appendChild(accordionHeader);
+
+    // ── Collapsible content ───────────────────────────────────────────────────
+    var collapsible = _el('div', { className: 'cm-search-collapsible' });
+
+    accordionToggle.addEventListener('click', function () {
+      var isOpen = !collapsible.classList.contains('is-collapsed');
+      collapsible.classList.toggle('is-collapsed', isOpen);
+      accordionToggle.textContent = isOpen ? '▲' : '▼';
+    });
+
     // ── Row 1: Free-word ─────────────────────────────────────────────────────
     var freewordRow = _el('div', { className: 'cm-search-row' });
     freewordRow.appendChild(_el('label', { className: 'cm-search-label', textContent: 'フリーワード:' }));
@@ -71,34 +91,23 @@ var CardSearchUI = (function () {
     var wordInput = _el('input', {
       type:        'text',
       className:   'cm-search-input cm-search-input--wide',
-      placeholder: 'OR・ANDはスペース区切り',
+      placeholder: 'スペース区切りで複数ワード',
       value:       filters.freeword || '',
     });
     freewordRow.appendChild(wordInput);
 
-    var orBtn = _el('button', {
-      className:   'btn btn--small' + (filters.freewordMode !== 'and' ? ' is-active' : ''),
-      textContent: 'OR',
-      type:        'button',
+    var orAndPill = _el('div', { className: 'cm-or-and-pill' });
+    orAndPill.dataset.mode = filters.freewordMode || 'or';
+    var orSeg  = _el('span', { className: 'cm-or-and-pill__seg cm-or-and-pill__seg--or',  textContent: 'OR'  });
+    var andSeg = _el('span', { className: 'cm-or-and-pill__seg cm-or-and-pill__seg--and', textContent: 'AND' });
+    orAndPill.appendChild(orSeg);
+    orAndPill.appendChild(andSeg);
+    orAndPill.addEventListener('click', function () {
+      filters.freewordMode = (filters.freewordMode === 'or') ? 'and' : 'or';
+      orAndPill.dataset.mode = filters.freewordMode;
     });
-    var andBtn = _el('button', {
-      className:   'btn btn--small' + (filters.freewordMode === 'and' ? ' is-active' : ''),
-      textContent: 'AND',
-      type:        'button',
-    });
-    orBtn.addEventListener('click', function () {
-      filters.freewordMode = 'or';
-      orBtn.classList.add('is-active');
-      andBtn.classList.remove('is-active');
-    });
-    andBtn.addEventListener('click', function () {
-      filters.freewordMode = 'and';
-      andBtn.classList.add('is-active');
-      orBtn.classList.remove('is-active');
-    });
-    freewordRow.appendChild(orBtn);
-    freewordRow.appendChild(andBtn);
-    panel.appendChild(freewordRow);
+    freewordRow.appendChild(orAndPill);
+    collapsible.appendChild(freewordRow);
 
     // ── Row 1b: Freeword target checkboxes ───────────────────────────────────
     var targetRow  = _el('div', { className: 'cm-search-row cm-search-row--sub' });
@@ -133,7 +142,7 @@ var CardSearchUI = (function () {
     tgtGroup.appendChild(raceLbl);
 
     targetRow.appendChild(tgtGroup);
-    panel.appendChild(targetRow);
+    collapsible.appendChild(targetRow);
 
     // ── Row 2: Color mode ────────────────────────────────────────────────────
     var colorModeRow = _el('div', { className: 'cm-search-row' });
@@ -157,7 +166,7 @@ var CardSearchUI = (function () {
 
     colorModeRow.appendChild(monoLbl);
     colorModeRow.appendChild(multiLbl);
-    panel.appendChild(colorModeRow);
+    collapsible.appendChild(colorModeRow);
 
     // ── Row 3: Civilization include ──────────────────────────────────────────
     var civRow = _el('div', { className: 'cm-search-row' });
@@ -192,7 +201,7 @@ var CardSearchUI = (function () {
     civGroup.appendChild(noneLbl);
 
     civRow.appendChild(civGroup);
-    panel.appendChild(civRow);
+    collapsible.appendChild(civRow);
 
     // ── Row 4: Exclude civilization (shown when multi is checked) ────────────
     var excludeRow = _el('div', { className: 'cm-search-row cm-exclude-row' });
@@ -217,7 +226,7 @@ var CardSearchUI = (function () {
 
     excludeRow.appendChild(excludeGroup);
     excludeRow.style.display = filters.colorMode.multi ? '' : 'none';
-    panel.appendChild(excludeRow);
+    collapsible.appendChild(excludeRow);
 
     // ── Row 5: Cost range ────────────────────────────────────────────────────
     var costRow = _el('div', { className: 'cm-search-row' });
@@ -239,7 +248,7 @@ var CardSearchUI = (function () {
       value:       filters.costMax != null ? String(filters.costMax) : '',
     });
     costRow.appendChild(costMaxIn);
-    panel.appendChild(costRow);
+    collapsible.appendChild(costRow);
 
     // ── Row 6: Twin pact ─────────────────────────────────────────────────────
     var twinRow = _el('div', { className: 'cm-search-row' });
@@ -251,7 +260,7 @@ var CardSearchUI = (function () {
     twinLbl.appendChild(twinCb);
     twinLbl.appendChild(document.createTextNode('ツインパクトを含む'));
     twinRow.appendChild(twinLbl);
-    panel.appendChild(twinRow);
+    collapsible.appendChild(twinRow);
 
     // ── Row 7: Power range ───────────────────────────────────────────────────
     var powerRow = _el('div', { className: 'cm-search-row' });
@@ -273,7 +282,7 @@ var CardSearchUI = (function () {
       value:       filters.powerMax != null ? String(filters.powerMax) : '',
     });
     powerRow.appendChild(powerMaxIn);
-    panel.appendChild(powerRow);
+    collapsible.appendChild(powerRow);
 
     // ── Buttons ───────────────────────────────────────────────────────────────
     var btnRow = _el('div', { className: 'cm-search-row' });
@@ -296,7 +305,8 @@ var CardSearchUI = (function () {
 
     btnRow.appendChild(searchBtn);
     btnRow.appendChild(clearBtn);
-    panel.appendChild(btnRow);
+    collapsible.appendChild(btnRow);
+    panel.appendChild(collapsible);
 
     // ── Reactive bindings ─────────────────────────────────────────────────────
 
@@ -352,8 +362,7 @@ var CardSearchUI = (function () {
     function _reset() {
       wordInput.value      = '';
       filters.freewordMode = 'or';
-      orBtn.classList.add('is-active');
-      andBtn.classList.remove('is-active');
+      orAndPill.dataset.mode = 'or';
 
       nameCbT.checked = true;
       textCbT.checked = true;

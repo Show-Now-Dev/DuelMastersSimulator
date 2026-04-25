@@ -147,12 +147,25 @@ var DeckEditorUI = (function () {
     _loadEntries(deck.hyperspatialCards || [], 'hyperspatial');
     _loadEntries(deck.superGRCards || [],      'superGR');
 
-    // Zone tabs
+    // Search panel
+    var totalEl = _el('div', { className: 'deck-builder__total' });
+    _container.appendChild(CardSearchUI.build({
+      filters:  _editFilters,
+      onChange: function (newFilters) {
+        _editFilters = newFilters;
+        var flushed = _collectCurrentCounts();
+        Object.keys(flushed).forEach(function (id) { _editCounts[_editZone][id] = flushed[id]; });
+        var cards = CardRepository.searchCards(Object.assign({}, _editFilters, { zone: _editZone }));
+        var wrap = _container.querySelector('.de-card-list-wrap');
+        if (wrap) _renderEditCardList(wrap, cards, _editCounts[_editZone], totalEl);
+      },
+    }));
+
+    // Zone tabs (below search panel — closer to card list)
     _container.appendChild(_buildEditZoneTabRow());
 
     // Total counter + export buttons row
     var totalRow = _el('div', { className: 'de-total-row' });
-    var totalEl  = _el('div', { className: 'deck-builder__total' });
     totalRow.appendChild(totalEl);
     totalRow.appendChild(_btn('書出（ファイル）', 'btn btn--small', function () {
       var r = DataPorter.exportDeck(_editingId);
@@ -165,19 +178,6 @@ var DeckEditorUI = (function () {
       ImportHelper.showTextExport(deck.name + ' テキスト書出', r.json);
     }));
     _container.appendChild(totalRow);
-
-    // Search panel
-    _container.appendChild(CardSearchUI.build({
-      filters:  _editFilters,
-      onChange: function (newFilters) {
-        _editFilters = newFilters;
-        var flushed = _collectCurrentCounts();
-        Object.keys(flushed).forEach(function (id) { _editCounts[_editZone][id] = flushed[id]; });
-        var cards = CardRepository.searchCards(Object.assign({}, _editFilters, { zone: _editZone }));
-        var wrap = _container.querySelector('.de-card-list-wrap');
-        if (wrap) _renderEditCardList(wrap, cards, _editCounts[_editZone], totalEl);
-      },
-    }));
 
     // Card list area
     var cardListWrap = _el('div', { className: 'de-card-list-wrap' });

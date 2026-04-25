@@ -88,14 +88,6 @@ var DeckBuilderUI = (function () {
     nameRow.appendChild(nameInput);
     _container.appendChild(nameRow);
 
-    // Zone tabs
-    _container.appendChild(_buildZoneTabRow());
-
-    // Zone total counter
-    _totalEl = _el('div', { className: 'deck-builder__total' });
-    _container.appendChild(_totalEl);
-    _updateTotal();
-
     // Search panel
     _container.appendChild(CardSearchUI.build({
       filters:  _filters,
@@ -104,6 +96,14 @@ var DeckBuilderUI = (function () {
         _refreshCardList();
       },
     }));
+
+    // Zone tabs (below search panel — closer to card list)
+    _container.appendChild(_buildZoneTabRow());
+
+    // Zone total counter
+    _totalEl = _el('div', { className: 'deck-builder__total' });
+    _container.appendChild(_totalEl);
+    _updateTotal();
 
     // Card list wrapper
     var listWrap = _el('div', { className: 'deck-builder__list-wrap' });
