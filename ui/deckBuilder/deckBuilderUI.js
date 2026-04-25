@@ -91,15 +91,26 @@ var DeckBuilderUI = (function () {
 
     // Deck visual panel
     _visualPanel = DeckVisualPanel.build({
-      getZone:     function () { return _activeZone; },
-      getCounts:   function () { return _countsByZone[_activeZone]; },
-      getCards:    function () { return _allCards; },
-      onDecrement: function (cardId) {
+      getZone:       function () { return _activeZone; },
+      getCounts:     function () { return _countsByZone[_activeZone]; },
+      getCards:      function () { return _allCards; },
+      onDecrement:   function (cardId) {
         var counts = _countsByZone[_activeZone];
         counts[cardId] = Math.max(0, (counts[cardId] || 0) - 1);
         _updateTotal();
         _updateZoneTabsUI();
         _refreshCardList();
+      },
+      onIncrement:   function (cardId) {
+        var counts = _countsByZone[_activeZone];
+        counts[cardId] = (counts[cardId] || 0) + 1;
+        _updateTotal();
+        _updateZoneTabsUI();
+        _refreshCardList();
+      },
+      getMaxForCard: function () {
+        var zd = ZONE_DEFS.filter(function (z) { return z.id === _activeZone; })[0];
+        return zd ? zd.sameMax : 4;
       },
     });
     _container.appendChild(_visualPanel.el);

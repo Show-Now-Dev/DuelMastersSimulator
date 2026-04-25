@@ -150,20 +150,34 @@ var DeckEditorUI = (function () {
 
     // Deck visual panel
     _visualPanel = DeckVisualPanel.build({
-      getZone:     function () { return _editZone; },
-      getCounts:   function () { return _editCounts[_editZone]; },
-      getCards:    function () { return CardRepository.getAllCards(); },
-      onDecrement: function (cardId) {
+      getZone:       function () { return _editZone; },
+      getCounts:     function () { return _editCounts[_editZone]; },
+      getCards:      function () { return CardRepository.getAllCards(); },
+      onDecrement:   function (cardId) {
         _editCounts[_editZone][cardId] = Math.max(0, (_editCounts[_editZone][cardId] || 0) - 1);
         var totalEl = _container.querySelector('.deck-builder__total');
         _updateEditTotal(totalEl);
         _updateEditZoneTabsUI();
-        // Also update the count number in the visible card list row
         var row = _container.querySelector('.deck-builder__row[data-card-id="' + cardId + '"]');
         if (row) {
           var numEl = row.querySelector('.deck-builder__count-num');
           if (numEl) numEl.textContent = String(_editCounts[_editZone][cardId]);
         }
+      },
+      onIncrement:   function (cardId) {
+        _editCounts[_editZone][cardId] = (_editCounts[_editZone][cardId] || 0) + 1;
+        var totalEl = _container.querySelector('.deck-builder__total');
+        _updateEditTotal(totalEl);
+        _updateEditZoneTabsUI();
+        var row = _container.querySelector('.deck-builder__row[data-card-id="' + cardId + '"]');
+        if (row) {
+          var numEl = row.querySelector('.deck-builder__count-num');
+          if (numEl) numEl.textContent = String(_editCounts[_editZone][cardId]);
+        }
+      },
+      getMaxForCard: function () {
+        var sameMaxByZone = { main: 4, hyperspatial: 4, superGR: 2 };
+        return sameMaxByZone[_editZone] || 4;
       },
     });
     _container.appendChild(_visualPanel.el);
