@@ -389,6 +389,14 @@ var DeckVisualPanel = (function () {
     var nameBlock = document.createElement('div');
     nameBlock.className = 'cdi-name-block';
 
+    // Reading (読み仮名) — shown above name in small font when present
+    if (def.reading) {
+      var readingEl = document.createElement('div');
+      readingEl.className   = 'cdi-reading';
+      readingEl.textContent = def.reading;
+      nameBlock.appendChild(readingEl);
+    }
+
     var nameRow = document.createElement('div');
     nameRow.className = 'cdi-name-row';
     var nameEl = document.createElement('span');

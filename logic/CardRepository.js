@@ -338,7 +338,8 @@
       });
     }
 
-    if (t.name && (card.name || '').toLowerCase().indexOf(q) !== -1) return true;
+    if (t.name && (card.name    || '').toLowerCase().indexOf(q) !== -1) return true;
+    if (t.name && (card.reading || '').toLowerCase().indexOf(q) !== -1) return true;
 
     if (t.text) {
       var abilities = Array.isArray(card.abilities) ? card.abilities : [];

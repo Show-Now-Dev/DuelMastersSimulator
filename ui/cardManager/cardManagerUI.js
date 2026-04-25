@@ -216,6 +216,10 @@ var CardManagerUI = (function () {
         className: 'screen-desc',
         textContent: 'ツインパクトカードの編集は直接対応していません。カード登録画面でテキストを貼り付けて再パースしてください（同名カードは上書き保存されます）。',
       }));
+      body.appendChild(_el('p', {
+        className: 'screen-desc',
+        textContent: '読み仮名を設定する場合は、カード登録テキストの1行目に《上面読み仮名／下面読み仮名》の形式で入力してください。',
+      }));
       panel.appendChild(body);
       layer.appendChild(panel);
       return;
@@ -227,6 +231,23 @@ var CardManagerUI = (function () {
       inp.dataset.field = 'name';
       return inp;
     }));
+
+    // Reading (読み仮名) — single field for simple cards; per-form for multi-form cards
+    if (Array.isArray(card.forms) && card.forms.length > 0) {
+      card.forms.forEach(function (form, i) {
+        body.appendChild(_formRow('面' + (i + 1) + ' 読み仮名', function () {
+          var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: form.reading || '' });
+          inp.dataset.field = 'form-reading-' + i;
+          return inp;
+        }));
+      });
+    } else {
+      body.appendChild(_formRow('読み仮名', function () {
+        var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: card.reading || '' });
+        inp.dataset.field = 'reading';
+        return inp;
+      }));
+    }
 
     // Type
     body.appendChild(_formRow('種類', function () {
@@ -293,7 +314,7 @@ var CardManagerUI = (function () {
     // Footer
     var footer = _el('div', { className: 'modal-footer' });
     var saveBtn = _btn('保存', 'modal-confirm-btn', function () {
-      var patch = _collectPatch(panel);
+      var patch = _collectPatch(panel, card);
       var result = CardRepository.updateCard(card.id, patch);
       if (!result.ok) {
         errEl.textContent = result.error;
@@ -310,7 +331,8 @@ var CardManagerUI = (function () {
   }
 
   // Collect field values from the edit modal panel.
-  function _collectPatch(panel) {
+  // card: the original card object (needed to rebuild forms[] for multi-form cards).
+  function _collectPatch(panel, card) {
     var patch = {};
 
     var nameEl = panel.querySelector('[data-field="name"]');
@@ -349,6 +371,25 @@ var CardManagerUI = (function () {
     var abilitiesEl = panel.querySelector('[data-field="abilities"]');
     if (abilitiesEl) {
       patch.abilities = abilitiesEl.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    }
+
+    // Reading — simple card: single field; multi-form card: per-form fields rebuild forms[]
+    if (Array.isArray(card.forms) && card.forms.length > 0) {
+      var updatedForms = card.forms.map(function (form, i) {
+        var el = panel.querySelector('[data-field="form-reading-' + i + '"]');
+        if (!el) return form;
+        var val = el.value.trim();
+        return Object.assign({}, form, val ? { reading: val } : { reading: undefined });
+      });
+      patch.forms   = updatedForms;
+      // Also sync top-level reading to form[0]'s reading (mirrors addCard behavior)
+      patch.reading = updatedForms[0].reading || undefined;
+    } else {
+      var readingEl = panel.querySelector('[data-field="reading"]');
+      if (readingEl) {
+        var rVal = readingEl.value.trim();
+        patch.reading = rVal || undefined;
+      }
     }
 
     return patch;

@@ -337,12 +337,13 @@ var CardEditor = (function () {
     var races = Array.isArray(def.races) && def.races.length ? def.races.join(' / ') : (def.race || '—');
 
     var rows = [
-      ['名前',   def.name  || '—'],
-      ['文明',   civs],
-      ['コスト', def.cost  != null ? def.cost  : '—'],
-      ['種類',   def.type  || '—'],
-      ['種族',   races],
-      ['パワー', def.power != null ? def.power : '—'],
+      ['名前',     def.name    || '—'],
+      ['読み仮名', def.reading || '（なし）'],
+      ['文明',     civs],
+      ['コスト',   def.cost  != null ? def.cost  : '—'],
+      ['種類',     def.type  || '—'],
+      ['種族',     races],
+      ['パワー',   def.power != null ? def.power : '—'],
     ];
 
     if (def.abilities && def.abilities.length) {

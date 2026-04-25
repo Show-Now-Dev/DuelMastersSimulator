@@ -1141,6 +1141,15 @@ select {
   flex-wrap: wrap;
 }
 
+/* Reading (読み仮名) — displayed above card name in small muted text */
+.cdi-reading {
+  font-size: 0.65rem;
+  color: var(--text-muted, #888);
+  line-height: 1.2;
+  margin-bottom: 1px;
+  word-break: break-all;
+}
+
 .cdi-name {
   font-size: 1rem;
   font-weight: 700;

@@ -173,22 +173,45 @@
   //   lines[1] → type line
   //   lines[2+] → abilities
 
+  // ── Reading line parser ───────────────────────────────────────────────────
+  //
+  // If the first line of a block matches 《...》 (full-width angle brackets),
+  // the inner text is extracted as the card's reading (読み仮名) and the
+  // remaining lines are used for normal parsing.
+  //
+  // Returns { reading: string|null, lines: string[] }
+
+  function extractReadingLine(lines) {
+    if (lines.length > 0 && /^《(.+)》$/.test(lines[0])) {
+      return {
+        reading: lines[0].slice(1, -1),
+        lines:   lines.slice(1),
+      };
+    }
+    return { reading: null, lines: lines };
+  }
+
   function parseSingleCard(lines) {
     var errors = [];
 
-    var header = parseHeaderLine(lines[0]);
+    // Extract optional reading line before parsing the rest
+    var extracted = extractReadingLine(lines);
+    var reading   = extracted.reading;
+    var cardLines = extracted.lines;
+
+    var header = parseHeaderLine(cardLines[0]);
     if (!header) {
-      errors.push('ヘッダー行の解析に失敗しました: ' + lines[0]);
+      errors.push('ヘッダー行の解析に失敗しました: ' + (cardLines[0] || lines[0]));
       return { card: null, errors: errors };
     }
 
-    if (lines.length < 2) {
+    if (cardLines.length < 2) {
       errors.push('タイプ行がありません (カード: ' + header.name + ')');
       return { card: null, errors: errors };
     }
 
-    var typeInfo  = parseTypeLine(lines[1]);
-    var abilities = lines.slice(2).map(function (l) { return l.trim(); }).filter(Boolean);
+    var typeInfo  = parseTypeLine(cardLines[1]);
+    var abilities = cardLines.slice(2).map(function (l) { return l.trim(); }).filter(Boolean);
 
     var card = {
       name:         header.name,
@@ -203,6 +226,8 @@
       jokers:       header.jokers || false,
     };
 
+    if (reading != null) card.reading = reading;
+
     return { card: card, errors: errors };
   }
 
@@ -212,13 +237,29 @@
   //   { type: "twin", name: "A / B", sides: [sideA, sideB] }
 
   function parseTwinPact(blockA, blockB) {
-    var rA = parseSingleCard(blockA);
+    // Extract reading from blockA's first line if present.
+    // Format: 《上面読み仮名／下面読み仮名》 — split by full-width slash ／
+    var readingA = null;
+    var readingB = null;
+    var actualBlockA = blockA;
+    if (blockA.length > 0 && /^《(.+)》$/.test(blockA[0])) {
+      var fullReading = blockA[0].slice(1, -1);
+      actualBlockA = blockA.slice(1);
+      var parts = fullReading.split('／');
+      readingA = (parts[0] || '').trim() || null;
+      readingB = (parts[1] || '').trim() || null;
+    }
+
+    var rA = parseSingleCard(actualBlockA);
     var rB = parseSingleCard(blockB);
     var errors = rA.errors.concat(rB.errors);
 
     if (!rA.card || !rB.card) {
       return { card: null, errors: errors };
     }
+
+    if (readingA != null) rA.card.reading = readingA;
+    if (readingB != null) rB.card.reading = readingB;
 
     var card = {
       name:  rA.card.name + ' / ' + rB.card.name,
