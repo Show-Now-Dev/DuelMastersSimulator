@@ -212,97 +212,55 @@ var CardManagerUI = (function () {
     var body = _el('div', { className: 'cm-edit-body' });
 
     if (card.type === 'twin') {
-      body.appendChild(_el('p', {
-        className: 'screen-desc',
-        textContent: 'ツインパクトカードの編集は直接対応していません。カード登録画面でテキストを貼り付けて再パースしてください（同名カードは上書き保存されます）。',
-      }));
-      body.appendChild(_el('p', {
-        className: 'screen-desc',
-        textContent: '読み仮名を設定する場合は、カード登録テキストの1行目に《上面読み仮名／下面読み仮名》の形式で入力してください。',
-      }));
+      (card.sides || []).forEach(function (side, i) {
+        var section = _el('div', { className: 'cm-edit-side-section' });
+        section.dataset.twinSide = String(i);
+        section.appendChild(_el('div', {
+          className:   'cm-edit-side-label',
+          textContent: i === 0 ? '▲ 上面' : '▼ 下面',
+        }));
+        _buildSideFields(section, side);
+        body.appendChild(section);
+      });
       panel.appendChild(body);
+
+      var errEl = _el('p', { className: 'msg msg--error', textContent: '' });
+      errEl.style.display = 'none';
+      panel.appendChild(errEl);
+
+      var footer = _el('div', { className: 'modal-footer' });
+      footer.appendChild(_btn('保存', 'modal-confirm-btn', function () {
+        var patch = _collectPatch(panel, card);
+        var result = CardRepository.updateCard(card.id, patch);
+        if (!result.ok) {
+          errEl.textContent = result.error;
+          errEl.style.display = '';
+          return;
+        }
+        _closeModal();
+        _refreshList();
+      }));
+      panel.appendChild(footer);
       layer.appendChild(panel);
       return;
     }
 
-    // Name
-    body.appendChild(_formRow('カード名', function () {
-      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: card.name || '' });
-      inp.dataset.field = 'name';
-      return inp;
-    }));
-
-    // Reading (読み仮名) — single field for simple cards; per-form for multi-form cards
     if (Array.isArray(card.forms) && card.forms.length > 0) {
+      // Multi-form card: one section per form with per-form reading field
       card.forms.forEach(function (form, i) {
-        body.appendChild(_formRow('面' + (i + 1) + ' 読み仮名', function () {
-          var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: form.reading || '' });
-          inp.dataset.field = 'form-reading-' + i;
-          return inp;
+        var section = _el('div', { className: 'cm-edit-side-section' });
+        section.dataset.formIndex = String(i);
+        section.appendChild(_el('div', {
+          className:   'cm-edit-side-label',
+          textContent: '面' + (i + 1),
         }));
+        _buildSideFields(section, form);
+        body.appendChild(section);
       });
     } else {
-      body.appendChild(_formRow('読み仮名', function () {
-        var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: card.reading || '' });
-        inp.dataset.field = 'reading';
-        return inp;
-      }));
+      // Simple card: all fields in the body directly
+      _buildSideFields(body, card);
     }
-
-    // Type
-    body.appendChild(_formRow('種類', function () {
-      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: card.type || '' });
-      inp.dataset.field = 'type';
-      return inp;
-    }));
-
-    // Civilization (checkboxes)
-    body.appendChild(_formRow('文明', function () {
-      var cardCivs = Array.isArray(card.civilization) ? card.civilization : (card.civilization ? [card.civilization] : []);
-      var group = _el('div', { className: 'cm-civ-group', dataset: { field: 'civilization' } });
-      CIVS.forEach(function (civ) {
-        var lbl = document.createElement('label');
-        lbl.className = 'cm-civ-label cm-civ--' + civ;
-        var cb = document.createElement('input');
-        cb.type    = 'checkbox';
-        cb.value   = civ;
-        cb.checked = cardCivs.indexOf(civ) !== -1;
-        lbl.appendChild(cb);
-        lbl.appendChild(document.createTextNode(CIV_LABELS[civ]));
-        group.appendChild(lbl);
-      });
-      return group;
-    }));
-
-    // Cost
-    body.appendChild(_formRow('コスト', function () {
-      return _buildInfInput('cost', card.cost);
-    }));
-
-    // Power (creature only — matches any subtype containing "クリーチャー")
-    if (card.type && card.type.indexOf('クリーチャー') !== -1) {
-      body.appendChild(_formRow('パワー', function () {
-        return _buildInfInput('power', card.power);
-      }));
-    }
-
-    // Races
-    body.appendChild(_formRow('種族（スラッシュ区切り）', function () {
-      var races = Array.isArray(card.races) ? card.races.join(' / ') : (card.race || '');
-      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: races });
-      inp.dataset.field = 'races';
-      return inp;
-    }));
-
-    // Abilities
-    body.appendChild(_formRow('テキスト（1行1能力）', function () {
-      var ta = document.createElement('textarea');
-      ta.className   = 'cm-edit-input cm-edit-textarea';
-      ta.rows        = 5;
-      ta.dataset.field = 'abilities';
-      ta.value = Array.isArray(card.abilities) ? card.abilities.join('\n') : (card.text || '');
-      return ta;
-    }));
 
     panel.appendChild(body);
 
@@ -330,69 +288,158 @@ var CardManagerUI = (function () {
     layer.appendChild(panel);
   }
 
-  // Collect field values from the edit modal panel.
-  // card: the original card object (needed to rebuild forms[] for multi-form cards).
-  function _collectPatch(panel, card) {
-    var patch = {};
+  // Appends all editable fields for one card face (used for both simple cards and twin sides).
+  // container: the DOM element to append rows into.
+  // def: the card or side object to read initial values from.
+  function _buildSideFields(container, def) {
+    // Reading
+    container.appendChild(_formRow('読み仮名', function () {
+      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: def.reading || '' });
+      inp.dataset.field = 'reading';
+      return inp;
+    }));
 
-    var nameEl = panel.querySelector('[data-field="name"]');
-    if (nameEl) patch.name = nameEl.value.trim();
+    // Name
+    container.appendChild(_formRow('カード名', function () {
+      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: def.name || '' });
+      inp.dataset.field = 'name';
+      return inp;
+    }));
 
-    var typeEl = panel.querySelector('[data-field="type"]');
-    if (typeEl) patch.type = typeEl.value;
+    // Type
+    container.appendChild(_formRow('種類', function () {
+      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: def.type || '' });
+      inp.dataset.field = 'type';
+      return inp;
+    }));
 
-    var civGroup = panel.querySelector('[data-field="civilization"]');
+    // Civilization
+    container.appendChild(_formRow('文明', function () {
+      var cardCivs = Array.isArray(def.civilization) ? def.civilization : (def.civilization ? [def.civilization] : []);
+      var group = _el('div', { className: 'cm-civ-group', dataset: { field: 'civilization' } });
+      CIVS.forEach(function (civ) {
+        var lbl = document.createElement('label');
+        lbl.className = 'cm-civ-label cm-civ--' + civ;
+        var cb = document.createElement('input');
+        cb.type    = 'checkbox';
+        cb.value   = civ;
+        cb.checked = cardCivs.indexOf(civ) !== -1;
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(CIV_LABELS[civ]));
+        group.appendChild(lbl);
+      });
+      return group;
+    }));
+
+    // Cost
+    container.appendChild(_formRow('コスト', function () {
+      return _buildInfInput('cost', def.cost);
+    }));
+
+    // Power (creature only)
+    if (def.type && def.type.indexOf('クリーチャー') !== -1) {
+      container.appendChild(_formRow('パワー', function () {
+        return _buildInfInput('power', def.power);
+      }));
+    }
+
+    // Races
+    container.appendChild(_formRow('種族（スラッシュ区切り）', function () {
+      var races = Array.isArray(def.races) ? def.races.join(' / ') : (def.race || '');
+      var inp = _el('input', { type: 'text', className: 'cm-edit-input', value: races });
+      inp.dataset.field = 'races';
+      return inp;
+    }));
+
+    // Abilities
+    container.appendChild(_formRow('テキスト（1行1能力）', function () {
+      var ta = document.createElement('textarea');
+      ta.className     = 'cm-edit-input cm-edit-textarea';
+      ta.rows          = 4;
+      ta.dataset.field = 'abilities';
+      ta.value = Array.isArray(def.abilities) ? def.abilities.join('\n') : (def.text || '');
+      return ta;
+    }));
+  }
+
+  // Extract all editable field values from a container element into a plain object.
+  // Used for both simple cards and individual twin/multi-form side sections.
+  function _collectFromContainer(container, base) {
+    var result = Object.assign({}, base);
+
+    var readingEl = container.querySelector('[data-field="reading"]');
+    if (readingEl) result.reading = readingEl.value.trim() || undefined;
+
+    var nameEl = container.querySelector('[data-field="name"]');
+    if (nameEl) result.name = nameEl.value.trim();
+
+    var typeEl = container.querySelector('[data-field="type"]');
+    if (typeEl) result.type = typeEl.value.trim();
+
+    var civGroup = container.querySelector('[data-field="civilization"]');
     if (civGroup) {
-      patch.civilization = Array.prototype.slice.call(civGroup.querySelectorAll('input[type="checkbox"]:checked'))
+      result.civilization = Array.prototype.slice.call(civGroup.querySelectorAll('input[type="checkbox"]:checked'))
         .map(function (cb) { return cb.value; });
     }
 
-    var costInfEl = panel.querySelector('[data-field="cost-inf"]');
-    var costEl    = panel.querySelector('[data-field="cost"]');
+    var costInfEl = container.querySelector('[data-field="cost-inf"]');
+    var costEl    = container.querySelector('[data-field="cost"]');
     if (costInfEl && costInfEl.checked) {
-      patch.cost = '∞';
+      result.cost = '∞';
     } else if (costEl && costEl.value !== '') {
-      patch.cost = parseInt(costEl.value, 10);
+      result.cost = parseInt(costEl.value, 10);
     }
 
-    var powerInfEl = panel.querySelector('[data-field="power-inf"]');
-    var powerEl    = panel.querySelector('[data-field="power"]');
+    var powerInfEl = container.querySelector('[data-field="power-inf"]');
+    var powerEl    = container.querySelector('[data-field="power"]');
     if (powerInfEl && powerInfEl.checked) {
-      patch.power = '∞';
+      result.power = '∞';
     } else if (powerEl && powerEl.value !== '') {
-      patch.power = parseInt(powerEl.value, 10);
+      result.power = parseInt(powerEl.value, 10);
     }
 
-    var racesEl = panel.querySelector('[data-field="races"]');
+    var racesEl = container.querySelector('[data-field="races"]');
     if (racesEl) {
-      patch.races = racesEl.value.split('/').map(function (r) { return r.trim(); }).filter(Boolean);
+      result.races = racesEl.value.split('/').map(function (r) { return r.trim(); }).filter(Boolean);
     }
 
-    var abilitiesEl = panel.querySelector('[data-field="abilities"]');
+    var abilitiesEl = container.querySelector('[data-field="abilities"]');
     if (abilitiesEl) {
-      patch.abilities = abilitiesEl.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      result.abilities = abilitiesEl.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
     }
 
-    // Reading — simple card: single field; multi-form card: per-form fields rebuild forms[]
+    return result;
+  }
+
+  // Collect field values from the edit modal panel.
+  // card: the original card object (needed to rebuild sides[] / forms[]).
+  function _collectPatch(panel, card) {
+    // ── Twin: collect per-side ───────────────────────────────────────────────
+    if (card.type === 'twin') {
+      var updatedSides = (card.sides || []).map(function (side, i) {
+        var container = panel.querySelector('[data-twin-side="' + i + '"]');
+        return container ? _collectFromContainer(container, side) : side;
+      });
+      return {
+        sides: updatedSides,
+        name:  updatedSides.map(function (s) { return s.name || ''; }).filter(Boolean).join(' / '),
+      };
+    }
+
+    // ── Multi-form: collect per-form, rebuild forms[] ────────────────────────
     if (Array.isArray(card.forms) && card.forms.length > 0) {
       var updatedForms = card.forms.map(function (form, i) {
-        var el = panel.querySelector('[data-field="form-reading-' + i + '"]');
-        if (!el) return form;
-        var val = el.value.trim();
-        return Object.assign({}, form, val ? { reading: val } : { reading: undefined });
+        var container = panel.querySelector('[data-form-index="' + i + '"]');
+        return container ? _collectFromContainer(container, form) : form;
       });
-      patch.forms   = updatedForms;
-      // Also sync top-level reading to form[0]'s reading (mirrors addCard behavior)
-      patch.reading = updatedForms[0].reading || undefined;
-    } else {
-      var readingEl = panel.querySelector('[data-field="reading"]');
-      if (readingEl) {
-        var rVal = readingEl.value.trim();
-        patch.reading = rVal || undefined;
-      }
+      return {
+        forms:   updatedForms,
+        reading: updatedForms[0] ? updatedForms[0].reading : undefined,
+      };
     }
 
-    return patch;
+    // ── Simple card: collect from body directly ──────────────────────────────
+    return _collectFromContainer(panel, {});
   }
 
   function _closeModal() {

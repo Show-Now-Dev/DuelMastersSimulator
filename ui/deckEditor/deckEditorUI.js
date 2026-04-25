@@ -186,7 +186,6 @@ var DeckEditorUI = (function () {
     // Search panel
     var totalEl = _el('div', { className: 'deck-builder__total' });
     _container.appendChild(CardSearchUI.build({
-      alwaysShowFreeword: true,
       filters:  _editFilters,
       onChange: function (newFilters) {
         _editFilters = newFilters;

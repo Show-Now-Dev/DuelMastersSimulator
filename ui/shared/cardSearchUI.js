@@ -52,9 +52,10 @@ var CardSearchUI = (function () {
   function build(options) {
     var filters            = options.filters  || defaultFilters();
     var onChange           = options.onChange || function () {};
-    // When true: freeword + search/clear buttons are always visible;
+    // When true (default): freeword + search/clear buttons are always visible;
     // the remaining filter rows (checkboxes, cost, etc.) start collapsed.
-    var alwaysShowFreeword = !!options.alwaysShowFreeword;
+    // Pass alwaysShowFreeword: false to revert to the old fully-collapsed accordion.
+    var alwaysShowFreeword = options.alwaysShowFreeword !== false;
 
     // Back-fill any missing keys so the panel always has a complete state
     if (filters.freeword             == null) filters.freeword            = '';

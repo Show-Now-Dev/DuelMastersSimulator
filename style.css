@@ -2256,8 +2256,25 @@ select {
 /* Edit modal (shares .modal-panel base) */
 
 .cm-edit-modal {
-  max-width: 520px;
+  max-width: 560px;
   width: 90%;
+}
+
+/* Twin / multi-form side section */
+.cm-edit-side-section {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cm-edit-side-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-muted, #666);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border, #ddd);
 }
 
 .cm-edit-body {

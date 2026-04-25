@@ -118,7 +118,6 @@ var DeckBuilderUI = (function () {
 
     // Search panel
     _container.appendChild(CardSearchUI.build({
-      alwaysShowFreeword: true,
       filters:  _filters,
       onChange: function (newFilters) {
         _filters = newFilters;
