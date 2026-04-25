@@ -169,7 +169,7 @@ var CardSearchUI = (function () {
     collapsible.appendChild(colorModeRow);
 
     // ── Row 3: Civilization include ──────────────────────────────────────────
-    var civRow = _el('div', { className: 'cm-search-row' });
+    var civRow = _el('div', { className: 'cm-search-row cm-civ-row' });
     civRow.appendChild(_el('label', { className: 'cm-search-label', textContent: '文明:' }));
     var civGroup = _el('div', { className: 'cm-civ-group' });
     var civChecks = {};
@@ -248,7 +248,6 @@ var CardSearchUI = (function () {
       value:       filters.costMax != null ? String(filters.costMax) : '',
     });
     costRow.appendChild(costMaxIn);
-    collapsible.appendChild(costRow);
 
     // ── Row 6: Twin pact ─────────────────────────────────────────────────────
     var twinRow = _el('div', { className: 'cm-search-row' });
@@ -261,6 +260,8 @@ var CardSearchUI = (function () {
     twinLbl.appendChild(document.createTextNode('ツインパクトを含む'));
     twinRow.appendChild(twinLbl);
     collapsible.appendChild(twinRow);
+
+    collapsible.appendChild(costRow);
 
     // ── Row 7: Power range ───────────────────────────────────────────────────
     var powerRow = _el('div', { className: 'cm-search-row' });

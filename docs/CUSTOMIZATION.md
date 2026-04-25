@@ -153,3 +153,95 @@ header h1 → font-size: 1.1rem
 | 全ボタンを押しやすく | `button` | `padding` |
 | ゾーン名を大きく | `.zone-title` | `font-size` の係数 |
 | ∽ バッジの横幅を変える | `.link-badge` | `left` / `right` の係数 |
+
+---
+
+## カード検索パネルのレイアウト
+
+### 行の表示順を変えたい
+
+**ファイル**: `ui/shared/cardSearchUI.js`
+
+`collapsible.appendChild(...)` の呼び出し順が、そのまま画面上の表示順になる。
+行を上下に移動したい場合は、**対応する変数の「ビルド〜append」ひとかたまりを**切り取って別の位置に貼り付ける。
+
+現在の並び順（変数名 → 表示内容）:
+
+| 変数名 | 表示内容 |
+|---|---|
+| `freewordRow` | フリーワード入力 + OR/AND ピル |
+| `targetRow` | カード名 / テキスト / 種族 チェックボックス |
+| `colorModeRow` | 単色 / 多色 |
+| `civRow` | 文明（光〜無色） |
+| `excludeRow` | 除外文明（多色チェック時のみ表示） |
+| `twinRow` | ツインパクトを含む |
+| `costRow` | コスト範囲 |
+| `powerRow` | パワー範囲 |
+| `btnRow` | 検索 / クリア ボタン |
+
+**例: `powerRow` を `costRow` の上に移動する**  
+`collapsible.appendChild(powerRow)` の行を `collapsible.appendChild(costRow)` の直前に移動するだけでよい。
+ただし変数は使う前に宣言されている必要があるので、ビルドコード（`var powerRow = ...` から `powerRow.appendChild(...)` まで）ごと移動すること。
+
+### チェックボックス行（カード名・テキスト・種族）の左余白を変えたい
+
+**ファイル**: `style.css`
+
+```css
+.cm-search-row--sub {
+  padding-left: 0;   /* 現在値。5rem にするとフリーワード入力の左端に揃う */
+}
+```
+
+### 文明チェックボックスをスマホで1行に収めたい
+
+**ファイル**: `style.css`
+
+以下のクラスで折り返し禁止・横スクロールを制御している（現在この設定で実装済み）:
+
+```css
+.cm-civ-row            { flex-wrap: nowrap; overflow-x: auto; }
+.cm-civ-row .cm-civ-group { flex-wrap: nowrap; }
+```
+
+チップ自体のサイズを縮小してスクロールなしで収めたい場合は `style.css` の `.cm-civ-label` を調整する:
+
+```css
+.cm-civ-label {
+  padding: 0.15rem 0.35rem;   /* 現在: 0.2rem 0.5rem */
+  font-size: 0.75rem;          /* 現在: 0.8rem */
+}
+```
+
+### 特定の行を非表示にしたい
+
+各行には固有クラスが付いていないため、`style.css` での非表示はセレクタが複雑になる。  
+JS 側で対象の行変数に専用クラスを追加しておくのが確実:
+
+```javascript
+// ui/shared/cardSearchUI.js で該当行のクラスを追加
+var powerRow = _el('div', { className: 'cm-search-row cm-power-row' });
+```
+
+```css
+/* style.css で非表示 */
+.cm-power-row { display: none; }
+```
+
+### OR/AND ピルの見た目を変えたい
+
+**ファイル**: `style.css`
+
+```css
+/* ピル全体のサイズ・角丸 */
+.cm-or-and-pill { border-radius: 999px; }
+
+/* 各セグメントの余白・文字サイズ */
+.cm-or-and-pill__seg { padding: 0.18rem 0.7rem; font-size: 0.78rem; }
+
+/* アクティブ色（現在はアクセントカラー） */
+.cm-or-and-pill[data-mode="or"]  .cm-or-and-pill__seg--or,
+.cm-or-and-pill[data-mode="and"] .cm-or-and-pill__seg--and {
+  background: var(--accent);   /* 色を変えるにはここを書き換える */
+}
+```

@@ -1767,6 +1767,15 @@ select {
   text-shadow: 0 1px 2px rgba(0,0,0,0.7);
 }
 
+/* 文明行: スマホでも光〜無色が1行に収まるよう折り返し禁止・横スクロール許可 */
+.cm-civ-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.cm-civ-row .cm-civ-group {
+  flex-wrap: nowrap;
+}
+
 /* Exclude-civ row: slightly indented to visually link to multi toggle */
 .cm-exclude-row { padding-left: 0.5rem; border-left: 2px solid var(--border-2); }
 
@@ -1811,7 +1820,7 @@ select {
 
 /* Sub-row indent (target checkboxes sit under the freeword input) */
 .cm-search-row--sub {
-  padding-left: 5rem;   /* align with the input (label width ≈ 5rem) */
+  padding-left: 0;   /* 5rem にするとフリーワード入力の左端に揃う */
 }
 
 .cm-card-list {
