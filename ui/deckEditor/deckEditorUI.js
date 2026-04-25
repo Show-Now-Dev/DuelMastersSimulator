@@ -30,6 +30,7 @@ var DeckEditorUI = (function () {
   // DOM refs for reactive zone badge updates
   var _zoneBadgeEls  = {};
   var _zoneTabBtns   = {};
+  var _visualPanel   = null;  // deck visual panel instance
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -146,6 +147,26 @@ var DeckEditorUI = (function () {
     _loadEntries(deck.cards || [],             'main');
     _loadEntries(deck.hyperspatialCards || [], 'hyperspatial');
     _loadEntries(deck.superGRCards || [],      'superGR');
+
+    // Deck visual panel
+    _visualPanel = DeckVisualPanel.build({
+      getZone:     function () { return _editZone; },
+      getCounts:   function () { return _editCounts[_editZone]; },
+      getCards:    function () { return CardRepository.getAllCards(); },
+      onDecrement: function (cardId) {
+        _editCounts[_editZone][cardId] = Math.max(0, (_editCounts[_editZone][cardId] || 0) - 1);
+        var totalEl = _container.querySelector('.deck-builder__total');
+        _updateEditTotal(totalEl);
+        _updateEditZoneTabsUI();
+        // Also update the count number in the visible card list row
+        var row = _container.querySelector('.deck-builder__row[data-card-id="' + cardId + '"]');
+        if (row) {
+          var numEl = row.querySelector('.deck-builder__count-num');
+          if (numEl) numEl.textContent = String(_editCounts[_editZone][cardId]);
+        }
+      },
+    });
+    _container.appendChild(_visualPanel.el);
 
     // Search panel
     var totalEl = _el('div', { className: 'deck-builder__total' });
@@ -319,6 +340,8 @@ var DeckEditorUI = (function () {
     el.className   = 'deck-builder__total'
       + (exact && total > 0 ? ' is-valid' : '')
       + (total > max        ? ' is-over'  : '');
+
+    if (_visualPanel) _visualPanel.refresh();
   }
 
   // ── Edit card list ──────────────────────────────────────────────────────────

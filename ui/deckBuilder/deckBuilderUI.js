@@ -30,6 +30,7 @@ var DeckBuilderUI = (function () {
   var _zoneBadgeEls   = {};
   var _zoneTabBtns    = {};
   var _totalEl        = null;
+  var _visualPanel    = null;  // deck visual panel instance
 
   function init(container, onSave) {
     _container = container;
@@ -87,6 +88,21 @@ var DeckBuilderUI = (function () {
     nameRow.appendChild(nameLabel);
     nameRow.appendChild(nameInput);
     _container.appendChild(nameRow);
+
+    // Deck visual panel
+    _visualPanel = DeckVisualPanel.build({
+      getZone:     function () { return _activeZone; },
+      getCounts:   function () { return _countsByZone[_activeZone]; },
+      getCards:    function () { return _allCards; },
+      onDecrement: function (cardId) {
+        var counts = _countsByZone[_activeZone];
+        counts[cardId] = Math.max(0, (counts[cardId] || 0) - 1);
+        _updateTotal();
+        _updateZoneTabsUI();
+        _refreshCardList();
+      },
+    });
+    _container.appendChild(_visualPanel.el);
 
     // Search panel
     _container.appendChild(CardSearchUI.build({
@@ -254,9 +270,14 @@ var DeckBuilderUI = (function () {
 
   function _validateBeforeSave() {
     var mainTotal = _zoneTotal('main');
-    if (mainTotal !== 40) {
-      alert('メインデッキは40枚にしてください（現在: ' + mainTotal + ' 枚）');
+    if (mainTotal === 0) {
+      alert('メインデッキにカードが入っていません。');
       return false;
+    }
+    if (mainTotal < 40) {
+      if (!confirm('メインデッキが ' + mainTotal + ' 枚（目標 40 枚）です。このまま保存しますか？')) return false;
+    } else if (mainTotal > 40) {
+      if (!confirm('メインデッキが 40 枚を超えています（現在: ' + mainTotal + ' 枚）。\n特殊ルールカードによる枚数増加として保存しますか？')) return false;
     }
     var hypTotal = _zoneTotal('hyperspatial');
     if (hypTotal > 8) {
@@ -265,8 +286,7 @@ var DeckBuilderUI = (function () {
     }
     var grTotal = _zoneTotal('superGR');
     if (grTotal !== 0 && grTotal !== 12) {
-      alert('超GRゾーンは0枚か12枚にしてください（現在: ' + grTotal + ' 枚）');
-      return false;
+      if (!confirm('超GRゾーンが ' + grTotal + ' 枚（0 または 12 枚が正規）です。このまま保存しますか？')) return false;
     }
     return true;
   }
@@ -285,6 +305,8 @@ var DeckBuilderUI = (function () {
     _totalEl.className   = 'deck-builder__total'
       + (exact && total > 0 ? ' is-valid' : '')
       + (over              ? ' is-over'  : '');
+
+    if (_visualPanel) _visualPanel.refresh();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -1453,6 +1453,129 @@ select {
   border: 1px solid rgba(22, 163, 74, 0.3);
 }
 
+/* ── Deck visual panel ───────────────────────────────────────────────────── */
+
+.dvp-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.dvp-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dvp-title {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dvp-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dvp-count.is-valid { color: #4ade80; }
+.dvp-count.is-over  { color: #fb923c; }   /* orange — allowed but notable */
+
+.dvp-toggle {
+  background: none;
+  border: 1px solid var(--border-2);
+  border-radius: 0.25rem;
+  color: var(--muted);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.dvp-toggle:hover {
+  color: var(--text);
+  border-color: var(--muted);
+  background: none;
+}
+
+.dvp-grid-wrap { margin-top: 0.6rem; }
+.dvp-grid-wrap.is-collapsed { display: none; }
+
+.dvp-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--dvp-cols, 8), 1fr);
+  gap: 3px;
+}
+
+/* ── Slots ──────────────────────────────────────────────────────────────── */
+
+.dvp-slot {
+  height: 24px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Empty slot within the standard 40 */
+.dvp-slot--empty {
+  border: 1px dashed var(--border-2);
+}
+
+/* Extension territory (slots 41–45, 46–50, …) */
+.dvp-slot--ext-empty {
+  border: 1px dashed rgba(251, 146, 60, 0.45);
+  background: rgba(251, 146, 60, 0.05);
+}
+
+/* Filled slot */
+.dvp-slot--filled {
+  cursor: pointer;
+  opacity: 0.82;
+  transition: opacity 0.1s, filter 0.1s;
+}
+
+.dvp-slot--filled:hover {
+  opacity: 1;
+  filter: brightness(1.18);
+}
+
+/* Filled extension slot — thin accent outline to distinguish from standard */
+.dvp-slot--ext-filled {
+  outline: 1px solid rgba(251, 146, 60, 0.6);
+  outline-offset: -1px;
+}
+
+.dvp-slot-cost {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+
+.dvp-slot-name {
+  font-size: 0.62rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 /* ── Deck builder screen ─────────────────────────────────────────────────── */
 
 .deck-builder__name-row {
