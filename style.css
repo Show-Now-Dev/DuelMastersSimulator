@@ -1360,6 +1360,102 @@ select {
   border-top: 1px solid var(--border);
 }
 
+/* ── Card editor — wiki sample section ───────────────────────────────────── */
+
+.card-editor__sample {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.card-editor__sample > summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-muted, #888);
+  user-select: none;
+  list-style: none;         /* hide default ▶ marker */
+  padding: 2px 0;
+}
+.card-editor__sample > summary::before {
+  content: '▶ ';
+  font-size: 0.7rem;
+}
+.card-editor__sample[open] > summary::before {
+  content: '▼ ';
+}
+
+.card-editor__sample-body {
+  padding: 0.25rem 0 0.25rem 0.5rem;
+}
+
+.card-editor__sample-label {
+  font-size: 0.75rem;
+  color: var(--text-muted, #888);
+  margin: 0.5rem 0 0.2rem;
+}
+
+.card-editor__sample-pre {
+  font-family: monospace;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  background: var(--surface-alt, #f5f5f5);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.card-editor__sample-copy {
+  margin-top: 0.4rem;
+}
+
+/* DM-wiki card info box mock */
+.dm-wiki-box {
+  border: 1px solid #a2a9b1;
+  border-radius: 2px;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #202122;
+  background: #fff;
+}
+
+.dm-wiki-box__header {
+  background: #534741;
+  color: #fff;
+  padding: 5px 8px;
+}
+
+.dm-wiki-box__name {
+  font-size: 0.95rem;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.dm-wiki-box__name ruby rt {
+  font-size: 0.55rem;
+}
+
+.dm-wiki-box__face-label {
+  background: #dce9f3;
+  color: #3366cc;
+  font-weight: bold;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-top: 1px solid #a2a9b1;
+  border-bottom: 1px solid #a2a9b1;
+}
+
+.dm-wiki-box__row {
+  padding: 3px 8px;
+  border-bottom: 1px solid #eaecf0;
+  word-break: break-all;
+}
+
+.dm-wiki-box__row:nth-child(even) {
+  background: #f8f9fa;
+}
+
 /* ── Card editor screen ──────────────────────────────────────────────────── */
 
 .card-editor__input {

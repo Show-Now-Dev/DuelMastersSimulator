@@ -133,11 +133,7 @@ var CardEditor = (function () {
     var textarea     = document.createElement('textarea');
     textarea.className   = 'card-editor__input';
     textarea.rows        = 10;
-    textarea.placeholder = [
-      '(サンプル)超越男　P(R)　光/水/闇/火/自然文明　(5)',
-      'クリーチャー：アウトレイジ/ハンター　2000+',
-      'S・トリガー',
-    ].join('\n');
+    textarea.placeholder = 'Wikiからコピーしたテキストをここへ貼り付け';
 
     var parseBtn = _el('button', { className: 'btn', textContent: '解析する' });
     var clearBtn = _el('button', { className: 'btn', textContent: 'クリア' });
@@ -168,6 +164,38 @@ var CardEditor = (function () {
     });
 
     container.appendChild(textarea);
+
+    // ── メインゾーン サンプル ──────────────────────────────────────────────────
+    // ▼ サンプル内容を変更したい場合は faces 配列を編集してください。
+    //   _buildSampleWidget の使い方は下記の関数定義のコメントを参照。
+    container.appendChild(_buildSampleWidget({
+      summaryText: 'Wikiからのコピー方法（サンプル）',
+      faces: [
+        // ── 上面 ──────────────────────────────────────────────────────────────
+        // nameHTML: ルビ付きカード名を HTML で記述（<ruby>漢字<rt>ふりがな</rt></ruby>）
+        {
+          nameHTML: '《<ruby>満韻炎霊<rt>イフリート・フリート</rt></ruby>キャノンボール》',
+          rows: [
+            '満韻炎霊 キャノンボール　R　火文明　(3)',
+            'クリーチャー：マジック・アウトレイジ　3000',
+            '相手のクリーチャーが、相手の手札以外から出た時、自分のツインパクト・クリーチャー1体の呪文側を、バトルゾーンに置いたままコストを支払わずに唱えてもよい。',
+          ],
+        },
+        // ── ツインパクトの区切り（貼り付けテキストでは上下の間を1行空ける） ──
+        { divider: '（ツインパクトは1行空ける）' },
+        // ── 下面 ──────────────────────────────────────────────────────────────
+        {
+          nameHTML: '《♪<ruby>夏草<rt>なつくさ</rt></ruby>や イフリートによる <ruby>夢<rt>ゆめ</rt></ruby>の<ruby>跡<rt>あと</rt></ruby>》',
+          rows: [
+            '♪夏草や イフリートによる 夢の跡　R　火文明　(5)',
+            '呪文：マジック・ソング',
+            'S・トリガー',
+            '相手のパワー12000以下のクリーチャーを1体選び、破壊する。',
+          ],
+        },
+      ],
+    }));
+
     container.appendChild(parseBtn);
     container.appendChild(clearBtn);
   }
@@ -177,9 +205,42 @@ var CardEditor = (function () {
   function _addHyperspatialInputs(container, preview, saveBtn, setParsed) {
     var taObjs = [];
 
-    function _makeTA(labelText) {
+    // ── 超次元 サンプル（全面まとめて表示） ──────────────────────────────────
+    // ▼ サンプル内容を変更したい場合は faces 配列を編集してください。
+    //   各面は実際には別々のテキストボックスへ貼り付けます（面1→ボックス1、面2→ボックス2）。
+    //   _buildSampleWidget の使い方は下記の関数定義のコメントを参照。
+    container.appendChild(_buildSampleWidget({
+      summaryText: 'Wikiからのコピー方法（サンプル）',
+      faces: [
+        // ── 面1（覚醒前 / ウエポン など） ────────────────────────────────────
+        // nameText: ルビなしの場合はこちら（《》ごと書く）
+        {
+          nameText: '《ガイアール・カイザー》',
+          rows: [
+            'ガイアール・カイザー R 火文明 (8)',
+            'クリーチャー：レッド・コマンド・ドラゴン/サムライ 7000',
+            'スピードアタッカー（このクリーチャーは召喚酔いしない）',
+            'W・ブレイカー（このクリーチャーはシールドを2枚ブレイクする）',
+          ],
+        },
+        // ── 面の区切り ────────────────────────────────────────────────────────
+        { divider: '── 面2（それぞれのテキストボックスへ別々に貼り付け）──' },
+        // ── 面2（覚醒後 / フォートレス など） ───────────────────────────────
+        {
+          nameText: '《ガイアール・オウドラゴン》',
+          rows: [
+            'ガイアール・オウドラゴン R 火文明 (8)',
+            '進化クリーチャー：レッド・コマンド・ドラゴン/サムライ 13000',
+            'スピードアタッカー',
+            'T・ブレイカー（このクリーチャーはシールドを3枚ブレイクする）',
+          ],
+        },
+      ],
+    }));
+
+    function _makeTA(label) {
       var block = _el('div', { className: 'card-editor__face-block' });
-      block.appendChild(_el('div', { className: 'card-editor__face-label', textContent: labelText }));
+      block.appendChild(_el('div', { className: 'card-editor__face-label', textContent: label }));
       var ta = document.createElement('textarea');
       ta.className   = 'card-editor__input card-editor__input--face';
       ta.rows        = 6;
@@ -298,8 +359,126 @@ var CardEditor = (function () {
     });
 
     container.appendChild(textarea);
+
+    // ── 超GR サンプル ─────────────────────────────────────────────────────────
+    // ▼ サンプル内容を変更したい場合は faces 配列内のブロックを編集してください。
+    //   _buildSampleWidget の使い方は下記の関数定義のコメントを参照。
+    container.appendChild(_buildSampleWidget({
+      faces: [
+        {
+          nameText: '《インビンシブル・テクノロジー》',
+          rows: [
+            'インビンシブル・テクノロジー R 光文明 (7)',
+            'クリーチャー：メカ・デル・ソル 5500',
+            'ブロッカー',
+            'このクリーチャーがバトルゾーンに出た時、相手のクリーチャーを1体選び、タップする。そのクリーチャーは次の相手のターンのはじめにアンタップしない。',
+          ],
+        },
+      ],
+    }));
+
     container.appendChild(parseBtn);
     container.appendChild(clearBtn);
+  }
+
+  // ── Wiki-style sample section builder ────────────────────────────────────────
+  //
+  // _buildSampleWidget(config) でサンプルウィジェット（折りたたみ）を生成する。
+  // メイン・超次元・超GR のすべてで共通して使う関数。
+  //
+  // ■ config の構造
+  // {
+  //   summaryText: string,  // 折りたたみ見出し（省略時 'サンプルを見る'）
+  //   faces: Array          // 表示するブロックの配列（下記参照）
+  // }
+  //
+  // ■ faces 配列の要素は 2 種類
+  //
+  // 【カードブロック】― 1 枚分のカード情報を Wiki 風に表示する
+  // {
+  //   nameHTML: string,  // ヘッダーに表示するHTML（<ruby>タグでルビを付けられる）
+  //                      //   例: '《<ruby>満韻炎霊<rt>イフリート・フリート</rt></ruby>キャノンボール》'
+  //   nameText: string,  // ルビが不要なら nameText に文字列で書く（nameHTML が優先）
+  //                      //   例: '《ガイアール・カイザー》'
+  //   rows:    string[], // データ行（Wiki からコピーした各行をそのまま配列に）
+  // }
+  //
+  // 【区切り行】― ツインパクトや面の切れ目を示す青いセパレータ行
+  // {
+  //   divider: string    // 区切り行に表示するテキスト
+  // }
+  //
+  // ■ サンプル内容の変更方法
+  //   ・カード名（ヘッダー）: nameHTML または nameText を書き換える
+  //   ・データ行: rows 配列の文字列を書き換える
+  //   ・行を増減: rows 配列に要素を追加・削除する
+  //
+  // ■ サンプルブロックを増やす／構成を変える方法
+  //   faces 配列の要素数と順序で表示内容が決まる。
+  //
+  //   単体カード（通常）:
+  //     faces: [ { nameText: '《カード名》', rows: ['行1', '行2'] } ]
+  //
+  //   ツインパクト:
+  //     faces: [
+  //       { nameHTML: '《上面名》', rows: [...] },
+  //       { divider: '（ツインパクトは1行空ける）' },
+  //       { nameHTML: '《下面名》', rows: [...] },
+  //     ]
+  //
+  //   多面カード（超次元など）:
+  //     faces: [
+  //       { nameText: '《面1名》', rows: [...] },
+  //       { divider: '── 面2 ──' },
+  //       { nameText: '《面2名》', rows: [...] },
+  //     ]
+  //
+  // ■ ルビ（読み仮名）の書き方
+  //   nameHTML を使い、<ruby> タグで漢字とふりがなをペアにする。
+  //   例: '<ruby>夏草<rt>なつくさ</rt></ruby>'
+  //   ルビが不要なカードは nameText: '《カード名》' でシンプルに書ける。
+
+  function _buildSampleWidget(config) {
+    var summaryText = config.summaryText || 'サンプルを見る';
+    var faces       = config.faces || [];
+
+    var det = document.createElement('details');
+    det.className = 'card-editor__sample';
+
+    var sum = _el('summary', { className: 'card-editor__sample-summary', textContent: summaryText });
+    det.appendChild(sum);
+
+    var body = _el('div', { className: 'card-editor__sample-body' });
+    var box  = _el('div', { className: 'dm-wiki-box' });
+
+    faces.forEach(function (face) {
+      if (face.divider != null) {
+        // 区切り行（ツインパクトの面の切れ目・多面カードの区切りなど）
+        box.appendChild(_el('div', { className: 'dm-wiki-box__face-label', textContent: face.divider }));
+      } else {
+        // カードブロック: ヘッダー（カード名）
+        var hdr = _el('div', { className: 'dm-wiki-box__header' });
+        var nameDiv = _el('div', { className: 'dm-wiki-box__name' });
+        if (face.nameHTML) {
+          nameDiv.innerHTML = face.nameHTML;  // <ruby>タグなどを含むHTML
+        } else {
+          nameDiv.textContent = face.nameText || '';
+        }
+        hdr.appendChild(nameDiv);
+        box.appendChild(hdr);
+        // データ行
+        (face.rows || []).forEach(function (row) { box.appendChild(_wikiRow(row)); });
+      }
+    });
+
+    body.appendChild(box);
+    det.appendChild(body);
+    return det;
+  }
+
+  // Helper: one data row in the wiki visual mock.
+  function _wikiRow(text) {
+    return _el('div', { className: 'dm-wiki-box__row', textContent: text || '\u00a0' });
   }
 
   // ── Preview builders ─────────────────────────────────────────────────────────

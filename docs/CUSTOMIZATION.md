@@ -245,3 +245,100 @@ var powerRow = _el('div', { className: 'cm-search-row cm-power-row' });
   background: var(--accent);   /* 色を変えるにはここを書き換える */
 }
 ```
+
+---
+
+## カード登録画面のサンプル表示を編集したい
+
+**ファイル**: `ui/cardEditor/cardEditor.js`
+
+### 仕組みの概要
+
+サンプルウィジェットはすべて `_buildSampleWidget(config)` という共通関数で生成している。  
+メイン・超次元・超GR それぞれの関数の中に `_buildSampleWidget({ faces: [...] })` の呼び出しがあり、
+その `faces` 配列を書き換えるだけでサンプル内容が変わる。
+
+### faces 配列の書き方
+
+要素は **カードブロック** と **区切り行** の 2 種類。
+
+#### カードブロック（1 枚分のカード情報）
+
+```javascript
+{
+  nameHTML: '《<ruby>満韻炎霊<rt>イフリート・フリート</rt></ruby>キャノンボール》',
+  // または（ルビが不要な場合）
+  nameText: '《ガイアール・カイザー》',
+  rows: [
+    'カード名　レアリティ　文明　(コスト)',
+    'クリーチャー：種族　パワー',
+    '能力テキスト1',
+    '能力テキスト2',
+  ],
+}
+```
+
+- `nameHTML` と `nameText` は **どちらか一方** を使う（両方書いた場合は `nameHTML` が優先）
+- `rows` はWikiからコピーした行をそのまま 1 行ずつ配列に入れる
+
+#### ルビ（読み仮名）の書き方
+
+Wiki の `{{読み仮名|ふりがな}}` 記法を HTML の `<ruby>` タグに変換して `nameHTML` に書く。
+
+```javascript
+// Wiki表記: {{満韻炎霊|イフリート・フリート}}キャノンボール
+// ↓ HTML変換後:
+nameHTML: '《<ruby>満韻炎霊<rt>イフリート・フリート</rt></ruby>キャノンボール》'
+
+// 複数箇所にルビがある場合も同様に並べる
+nameHTML: '《♪<ruby>夏草<rt>なつくさ</rt></ruby>や イフリートによる <ruby>夢<rt>ゆめ</rt></ruby>の<ruby>跡<rt>あと</rt></ruby>》'
+```
+
+#### 区切り行（ツインパクト・多面カードの面の切れ目）
+
+```javascript
+{ divider: '（ツインパクトは1行空ける）' }
+```
+
+ヘッダーと同じ青いバーで表示される。`divider` のテキストは説明として自由に変更してよい。
+
+### 構成パターン別サンプル
+
+#### 単体カード（通常・超GR）
+
+```javascript
+faces: [
+  { nameText: '《カード名》', rows: ['行1', '行2'] },
+]
+```
+
+#### ツインパクト（メイン）
+
+```javascript
+faces: [
+  { nameHTML: '《上面名（ルビHTML）》', rows: ['上面行1', '上面行2'] },
+  { divider: '（ツインパクトは1行空ける）' },
+  { nameHTML: '《下面名（ルビHTML）》', rows: ['下面行1', '下面行2'] },
+]
+```
+
+#### 多面カード（超次元）
+
+```javascript
+faces: [
+  { nameText: '《面1名》', rows: ['面1行1', '面1行2'] },
+  { divider: '── 面2 ──' },
+  { nameText: '《面2名》', rows: ['面2行1', '面2行2'] },
+  // 3面以上も同様に続けられる
+  { divider: '── 面3 ──' },
+  { nameText: '《面3名》', rows: ['面3行1', '面3行2'] },
+]
+```
+
+### 各ゾーンの `_buildSampleWidget` 呼び出し箇所
+
+| ゾーン | 関数名 | 検索するコメント |
+|---|---|---|
+| メイン | `_addMainInputs` | `// ── メインゾーン サンプル` |
+| 超次元 | `_addHyperspatialInputs` | `// ── 超次元 サンプル` |
+| 超GR | `_addSuperGRInputs` | `// ── 超GR サンプル` |
