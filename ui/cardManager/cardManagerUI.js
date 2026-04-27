@@ -14,6 +14,7 @@ var CardManagerUI = (function () {
   var _container  = null;
   var _filters    = CardSearchUI.defaultFilters();
   var _activeZone = 'main';   // currently selected zone tab
+  var _sortKey    = 'reg-asc'; // current sort order for the card list
 
   var CIVS = ['light', 'water', 'darkness', 'fire', 'nature'];
   var CIV_LABELS = {
@@ -33,6 +34,7 @@ var CardManagerUI = (function () {
   function show() {
     _filters    = CardSearchUI.defaultFilters();
     _activeZone = 'main';
+    _sortKey    = 'reg-asc';
     _render();
   }
 
@@ -54,6 +56,7 @@ var CardManagerUI = (function () {
         if (_activeZone === z.id) return;
         _activeZone = z.id;
         _filters = CardSearchUI.defaultFilters();
+        _sortKey  = 'reg-asc';
         _render();
       });
       row.appendChild(btn);
@@ -115,9 +118,7 @@ var CardManagerUI = (function () {
       filters:  _filters,
       onChange: function (newFilters) {
         _filters = newFilters;
-        var results = CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone }));
-        var wrap = _container.querySelector('.cm-card-list-wrap');
-        if (wrap) { wrap.innerHTML = ''; _renderCardList(wrap, results); }
+        _renderCardList(_container, CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone })));
       },
     }));
 
@@ -130,22 +131,36 @@ var CardManagerUI = (function () {
   // ── Card list ──────────────────────────────────────────────────────────────
 
   function _renderCardList(parent, cards) {
-    var wrap = parent.querySelector('.cm-card-list-wrap');
-    if (!wrap) {
-      wrap = _el('div', { className: 'cm-card-list-wrap' });
-      parent.appendChild(wrap);
+    // Accept either _container or the .cm-card-list-wrap directly
+    var wrap;
+    if (parent.classList && parent.classList.contains('cm-card-list-wrap')) {
+      wrap = parent;
+    } else {
+      wrap = parent.querySelector('.cm-card-list-wrap');
+      if (!wrap) {
+        wrap = _el('div', { className: 'cm-card-list-wrap' });
+        parent.appendChild(wrap);
+      }
     }
     wrap.innerHTML = '';
+
+    // Sort bar: selecting a new order re-renders the list immediately
+    wrap.appendChild(_buildSortBar(_sortKey, function (key) {
+      _sortKey = key;
+      _renderCardList(
+        _container,
+        CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone }))
+      );
+    }));
 
     if (!cards.length) {
       wrap.appendChild(_el('p', { className: 'screen-desc', textContent: '該当するカードがありません。' }));
       return;
     }
 
+    var sorted = _sortCards(cards, _sortKey);
     var list = _el('div', { className: 'cm-card-list' });
-    cards.forEach(function (card) {
-      list.appendChild(_buildCardRow(card));
-    });
+    sorted.forEach(function (card) { list.appendChild(_buildCardRow(card)); });
     wrap.appendChild(list);
   }
 
@@ -453,15 +468,10 @@ var CardManagerUI = (function () {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function _refreshList() {
-    var q = {};
-    if (_filters.name)               q.name         = _filters.name;
-    if (_filters.civilization.length) q.civilization = _filters.civilization;
-    var results = Object.keys(q).length ? CardRepository.searchCards(q) : CardRepository.getAllCards();
-    var listContainer = _container.querySelector('.cm-card-list-wrap');
-    if (listContainer) {
-      listContainer.innerHTML = '';
-      _renderCardList(listContainer, results);
-    }
+    _renderCardList(
+      _container,
+      CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone }))
+    );
   }
 
   // Builds a number input + ∞ checkbox pair for cost / power fields.
@@ -543,6 +553,74 @@ var CardManagerUI = (function () {
     }
     parts.push(card.type || '');
     return parts.filter(Boolean).join(' ・ ');
+  }
+
+  // ── Sort helpers ───────────────────────────────────────────────────────────
+
+  // Returns a sorted copy of cards[]. key: 'reg-asc' | 'reg-desc' | 'name-asc' | ... etc.
+  function _sortCards(cards, key) {
+    if (!key || key === 'reg-asc')  return cards.slice();
+    if (key  === 'reg-desc')        return cards.slice().reverse();
+    var sorted = cards.slice();
+    var parts  = key.split('-');
+    var field  = parts[0]; // 'name' | 'cost' | 'power'
+    var dir    = parts[1]; // 'asc' | 'desc'
+    sorted.sort(function (a, b) {
+      if (field === 'name') {
+        var an = (a.name || '').toLowerCase();
+        var bn = (b.name || '').toLowerCase();
+        return dir === 'asc' ? an.localeCompare(bn, 'ja') : bn.localeCompare(an, 'ja');
+      }
+      var av = _cardSortValue(a, field);
+      var bv = _cardSortValue(b, field);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;   // null を末尾へ
+      if (bv === null) return -1;
+      return dir === 'asc' ? av - bv : bv - av;
+    });
+    return sorted;
+  }
+
+  // Extracts a numeric value for sorting (handles twin / multi-form cards).
+  function _cardSortValue(card, field) {
+    var raw;
+    if (card.type === 'twin' && card.sides && card.sides[0]) {
+      raw = card.sides[0][field];
+    } else if (Array.isArray(card.forms) && card.forms.length > 0) {
+      raw = card.forms[0][field];
+    } else {
+      raw = card[field];
+    }
+    if (raw == null || raw === '∞') return null;
+    var n = parseInt(raw, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  // Builds the sort dropdown bar element.
+  function _buildSortBar(currentKey, onChange) {
+    var bar = _el('div', { className: 'cm-sort-bar' });
+    bar.appendChild(_el('label', { className: 'cm-sort-label', textContent: '並び替え:' }));
+    var sel = document.createElement('select');
+    sel.className = 'cm-sort-select';
+    [
+      { value: 'reg-asc',    label: '登録順（昇順）'   },
+      { value: 'reg-desc',   label: '登録順（降順）'   },
+      { value: 'name-asc',   label: 'カード名（昇順）' },
+      { value: 'name-desc',  label: 'カード名（降順）' },
+      { value: 'cost-asc',   label: 'コスト（昇順）'   },
+      { value: 'cost-desc',  label: 'コスト（降順）'   },
+      { value: 'power-asc',  label: 'パワー（昇順）'   },
+      { value: 'power-desc', label: 'パワー（降順）'   },
+    ].forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      if (opt.value === currentKey) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { onChange(sel.value); });
+    bar.appendChild(sel);
+    return bar;
   }
 
   function _el(tag, props) {

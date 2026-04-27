@@ -2294,6 +2294,25 @@ select {
   padding-left: 0;   /* 5rem にするとフリーワード入力の左端に揃う */
 }
 
+.cm-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border, #ddd);
+  margin-bottom: 0.3rem;
+}
+
+.cm-sort-label {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+
+.cm-sort-select {
+  font-size: 0.8rem;
+}
+
 .cm-card-list {
   display: flex;
   flex-direction: column;

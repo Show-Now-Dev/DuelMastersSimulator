@@ -27,6 +27,7 @@ var DeckEditorUI = (function () {
   var _editCounts    = { main: {}, hyperspatial: {}, superGR: {} };
   var _editZone      = 'main';
   var _editFilters   = CardSearchUI.defaultFilters();
+  var _sortKey       = 'reg-asc'; // current sort order for the card list
   // DOM refs for reactive zone badge updates
   var _zoneBadgeEls  = {};
   var _zoneTabBtns   = {};
@@ -41,6 +42,7 @@ var DeckEditorUI = (function () {
     _editCounts  = { main: {}, hyperspatial: {}, superGR: {} };
     _editFilters = CardSearchUI.defaultFilters();
     _editZone    = 'main';
+    _sortKey     = 'reg-asc';
     _renderList();
   }
 
@@ -311,6 +313,7 @@ var DeckEditorUI = (function () {
 
         _editZone    = zd.id;
         _editFilters = CardSearchUI.defaultFilters();
+        _sortKey     = 'reg-asc';
         _updateEditZoneTabsUI();
 
         var totalEl = _container.querySelector('.deck-builder__total');
@@ -364,14 +367,21 @@ var DeckEditorUI = (function () {
   function _renderEditCardList(wrap, cards, countsMap, totalEl) {
     wrap.innerHTML = '';
 
+    // Sort bar: selecting a new order re-renders the list immediately
+    wrap.appendChild(_buildSortBar(_sortKey, function (key) {
+      _sortKey = key;
+      _renderEditCardList(wrap, cards, countsMap, totalEl);
+    }));
+
     if (!cards.length) {
       wrap.appendChild(_el('p', { className: 'screen-desc', textContent: 'カードが登録されていません。' }));
       return;
     }
 
+    var sorted = _sortCards(cards, _sortKey);
     var list = _el('div', { className: 'deck-builder__card-list' });
 
-    cards.forEach(function (card) {
+    sorted.forEach(function (card) {
       var row = document.createElement('div');
       row.className      = 'deck-builder__row cm-card-row';
       row.dataset.cardId = card.id;
@@ -425,6 +435,71 @@ var DeckEditorUI = (function () {
       }
     });
     return map;
+  }
+
+  // ── Sort helpers ─────────────────────────────────────────────────────────────
+
+  function _sortCards(cards, key) {
+    if (!key || key === 'reg-asc')  return cards.slice();
+    if (key  === 'reg-desc')        return cards.slice().reverse();
+    var sorted = cards.slice();
+    var parts  = key.split('-');
+    var field  = parts[0];
+    var dir    = parts[1];
+    sorted.sort(function (a, b) {
+      if (field === 'name') {
+        var an = (a.name || '').toLowerCase();
+        var bn = (b.name || '').toLowerCase();
+        return dir === 'asc' ? an.localeCompare(bn, 'ja') : bn.localeCompare(an, 'ja');
+      }
+      var av = _cardSortValue(a, field);
+      var bv = _cardSortValue(b, field);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return dir === 'asc' ? av - bv : bv - av;
+    });
+    return sorted;
+  }
+
+  function _cardSortValue(card, field) {
+    var raw;
+    if (card.type === 'twin' && card.sides && card.sides[0]) {
+      raw = card.sides[0][field];
+    } else if (Array.isArray(card.forms) && card.forms.length > 0) {
+      raw = card.forms[0][field];
+    } else {
+      raw = card[field];
+    }
+    if (raw == null || raw === '∞') return null;
+    var n = parseInt(raw, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  function _buildSortBar(currentKey, onChange) {
+    var bar = _el('div', { className: 'cm-sort-bar' });
+    bar.appendChild(_el('label', { className: 'cm-sort-label', textContent: '並び替え:' }));
+    var sel = document.createElement('select');
+    sel.className = 'cm-sort-select';
+    [
+      { value: 'reg-asc',    label: '登録順（昇順）'   },
+      { value: 'reg-desc',   label: '登録順（降順）'   },
+      { value: 'name-asc',   label: 'カード名（昇順）' },
+      { value: 'name-desc',  label: 'カード名（降順）' },
+      { value: 'cost-asc',   label: 'コスト（昇順）'   },
+      { value: 'cost-desc',  label: 'コスト（降順）'   },
+      { value: 'power-asc',  label: 'パワー（昇順）'   },
+      { value: 'power-desc', label: 'パワー（降順）'   },
+    ].forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      if (opt.value === currentKey) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { onChange(sel.value); });
+    bar.appendChild(sel);
+    return bar;
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

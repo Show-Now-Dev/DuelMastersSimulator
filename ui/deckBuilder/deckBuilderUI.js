@@ -26,6 +26,7 @@ var DeckBuilderUI = (function () {
   var _countsByZone   = { main: {}, hyperspatial: {}, superGR: {} };
   var _filters        = CardSearchUI.defaultFilters();
   var _activeZone     = 'main';
+  var _sortKey        = 'reg-asc'; // current sort order for the card list
   // DOM refs updated each render so zone badge counts can be updated reactively
   var _zoneBadgeEls   = {};
   var _zoneTabBtns    = {};
@@ -42,6 +43,7 @@ var DeckBuilderUI = (function () {
     _countsByZone = { main: {}, hyperspatial: {}, superGR: {} };
     _filters      = CardSearchUI.defaultFilters();
     _activeZone   = 'main';
+    _sortKey      = 'reg-asc';
     _render();
   }
 
@@ -187,6 +189,7 @@ var DeckBuilderUI = (function () {
         if (_activeZone === zd.id) return;
         _activeZone = zd.id;
         _filters    = CardSearchUI.defaultFilters();
+        _sortKey    = 'reg-asc';
         _updateZoneTabsUI();
         _updateTotal();
         _refreshCardList();
@@ -221,15 +224,22 @@ var DeckBuilderUI = (function () {
     wrap.innerHTML = '';
     var cards = CardRepository.searchCards(Object.assign({}, _filters, { zone: _activeZone }));
 
+    // Sort bar: selecting a new order re-renders the list immediately
+    wrap.appendChild(_buildSortBar(_sortKey, function (key) {
+      _sortKey = key;
+      _renderCardList(wrap);
+    }));
+
     if (!cards.length) {
       wrap.appendChild(_el('p', { className: 'screen-desc', textContent: '該当するカードがありません。' }));
       return;
     }
 
+    var sorted = _sortCards(cards, _sortKey);
     var list   = _el('div', { className: 'deck-builder__card-list' });
     var counts = _countsByZone[_activeZone];
 
-    cards.forEach(function (card) {
+    sorted.forEach(function (card) {
       var row     = _el('div', { className: 'deck-builder__row cm-card-row' });
       var swatch  = _el('div', { className: 'cm-card-swatch' });
       swatch.style.background = _civBackground(_getCardCivs(card));
@@ -319,6 +329,71 @@ var DeckBuilderUI = (function () {
       + (over              ? ' is-over'  : '');
 
     if (_visualPanel) _visualPanel.refresh();
+  }
+
+  // ── Sort helpers ──────────────────────────────────────────────────────────────
+
+  function _sortCards(cards, key) {
+    if (!key || key === 'reg-asc')  return cards.slice();
+    if (key  === 'reg-desc')        return cards.slice().reverse();
+    var sorted = cards.slice();
+    var parts  = key.split('-');
+    var field  = parts[0];
+    var dir    = parts[1];
+    sorted.sort(function (a, b) {
+      if (field === 'name') {
+        var an = (a.name || '').toLowerCase();
+        var bn = (b.name || '').toLowerCase();
+        return dir === 'asc' ? an.localeCompare(bn, 'ja') : bn.localeCompare(an, 'ja');
+      }
+      var av = _cardSortValue(a, field);
+      var bv = _cardSortValue(b, field);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return dir === 'asc' ? av - bv : bv - av;
+    });
+    return sorted;
+  }
+
+  function _cardSortValue(card, field) {
+    var raw;
+    if (card.type === 'twin' && card.sides && card.sides[0]) {
+      raw = card.sides[0][field];
+    } else if (Array.isArray(card.forms) && card.forms.length > 0) {
+      raw = card.forms[0][field];
+    } else {
+      raw = card[field];
+    }
+    if (raw == null || raw === '∞') return null;
+    var n = parseInt(raw, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  function _buildSortBar(currentKey, onChange) {
+    var bar = _el('div', { className: 'cm-sort-bar' });
+    bar.appendChild(_el('label', { className: 'cm-sort-label', textContent: '並び替え:' }));
+    var sel = document.createElement('select');
+    sel.className = 'cm-sort-select';
+    [
+      { value: 'reg-asc',    label: '登録順（昇順）'   },
+      { value: 'reg-desc',   label: '登録順（降順）'   },
+      { value: 'name-asc',   label: 'カード名（昇順）' },
+      { value: 'name-desc',  label: 'カード名（降順）' },
+      { value: 'cost-asc',   label: 'コスト（昇順）'   },
+      { value: 'cost-desc',  label: 'コスト（降順）'   },
+      { value: 'power-asc',  label: 'パワー（昇順）'   },
+      { value: 'power-desc', label: 'パワー（降順）'   },
+    ].forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      if (opt.value === currentKey) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { onChange(sel.value); });
+    bar.appendChild(sel);
+    return bar;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
