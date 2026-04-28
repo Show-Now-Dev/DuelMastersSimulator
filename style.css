@@ -1448,12 +1448,13 @@ select {
 
 .dm-wiki-box__row {
   padding: 3px 8px;
-  border-bottom: 1px solid #eaecf0;
+  border-bottom: 1px solid #d9c9a8;
+  background: #E9CFAE;
   word-break: break-all;
 }
 
 .dm-wiki-box__row:nth-child(even) {
-  background: #f8f9fa;
+  background: #E9CFAE;
 }
 
 /* ── Card editor screen ──────────────────────────────────────────────────── */
