@@ -133,7 +133,7 @@ var CardEditor = (function () {
     var textarea     = document.createElement('textarea');
     textarea.className   = 'card-editor__input';
     textarea.rows        = 10;
-    textarea.placeholder = 'Wikiからコピーしたテキストをここへ貼り付け';
+    textarea.placeholder = 'Wikiから、黒帯の《》(フリガナ付きカード名)からオレンジのテキスト枠の最後までをコピペし、「解析する」を押下して登録。';
 
     var parseBtn = _el('button', { className: 'btn', textContent: '解析する' });
     var clearBtn = _el('button', { className: 'btn', textContent: 'クリア' });
@@ -169,7 +169,7 @@ var CardEditor = (function () {
     // ▼ サンプル内容を変更したい場合は faces 配列を編集してください。
     //   _buildSampleWidget の使い方は下記の関数定義のコメントを参照。
     container.appendChild(_buildSampleWidget({
-      summaryText: 'Wikiからのコピー方法（サンプル）',
+      summaryText: 'Wikiでのカード情報表示サンプル',
       faces: [
         // ── 上面 ──────────────────────────────────────────────────────────────
         // nameHTML: ルビ付きカード名を HTML で記述（<ruby>漢字<rt>ふりがな</rt></ruby>）
@@ -292,7 +292,7 @@ var CardEditor = (function () {
     //   各面は実際には別々のテキストボックスへ貼り付けます（面1→ボックス1、面2→ボックス2）。
     //   _buildSampleWidget の使い方は下記の関数定義のコメントを参照。
     container.appendChild(_buildSampleWidget({
-      summaryText: 'Wikiからのコピー方法（サンプル）',
+      summaryText: 'Wikiでのカード情報表示サンプル',
       faces: [
         // ── 面1（覚醒前 / ウエポン など） ────────────────────────────────────
         // nameText: ルビなしの場合はこちら（《》ごと書く）

@@ -44,6 +44,8 @@ const SELECT_MODAL_CARDS        = "SELECT_MODAL_CARDS";
 const PEEK_CARDS                = "PEEK_CARDS";
 const REMOVE_PEEKED_CARDS       = "REMOVE_PEEKED_CARDS";
 const CLEAR_PEEKED_CARDS        = "CLEAR_PEEKED_CARDS";
+const SET_STACK_DRAG_CARD       = "SET_STACK_DRAG_CARD";
+const CLEAR_STACK_DRAG_CARD     = "CLEAR_STACK_DRAG_CARD";
 
 // ── Action creators ───────────────────────────────────────────────────────────
 
@@ -123,6 +125,18 @@ function clearPeekedCards() {
   return { type: CLEAR_PEEKED_CARDS, payload: null };
 }
 
+// Pin one or more non-top cards from a stacked zone as the next drag targets.
+// After this is set, dragging the stacked zone's TOP card visually will move these
+// cards instead.  cardIds must be a non-empty array; zoneId is the stacked zone.
+function setStackDragCard(cardIds, zoneId) {
+  return { type: SET_STACK_DRAG_CARD, payload: { cardIds: cardIds, zoneId: zoneId } };
+}
+
+// Clear the pinned stack drag card (called when a new modal opens or on reset).
+function clearStackDragCard() {
+  return { type: CLEAR_STACK_DRAG_CARD, payload: null };
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 function createInitialUiState() {
@@ -130,6 +144,7 @@ function createInitialUiState() {
     selectedTargetZone: null,
     peekedCardIds:      [],
     modal:              null,
+    stackDragCardId:    null, // { cardIds: string[], zoneId } | null  — cards pinned as next drag target
   };
 }
 
@@ -154,6 +169,7 @@ function uiReducer(state, action) {
           topN:            action.payload.topN,
           selectedCardIds: [],
         },
+        stackDragCardId: null, // Opening any modal resets the pinned drag card.
       });
 
     case OPEN_CARD_DETAIL_MODAL:
@@ -214,6 +230,14 @@ function uiReducer(state, action) {
 
     case CLEAR_PEEKED_CARDS:
       return Object.assign({}, state, { peekedCardIds: [] });
+
+    case SET_STACK_DRAG_CARD:
+      return Object.assign({}, state, {
+        stackDragCardId: { cardIds: action.payload.cardIds, zoneId: action.payload.zoneId },
+      });
+
+    case CLEAR_STACK_DRAG_CARD:
+      return Object.assign({}, state, { stackDragCardId: null });
 
     default:
       return state;

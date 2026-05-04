@@ -577,13 +577,19 @@ var ZoneRenderer = (function () {
         var isTopCard = (depth === 0);
         // Top card of any stacked zone is draggable (deck, graveyard, ex, gr, …).
         var isStackedTopCard = isStacked && stackIdx === 0 && isTopCard;
-        var canDrag          = !isStacked || isStackedTopCard;
+        // When a non-top card is pinned via the stack card selection modal, mark the
+        // TOP card so that dragging it moves the pinned card instead.
+        // (The non-top card itself is hidden behind the top card and cannot be grabbed.)
+        var sdc = config.stackDragCardId;
+        var isStackDragPinned = isStackedTopCard && !!sdc && sdc.zoneId === zone.id;
+        var canDrag           = !isStacked || isStackedTopCard;
 
         var cardEl  = document.createElement("button");
         cardEl.type = "button";
 
         var cls = "card";
         if (!isStacked && selectedIds.indexOf(cardId) !== -1) cls += " is-selected";
+        if (isStackDragPinned)                                 cls += " is-stack-drag-pinned";
         if (stack.isTapped)                                    cls += " is-tapped";
         if (isTarget)                                          cls += " is-target-stack";
         cardEl.className = cls;
@@ -632,6 +638,28 @@ var ZoneRenderer = (function () {
           cardEl.addEventListener("dragstart", function (e) {
             e.stopPropagation();
 
+            // Determine which card's face to show in the ghost.
+            // When a non-top card is pinned (isStackDragPinned), show that card's face
+            // instead of the TOP card's face — otherwise the ghost is misleading.
+            var ghostCard  = null;
+            var ghostCount = 1;
+            if (isStackDragPinned && sdc && sdc.cardIds && sdc.cardIds.length > 0) {
+              // Show the first pinned card's face in the ghost.
+              var firstPinnedCard = gameState.cards[sdc.cardIds[0]];
+              if (firstPinnedCard) {
+                ghostCard = _applyPeek(firstPinnedCard, peekedCardIds);
+              }
+              ghostCount = sdc.cardIds.length;
+            } else if (!isStacked) {
+              // Non-stacked zone: compute how many cards will be dragged for the badge.
+              var selIds = gameState.selectedCardIds || [];
+              if (selIds.indexOf(cardId) !== -1) {
+                ghostCount = selIds.length;
+              } else if (stack.cardIds.length > 1) {
+                ghostCount = stack.cardIds.length;
+              }
+            }
+
             // Build a 2× ghost image so the dragged card is visible above the finger.
             // Using a custom element avoids DragDropTouch's _copyStyle, which
             // produces a giant image when the source element is detached mid-render.
@@ -649,7 +677,27 @@ var ZoneRenderer = (function () {
               "background:" + getComputedStyle(cardEl).background + ";" +
               "overflow:hidden;pointer-events:none;" +
               "box-shadow:0 4px 24px rgba(0,0,0,.55);";
-            ghost.innerHTML = cardEl.innerHTML;
+
+            if (ghostCard) {
+              // Pinned non-top card: render its face into the ghost.
+              CardRenderer.appendFace(ghost, ghostCard);
+            } else {
+              ghost.innerHTML = cardEl.innerHTML;
+            }
+
+            // Count badge: shown when 2+ cards will be dragged together.
+            if (ghostCount > 1) {
+              var badge = document.createElement("div");
+              badge.style.cssText =
+                "position:absolute;bottom:6px;right:6px;" +
+                "background:rgba(0,0,0,0.72);color:#fff;" +
+                "font-size:" + Math.round(cw * 0.28) + "px;" +
+                "font-weight:bold;line-height:1;" +
+                "padding:3px 6px;border-radius:4px;pointer-events:none;";
+              badge.textContent = ghostCount;
+              ghost.appendChild(badge);
+            }
+
             document.body.appendChild(ghost);
             // Hotspot at centre of the 2× card so it floats centred on the finger.
             e.dataTransfer.setDragImage(ghost, cw, ch);
@@ -658,13 +706,14 @@ var ZoneRenderer = (function () {
             }, 0);
 
             onDragStart({
-              cardId:           cardId,
-              stackId:          stackId,
-              zone:             zone,
-              stack:            stack,
-              isTopCard:        isTopCard,
-              isStacked:        isStacked,
-              isStackedTopCard: isStackedTopCard,
+              cardId:            cardId,
+              stackId:           stackId,
+              zone:              zone,
+              stack:             stack,
+              isTopCard:         isTopCard,
+              isStacked:         isStacked,
+              isStackedTopCard:  isStackedTopCard,
+              isStackDragPinned: isStackDragPinned, // true = pinned non-top card exists; dragState should use it
             });
             // Defer class addition so the ghost image is captured before the
             // element becomes transparent.

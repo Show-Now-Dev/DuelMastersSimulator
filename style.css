@@ -2671,6 +2671,15 @@ select {
   pointer-events: none;
 }
 
+/* Stack drag-pinned card: a non-top card selected via the stack modal that will be
+   dragged on the next drag gesture instead of the top card.
+   Green outline + subtle glow to distinguish from the normal orange selection. */
+.card.is-stack-drag-pinned {
+  border-color: #34d399;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.45);
+  cursor: grab;
+}
+
 .drop-target-active {
   outline: 2px dashed var(--accent);
   outline-offset: -2px;

@@ -72,7 +72,9 @@ var SelectionManager = (function () {
     // Stacked zones (Deck, Graveyard, EX, GR): any card click opens the zone modal.
     // Individual card selection does not happen directly in these zones.
     // modalVisibility is read from ZONE_DEFS_MAP — no hardcoded special cases.
+    // Clear game-state selection so re-opening the modal always starts fresh.
     if (isStacked) {
+      _gameDispatch(clearSelection());
       var zoneDef = ZONE_DEFS_MAP[zone.id];
       var vis     = (zoneDef && zoneDef.ui.modalVisibility) || "all";
       _uiDispatch(openModal({ type: "zone", id: zone.id }, "multiple", vis));

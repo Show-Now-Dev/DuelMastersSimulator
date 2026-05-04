@@ -469,6 +469,8 @@
         if (!el) return;
         var visibility = def.ui.modalVisibility || "all";
         el.addEventListener("click", function () {
+          // Clear game-state selection so re-opening the modal always starts fresh.
+          gameStore.dispatch(clearSelection());
           uiStore.dispatch(openModal({ type: "zone", id: def.id }, "multiple", visibility));
         });
       });
@@ -527,8 +529,10 @@
 
     // Clear drag state if the drag ends without a successful drop (e.g. Escape,
     // dropped outside any valid target). Also removes any leftover highlights.
+    // Clear the stacked-zone pin so the green highlight disappears after any drag.
     document.addEventListener("dragend", function () {
       dragState = null;
+      uiStore.dispatch(clearStackDragCard());
       var highlighted = document.querySelectorAll(".drop-target-active");
       for (var i = 0; i < highlighted.length; i++) {
         highlighted[i].classList.remove("drop-target-active");
@@ -636,6 +640,7 @@
           stackedZoneIds:       STACKED_ZONE_IDS,
           targetStackId:        targetStackId,
           isPickingTargetStack: isPickingTargetStack,
+          stackDragCardId:      uiSt.stackDragCardId,
           onCardClick: function (info) {
             SelectionManager.handleCardClick(Object.assign({}, info, {
               selectedCardIds: gameState.selectedCardIds,
@@ -650,6 +655,24 @@
             if (isPickingTargetStack) return;
 
             if (info.isStackedTopCard) {
+              // If a non-top card was pinned via the stack card selection modal,
+              // move that card instead of the top card.  The user grabs the top
+              // card visually (non-top cards are hidden behind it), but the drag
+              // payload carries the pinned card's ID.
+              var sdc = uiSt.stackDragCardId;
+              if (info.isStackDragPinned && sdc && sdc.zoneId === info.zone.id) {
+                dragState = {
+                  cardIds:       sdc.cardIds.slice(),
+                  sourceZoneId:  info.zone.id,
+                  sourceStackId: info.stackId,
+                  isDeckDrag:    false,
+                };
+                // Do NOT dispatch clearStackDragCard here: dispatching during dragstart
+                // triggers a re-render that detaches the element and breaks the drag.
+                // stackDragCardId is reset the next time OPEN_MODAL fires.
+                return;
+              }
+
               if (info.zone.id === ZONE_IDS.DECK) {
                 // Deck drag: card ID resolved at drop time by the reducer.
                 dragState = {
@@ -784,6 +807,31 @@
       // ── Modal ──────────────────────────────────────────────────────────────
       ZoneRenderer.renderModal(modalLayerEl, gameState, uiSt, {
         onClose: function () {
+          // If the user closed the modal with exactly 1 non-top card selected in a stacked
+          // zone, pin that card as the next drag target so a subsequent drag moves it instead
+          // of the top card.
+          var modal = uiStore.getState().modal;
+          if (
+            modal &&
+            modal.type === "CARD_SELECTOR" &&
+            modal.source.type === "zone" &&
+            STACKED_ZONE_IDS.indexOf(modal.source.id) !== -1 &&
+            modal.selectedCardIds.length === 1
+          ) {
+            var pinnedId = modal.selectedCardIds[0];
+            var gs       = gameStore.getState();
+            var zone     = gs.zones[modal.source.id];
+            var topCardId = null;
+            if (zone && zone.stackIds.length > 0) {
+              var firstStack = gs.stacks[zone.stackIds[0]];
+              if (firstStack && firstStack.cardIds.length > 0) {
+                topCardId = firstStack.cardIds[firstStack.cardIds.length - 1];
+              }
+            }
+            if (pinnedId !== topCardId) {
+              uiStore.dispatch(setStackDragCard([pinnedId], modal.source.id));
+            }
+          }
           uiStore.dispatch(closeModal());
         },
         onCardClick: function (cardId) {
@@ -816,6 +864,31 @@
           if (sel.length > 0) {
             gameStore.dispatch(selectCards(sel));
             LogPanel.log("モーダルで " + sel.length + "枚を選択確定");
+          }
+          // If one or more non-top cards were confirmed in a stacked zone, pin them as the
+          // next drag targets.  Dragging the zone will then move these cards, not the top.
+          // Exception: skip when only the top card itself is confirmed (normal drag handles it).
+          if (sel.length >= 1) {
+            var modal2 = uiStore.getState().modal;
+            if (
+              modal2 &&
+              modal2.type === "CARD_SELECTOR" &&
+              modal2.source.type === "zone" &&
+              STACKED_ZONE_IDS.indexOf(modal2.source.id) !== -1
+            ) {
+              var gs2      = gameStore.getState();
+              var zone2    = gs2.zones[modal2.source.id];
+              var topId2   = null;
+              if (zone2 && zone2.stackIds.length > 0) {
+                var fs2 = gs2.stacks[zone2.stackIds[0]];
+                if (fs2 && fs2.cardIds.length > 0) topId2 = fs2.cardIds[fs2.cardIds.length - 1];
+              }
+              // Only pin when the selection is NOT limited to just the top card.
+              var isOnlyTopCard = (sel.length === 1 && sel[0] === topId2);
+              if (!isOnlyTopCard) {
+                uiStore.dispatch(setStackDragCard(sel.slice(), modal2.source.id));
+              }
+            }
           }
           uiStore.dispatch(closeModal());
         },
