@@ -522,6 +522,7 @@
         el.classList.remove("drop-target-active");
         if (!dragState) return;
         e.preventDefault();
+        uiStore.dispatch(clearStackDragCard());
         _handleDrop(dragState.cardIds, dragState.isDeckDrag, { type: "zone", zoneId: zoneId });
         dragState = null;
       });
@@ -753,6 +754,7 @@
             for (var i = 0; i < highlights.length; i++) {
               highlights[i].classList.remove("drop-target-active");
             }
+            uiStore.dispatch(clearStackDragCard());
             if (dragState.isDeckDrag) {
               _handleDrop([], true, { type: "stack", stackId: info.stackId, zoneId: info.zone.id });
               dragState = null;
